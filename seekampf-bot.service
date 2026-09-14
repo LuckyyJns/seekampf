@@ -1,0 +1,15 @@
+[Unit]
+Description=Seekampf Ressourcen-Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/seekampf-bot
+ExecStart=/home/pi/seekampf-bot/.venv/bin/python /home/pi/seekampf-bot/bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[project]
+name = "seekampf-bot"
+version = "0.1.0"
+description = "Automatischer Ressourcen- und Bau-Warteschlangen-Bot fuer Seekampf.de"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "tzdata>=2024.1",
+]
