@@ -21,9 +21,13 @@ RESOURCE_KEYS = ("gold", "stein", "holz")
 
 # Tagsueber (07:00-16:00 Europe/Berlin) wird ein Teil der Kapazitaet als Reserve
 # zurueckgehalten (nicht fuer Ausbauten verplant); nachts 0%, alles verbaubar.
+# ACHTUNG: bezieht sich auf die Kapazitaet, nicht den aktuellen Bestand - bei
+# grosser Kapazitaet kann das knappe Rohstoffe (z.B. Gold) auf 0 nutzbar kappen
+# und dann tagsueber alles blockieren (siehe Obsidian-Projektdoku, 2026-09-15).
+# Deshalb bewusst niedrig gehalten statt strukturell auf "% vom Bestand" geaendert.
 DAY_BUFFER_START_HOUR = 7
 DAY_BUFFER_END_HOUR = 16
-DAY_BUFFER_PCT = 0.15
+DAY_BUFFER_PCT = 0.01
 
 # --- Priorisierung (uebernommen aus dem vom Nutzer bereitgestellten
 # "bot test"-Skript, siehe planner.py fuer die Kaskade) ---
