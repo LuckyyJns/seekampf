@@ -408,7 +408,7 @@ def _track_health(ok: bool, logger) -> None:
         minutes = HEALTH["failures"] * config.POLL_INTERVAL_SECONDS // 60
         _alert(logger, "Seekampf-Bot: Störung",
                f"{HEALTH['failures']} Durchlaeufe in Folge fehlgeschlagen (seit ca. {minutes} Minuten "
-               f"kein Ausbau moeglich). Details: journalctl -u seekampf-bot -n 50")
+               f"kein Ausbau moeglich). Details: journalctl -u seekampf-ressourcen-bot -n 50")
         HEALTH["alerted"] = True
 
 

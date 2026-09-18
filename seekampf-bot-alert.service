@@ -1,8 +1,0 @@
-[Unit]
-Description=Telegram-Alarm, wenn der Seekampf-Bot ausfaellt
-
-[Service]
-Type=oneshot
-User=jannishoy
-WorkingDirectory=/home/jannishoy/seekampf-bot
-ExecStart=/home/jannishoy/seekampf-bot/.venv/bin/python /home/jannishoy/seekampf-bot/alert.py "systemd hat seekampf-bot.service als fehlgeschlagen markiert - der Bot laeuft nicht mehr und baut nichts aus."

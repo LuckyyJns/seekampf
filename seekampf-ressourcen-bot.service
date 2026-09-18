@@ -7,13 +7,13 @@ Wants=network-online.target
 # den Telegram-Alarm aus.
 StartLimitIntervalSec=600
 StartLimitBurst=5
-OnFailure=seekampf-bot-alert.service
+OnFailure=seekampf-ressourcen-bot-alert.service
 
 [Service]
 Type=simple
 User=jannishoy
-WorkingDirectory=/home/jannishoy/seekampf-bot
-ExecStart=/home/jannishoy/seekampf-bot/.venv/bin/python /home/jannishoy/seekampf-bot/bot.py
+WorkingDirectory=/home/jannishoy/Seekampf/Ressourcen-Bot
+ExecStart=/home/jannishoy/Seekampf/Ressourcen-Bot/.venv/bin/python /home/jannishoy/Seekampf/Ressourcen-Bot/bot.py
 Restart=always
 RestartSec=10
 

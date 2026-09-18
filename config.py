@@ -89,5 +89,5 @@ LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 # Pro Kalendertag eine eigene Datei: logs/bot-YYYY-MM-DD.log
 LOG_FILE_PREFIX = "bot"
 LOG_RETENTION_DAYS = 60
-# Zusaetzlich nach stdout (bei systemd sichtbar via journalctl -u seekampf-bot)
+# Zusaetzlich nach stdout (bei systemd sichtbar via journalctl -u seekampf-ressourcen-bot)
 LOG_TO_STDOUT = True

@@ -1,6 +1,6 @@
 """Telegram-Alarm fuer systemd.
 
-Wird von seekampf-bot-alert.service aufgerufen, sobald systemd den Bot-Dienst
+Wird von seekampf-ressourcen-bot-alert.service aufgerufen, sobald systemd den Bot-Dienst
 als fehlgeschlagen markiert (Absturzschleife, Fehlstart, `systemctl stop` nach
 Fehler). Greift also auch dann, wenn der Bot selbst gar nicht mehr laeuft und
 deshalb keinen eigenen Alarm mehr senden kann.
@@ -17,7 +17,7 @@ from notify import build_notifier
 def _last_log_lines(count: int = 8) -> str:
     try:
         out = subprocess.run(
-            ["journalctl", "-u", "seekampf-bot.service", "-n", str(count), "--no-pager", "-o", "cat"],
+            ["journalctl", "-u", "seekampf-ressourcen-bot.service", "-n", str(count), "--no-pager", "-o", "cat"],
             capture_output=True, text=True, timeout=10,
         ).stdout.strip()
     except (OSError, subprocess.SubprocessError):
@@ -26,7 +26,7 @@ def _last_log_lines(count: int = 8) -> str:
 
 
 def main() -> int:
-    text = " ".join(sys.argv[1:]) or "seekampf-bot.service wurde als fehlgeschlagen markiert."
+    text = " ".join(sys.argv[1:]) or "seekampf-ressourcen-bot.service wurde als fehlgeschlagen markiert."
     tail = _last_log_lines()
     if tail:
         text = f"{text}\n\nLetzte Logzeilen:\n{tail}"
