@@ -1,11 +1,14 @@
-"""Lernt echte Kosten-/Bauzeit-/Produktions-/Lager-Wachstumsraten aus
-Beobachtungen statt sie zu raten.
+"""Lernt aus Beobachtungen, was ein Ausbau wirklich bringt.
 
-Die Live-API liefert pro Tick nur die Kosten der NAECHSTEN Stufe jedes
-Gebaeudes. Weil der Bot ueber Tage/Wochen tatsaechlich Stufe fuer Stufe
-ausbaut, laeuft dabei von selbst eine Zeitreihe realer (Stufe -> Kosten)
-Punkte auf. Aus zwei aufeinanderfolgenden echten Punkten laesst sich eine
-echte Wachstumsrate berechnen, die die anfangs generische Annahme ersetzt.
+Bei jedem Tick werden die von der API gemeldeten Kosten/Bauzeiten pro Stufe
+mitgeschrieben. Steigt genau ein Gebaeude um genau eine Stufe, laesst sich der
+Sprung der Stundenproduktion (bzw. der Lagerkapazitaet) diesem Ausbau
+zuordnen - planner.py bewertet die Ressourcen-Gebaeude damit nach echtem
+Ertrag statt nach fester Gewichtung (siehe production_delta).
+
+Die Kosten-, Bauzeit- und Kapazitaetspunkte werden weiter gesammelt, auch wenn
+sie derzeit nichts liest: es ist das Archiv, aus dem spaetere Auswertungen
+schoepfen koennen.
 
 Speicherformat: eine JSON-Datei (kein SQLite noetig fuer diese Groessenordnung).
 """
@@ -13,7 +16,6 @@ from __future__ import annotations
 
 import json
 import os
-from statistics import geometric_mean
 
 from models import Res
 
@@ -93,36 +95,10 @@ class Store:
             bucket[str(new_lvl)] = cur_res["kapazitaet"]
 
     # ------------------------------------------------------------------
-    # Abfrage: von gamedata.py genutzt
+    # Abfrage: von planner.py genutzt
     # ------------------------------------------------------------------
-    def cost_growth_rate(self, key: str, default: float) -> float:
-        return self._growth_rate(self.data["cost_points"].get(key, {}), default,
-                                   value_fn=lambda v: sum(v.get(r, 0) for r in ("gold", "stein", "holz")))
-
-    def time_growth_rate(self, key: str, default: float) -> float:
-        return self._growth_rate(self.data["time_points"].get(key, {}), default,
-                                   value_fn=lambda v: v.get("s", 0))
-
-    def storage_growth_rate(self, default: float) -> float:
-        points = self.data["storage_points"].get("kapazitaet", {})
-        return self._growth_rate({k: {"v": v} for k, v in points.items()}, default,
-                                   value_fn=lambda v: v.get("v", 0))
-
     def production_delta(self, key: str, level: int) -> Res | None:
         entry = self.data["prod_deltas"].get(key, {}).get(str(level))
         if entry is None:
             return None
         return Res.from_dict(entry)
-
-    @staticmethod
-    def _growth_rate(points: dict, default: float, value_fn) -> float:
-        """Geometrisches Mittel der Verhaeltnisse aufeinanderfolgender
-        Beobachtungspunkte (nach Stufe sortiert). Mit <2 Punkten: default."""
-        pairs = sorted(((int(lvl), value_fn(v)) for lvl, v in points.items()), key=lambda x: x[0])
-        ratios = []
-        for (l1, v1), (l2, v2) in zip(pairs, pairs[1:]):
-            if v1 > 0 and v2 > 0 and l2 > l1:
-                ratios.append((v2 / v1) ** (1.0 / (l2 - l1)))
-        if not ratios:
-            return default
-        return geometric_mean(ratios)

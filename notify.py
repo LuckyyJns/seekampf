@@ -141,27 +141,6 @@ class TelegramNotifier(Notifier):
             ok = self._send_one(chunk) and ok
         return ok
 
-    # -- Einrichtungshilfe --
-    def find_chat_id(self) -> list[tuple[str, str]]:
-        """Liest getUpdates und gibt gefundene (chat_id, Name) zurueck."""
-        url = f"https://api.telegram.org/bot{self.bot_token}/getUpdates"
-        with urllib.request.urlopen(url, timeout=15) as r:
-            res = json.loads(r.read())
-        out: list[tuple[str, str]] = []
-        for upd in res.get("result", []):
-            msg = upd.get("message") or upd.get("channel_post") or {}
-            chat = msg.get("chat") or {}
-            if not chat.get("id"):
-                continue
-            name = (chat.get("title")
-                    or " ".join(filter(None, [chat.get("first_name"),
-                                              chat.get("last_name")]))
-                    or chat.get("username") or "?")
-            pair = (str(chat["id"]), name)
-            if pair not in out:
-                out.append(pair)
-        return out
-
 
 class PushoverNotifier(Notifier):
     def __init__(self, token: str, user: str):
