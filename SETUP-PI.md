@@ -51,7 +51,7 @@ beim Login greift).
 ```bash
 systemctl status seekampf-bot.service
 journalctl -u seekampf-bot.service -f     # Live-Systemd-Log
-tail -f ~/seekampf-bot/logs/bot.log        # Bot-eigenes Log
+tail -f ~/seekampf-bot/logs/bot-$(date +%F).log   # Bot-eigenes Log (eine Datei pro Tag)
 ```
 
 ## 6. Windows-Bot abschalten

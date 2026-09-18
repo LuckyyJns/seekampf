@@ -1,6 +1,6 @@
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
@@ -10,18 +10,27 @@ import report
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
 from notify import build_notifier
-from planner import affordable, choose_upgrade, collect_candidates, projected_levels
+from planner import (
+    affordable,
+    choose_upgrade,
+    collect_candidates,
+    missing_resources,
+    projected_levels,
+    rejection_reason,
+)
 from store import Store
 
-# In-memory: seit wann ist die Warteschlange einer Insel leer und nichts
-# Wichtiges (nur noch Steinmauer/Wachturm) bezahlbar? Ueberlebt keinen Neustart -
+TZ = ZoneInfo(config.TIMEZONE_NAME)
+
+# In-memory: seit wann ist die Warteschlange einer Insel leer, ohne dass die
+# Prioritaets-Kaskade etwas Wichtigeres bauen wollte? Ueberlebt keinen Neustart -
 # im schlimmsten Fall wartet der Bot nach einem Neustart erneut die volle
 # Verzoegerung ab, bevor Steinmauer/Wachturm drankommen. Unkritisch.
 LOW_PRIORITY_SINCE: dict[str, float] = {}
 
 
-def _day_buffer_pct() -> float:
-    now = datetime.now(ZoneInfo(config.TIMEZONE_NAME))
+def _day_buffer_pct(now: datetime | None = None) -> float:
+    now = now or datetime.now(TZ)
     if config.DAY_BUFFER_START_HOUR <= now.hour < config.DAY_BUFFER_END_HOUR:
         return config.DAY_BUFFER_PCT
     return 0.0
@@ -44,6 +53,207 @@ def _lager_key(buildings: list) -> str | None:
     return None
 
 
+# ----------------------------------------------------------------------
+# Hilfsfunktionen fuer die Log-Ausgabe: warum passiert gerade nichts und
+# wann darf wieder gebaut werden?
+# ----------------------------------------------------------------------
+
+def _fmt_duration(seconds: float) -> str:
+    seconds = max(0, int(seconds))
+    if seconds < 60:
+        return f"{seconds}s"
+    h, rem = divmod(seconds, 3600)
+    m = rem // 60
+    if h >= 24:
+        d, h = divmod(h, 24)
+        return f"{d}d {h}h"
+    return f"{h}h {m:02d}min" if h else f"{m}min"
+
+
+def _fmt_res(values: dict, sign: str = "") -> str:
+    return "/".join(f"{sign}{float(values.get(r, 0) or 0):.0f}" for r in config.RESOURCE_KEYS)
+
+
+def _parse_api_dt(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt.replace(tzinfo=TZ) if dt.tzinfo is None else dt.astimezone(TZ)
+
+
+def _next_slot_free(active_orders: list, now: datetime) -> tuple[float | None, dict | None]:
+    """Sekunden bis der naechste Warteschlangen-Platz frei wird (+ der Auftrag)."""
+    upcoming = []
+    for order in active_orders:
+        finish = _parse_api_dt(order.get("finish_at"))
+        if finish is not None:
+            upcoming.append(((finish - now).total_seconds(), order))
+    if not upcoming:
+        return None, None
+    return min(upcoming, key=lambda x: x[0])
+
+
+def _low_priority_release_in(key: str, queue_empty: bool, now_ts: float) -> float | None:
+    """Sekunden, bis Steinmauer/Wachturm freigegeben werden - None, wenn die
+    Wartezeit gar nicht laeuft (Warteschlange nicht leer)."""
+    if not queue_empty or key not in LOW_PRIORITY_SINCE:
+        return None
+    return max(0.0, config.LOW_PRIORITY_DELAY_SECONDS - (now_ts - LOW_PRIORITY_SINCE[key]))
+
+
+def _allow_low_at(key: str, queue_empty: bool, at_ts: float) -> bool:
+    if not queue_empty or key not in LOW_PRIORITY_SINCE:
+        return False
+    return at_ts - LOW_PRIORITY_SINCE[key] >= config.LOW_PRIORITY_DELAY_SECONDS
+
+
+def _projected_usable(resources: dict, seconds_ahead: float, now: datetime) -> dict:
+    """Nutzbarer Lagerstand in `seconds_ahead` Sekunden (Produktion hochgerechnet,
+    bei der Lagerkapazitaet gedeckelt, Tagesreserve des Zielzeitpunkts abgezogen)."""
+    prod = resources.get("produktion_pro_h") or {}
+    capacity = float(resources.get("kapazitaet", 0) or 0)
+    reserve = _day_buffer_pct(now + timedelta(seconds=seconds_ahead)) * capacity
+    out = {}
+    for r in config.RESOURCE_KEYS:
+        rate = float(prod.get(r, 0) or 0)
+        grown = float(resources.get(r, 0) or 0) + rate * seconds_ahead / 3600.0
+        out[r] = max(0.0, min(capacity, grown) - reserve)
+    return out
+
+
+def _eta_seconds(cost: dict, resources: dict, usable_now: dict) -> tuple[float | None, str]:
+    """(Sekunden bis die Kosten zusammengespart sind, Hinderungsgrund).
+    Sekunden = None heisst: nie erreichbar - entweder passt der Preis nicht ins
+    Lager ("lager") oder der Rohstoff wird gar nicht produziert ("produktion")."""
+    prod = resources.get("produktion_pro_h") or {}
+    capacity = float(resources.get("kapazitaet", 0) or 0)
+    worst = 0.0
+    for r in config.RESOURCE_KEYS:
+        need = float(cost.get(r, 0) or 0) - usable_now.get(r, 0.0)
+        if need <= 0:
+            continue
+        if float(cost.get(r, 0) or 0) > capacity:
+            return None, "lager"
+        rate = float(prod.get(r, 0) or 0)
+        if rate <= 0:
+            return None, "produktion"
+        worst = max(worst, need / rate * 3600.0)
+    return worst, ""
+
+
+def _forecast(candidates: dict, resources: dict, capacity: float, store, key: str,
+              queue_empty: bool, now: datetime, now_ts: float):
+    """Wann erlauben die Regeln den naechsten Ausbau?
+
+    Prueft die Zeitpunkte, an denen sich etwas aendern kann (ein Kandidat wird
+    bezahlbar bzw. die Steinmauer/Wachturm-Sperre faellt) und laesst dort die
+    echte Prioritaets-Kaskade entscheiden.
+    Rueckgabe: (Sekunden, gewaehlter Kandidat, unerreichbare Kandidaten je Grund)."""
+    usable_now = _usable_resources(resources, _day_buffer_pct(now))
+    points = {0.0}
+    unreachable: dict[str, list[str]] = {"lager": [], "produktion": []}
+    for name, candidate in candidates.items():
+        eta, cause = _eta_seconds(candidate["cost"], resources, usable_now)
+        if eta is None:
+            unreachable[cause].append(name)
+        else:
+            points.add(eta + 1.0)  # 1s Puffer gegen Rundungsfehler
+    release = _low_priority_release_in(key, queue_empty, now_ts)
+    if release is not None:
+        points.add(release + 1.0)
+
+    for seconds in sorted(points):
+        projected = _projected_usable(resources, seconds, now)
+        allow_low = _allow_low_at(key, queue_empty, now_ts + seconds)
+        chosen = choose_upgrade(candidates, projected, capacity, store, allow_low)
+        if chosen is not None:
+            return seconds, chosen, unreachable
+    return None, None, unreachable
+
+
+def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key: str,
+                 queue_empty: bool, allow_low: bool, now: datetime, now_ts: float) -> str:
+    """Warum wurde kein (weiterer) Ausbau gestartet - und wann geht es weiter?"""
+    if not candidates:
+        return "keine ausbaubaren Gebaeude verfuegbar (Voraussetzungen fehlen)"
+
+    usable_now = _usable_resources(resources, _day_buffer_pct(now))
+    payable = [n for n, c in candidates.items() if affordable(c["cost"], usable_now)]
+
+    parts = []
+    if payable:
+        parts.append("bezahlbar, aber nicht dran: " + ", ".join(
+            f"{n} ({rejection_reason(n, candidates, capacity, allow_low)})" for n in sorted(payable)
+        ))
+    else:
+        parts.append("kein Ausbau bezahlbar")
+
+    seconds, chosen, unreachable = _forecast(
+        candidates, resources, capacity, store, key, queue_empty, now, now_ts
+    )
+    if chosen is not None:
+        missing = missing_resources(chosen["cost"], usable_now)
+        fehlt = (" - es fehlen " + ", ".join(f"{v:.0f} {r.capitalize()}" for r, v in missing.items())) if missing else ""
+        ready_at = (now + timedelta(seconds=seconds)).strftime("%H:%M")
+        parts.append(
+            f"naechster Ausbau: {chosen['building']} → {chosen['target_level']} "
+            f"in {_fmt_duration(seconds)} (ca. {ready_at}){fehlt}"
+        )
+    else:
+        parts.append("aktuell ist kein Ausbau in Sicht")
+
+    low_payable = [n for n in payable if n in config.LOW_PRIORITY_BUILDINGS]
+    if low_payable and not allow_low:
+        low_names = "/".join(config.LOW_PRIORITY_BUILDINGS)
+        release = _low_priority_release_in(key, queue_empty, now_ts)
+        if release is not None:
+            parts.append(f"{low_names} freigegeben in {_fmt_duration(release)}")
+        else:
+            parts.append(
+                f"{low_names} erst, wenn die Warteschlange leer ist und danach "
+                f"{_fmt_duration(config.LOW_PRIORITY_DELAY_SECONDS)} nichts Wichtigeres gebaut wird"
+            )
+
+    if unreachable["lager"]:
+        parts.append("passt nicht ins Lager, Lagerhaus noetig: " + ", ".join(sorted(unreachable["lager"])))
+    if unreachable["produktion"]:
+        parts.append("wartet auf Rohstoffe ohne Produktion: " + ", ".join(sorted(unreachable["produktion"])))
+
+    return "; ".join(parts)
+
+
+def _log_status(logger, island_id, resources, active_orders, started, reason, now):
+    prod = resources.get("produktion_pro_h") or {}
+    capacity = float(resources.get("kapazitaet", 0) or 0)
+    buffer_pct = _day_buffer_pct(now)
+
+    fields = [
+        f"Insel {island_id}",
+        f"Warteschlange {len(active_orders)}/{config.MAX_QUEUE_SLOTS}",
+        f"Lager {_fmt_res(resources)} von {capacity:.0f}",
+        f"Produktion {_fmt_res(prod, '+')} pro h",
+    ]
+    if buffer_pct > 0:
+        fields.append(f"Tagesreserve {buffer_pct:.0%} ({buffer_pct * capacity:.0f})")
+
+    slot_seconds, slot_order = _next_slot_free(active_orders, now)
+    if slot_order is not None and not (reason and "naechster Platz frei" in reason):
+        fields.append(
+            f"naechster Slot frei in {_fmt_duration(slot_seconds)} "
+            f"({slot_order.get('building_typ')} → {slot_order.get('ziel_stufe')})"
+        )
+
+    if started:
+        fields.append("gestartet: " + ", ".join(started))
+    if reason:
+        fields.append(f"kein Ausbau: {reason}")
+
+    logger.info(" | ".join(fields))
+
+
 def process_island(client, island_id, store, logger):
     key = str(island_id)
     orders = client.get_construction_queue(island_id)
@@ -58,9 +268,11 @@ def process_island(client, island_id, store, logger):
     free_slots = config.MAX_QUEUE_SLOTS - len(active_orders)
 
     acted = 0
+    started: list[str] = []
     next_hint = None
     while free_slots > 0 and acted < config.MAX_UPGRADES_PER_TICK:
-        current = _usable_resources(resources, _day_buffer_pct())
+        now_dt = datetime.now(TZ)
+        current = _usable_resources(resources, _day_buffer_pct(now_dt))
         capacity = float(resources.get("kapazitaet", 0) or 0)
         levels = projected_levels(buildings, active_orders)
         candidates = collect_candidates(buildings, levels)
@@ -77,17 +289,19 @@ def process_island(client, island_id, store, logger):
         chosen = choose_upgrade(candidates, current, capacity, store, allow_low)
 
         if chosen is None:
-            important_payable = any(
-                affordable(c["cost"], current)
-                for n, c in candidates.items() if n not in config.LOW_PRIORITY_BUILDINGS
-            )
-            if queue_empty and not important_payable:
+            # Die Leerlauf-Uhr fuer Steinmauer/Wachturm laeuft, sobald die
+            # Warteschlange leer ist und die Prioritaets-Kaskade nichts
+            # Wichtigeres baut. Entscheidend ist, was die Regeln TATSAECHLICH
+            # bauen wuerden - nicht, was theoretisch bezahlbar waere: ein
+            # Lagerhaus, das noch nicht noetig ist (oder ein zu teures
+            # Haupthaus), blockiert die Uhr also nicht mehr.
+            if queue_empty:
                 LOW_PRIORITY_SINCE.setdefault(key, now)
-                remaining = max(0, config.LOW_PRIORITY_DELAY_SECONDS - (now - LOW_PRIORITY_SINCE[key]))
-                next_hint = f"Wichtige Ausbauten aktuell nicht passend/bezahlbar; Steinmauer/Wachturm erlaubt in {int(remaining // 60)} Min."
             else:
                 LOW_PRIORITY_SINCE.pop(key, None)
-                next_hint = "Aktuell kein Ausbau nach den Prioritätsregeln bezahlbar."
+            next_hint = _skip_reason(
+                candidates, resources, capacity, store, key, queue_empty, allow_low, now_dt, now
+            )
             break
 
         LOW_PRIORITY_SINCE.pop(key, None)
@@ -96,6 +310,7 @@ def process_island(client, island_id, store, logger):
         except ApiError as exc:
             if exc.code in ("queue_full", "construction_queue_full"):
                 logger.info("Insel %s: Warteschlange laut API voll, breche ab.", island_id)
+                next_hint = "Warteschlange laut API voll."
                 break
             logger.error("Insel %s: Ausbau '%s' fehlgeschlagen: %s", island_id, chosen["building"], exc)
             next_hint = f"{chosen['building']} fehlgeschlagen: {exc}"
@@ -104,6 +319,7 @@ def process_island(client, island_id, store, logger):
         logger.info(
             "Insel %s: Ausbau '%s' gestartet (Kosten: %s)", island_id, chosen["building"], chosen["cost"]
         )
+        started.append(f"{chosen['building']} → {chosen['target_level']}")
         acted += 1
         free_slots -= 1
 
@@ -114,22 +330,54 @@ def process_island(client, island_id, store, logger):
             o for o in orders if o.get("status", "").lower() not in config.FINISHED_CONSTRUCTION_STATUSES
         ]
 
-    return resources, buildings, orders, next_hint
+    now_dt = datetime.now(TZ)
+    if free_slots <= 0 and not next_hint:
+        slot_seconds, slot_order = _next_slot_free(active_orders, now_dt)
+        if slot_order is not None:
+            next_hint = (
+                f"Warteschlange voll ({len(active_orders)}/{config.MAX_QUEUE_SLOTS}), naechster Platz "
+                f"frei in {_fmt_duration(slot_seconds)}"
+            )
+        else:
+            next_hint = f"Warteschlange voll ({len(active_orders)}/{config.MAX_QUEUE_SLOTS})"
+    elif acted >= config.MAX_UPGRADES_PER_TICK and not next_hint:
+        next_hint = f"Limit von {config.MAX_UPGRADES_PER_TICK} Ausbauten pro Durchlauf erreicht"
+
+    _log_status(logger, island_id, resources, active_orders, started, next_hint, now_dt)
+
+    return resources, orders, next_hint
+
+
+def _report_window_start(store, now: datetime) -> datetime:
+    """Beginn des Berichtszeitraums: der letzte gesendete Report, sonst das
+    Standardfenster (24h)."""
+    raw = store.data.get("last_report_at")
+    if raw:
+        try:
+            last = datetime.fromisoformat(raw)
+            return last.replace(tzinfo=TZ) if last.tzinfo is None else last.astimezone(TZ)
+        except ValueError:
+            pass
+    return now - timedelta(hours=config.REPORT_FALLBACK_WINDOW_HOURS)
 
 
 def _maybe_send_report(island_reports, store, logger):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         return
-    now = datetime.now(ZoneInfo(config.TIMEZONE_NAME))
+    now = datetime.now(TZ)
     if now.hour < config.REPORT_HOUR:
         return
     today_str = now.date().isoformat()
     if store.data.get("last_report_date") == today_str or not island_reports:
         return
 
+    since = _report_window_start(store, now)
     bodies = [
-        report.build_report(resources=r, buildings=b, queue=o, next_hint=hint, log_path=config.LOG_FILE)
-        for (r, b, o, hint) in island_reports.values()
+        report.build_report(
+            island_id=island_id, resources=r, queue=o, next_hint=hint,
+            since=since, until=now, log_dir=config.LOG_DIR,
+        )
+        for island_id, (r, o, hint) in island_reports.items()
     ]
     notifier = build_notifier({
         "service": "telegram",
@@ -139,8 +387,13 @@ def _maybe_send_report(island_reports, store, logger):
     ok = notifier.send("Seekampf Morgenreport", "\n\n---\n\n".join(bodies))
     if ok:
         store.data["last_report_date"] = today_str
+        store.data["last_report_at"] = now.isoformat()
         store.save()
-        logger.info("Morgenreport gesendet.")
+        logger.info(
+            "Morgenreport gesendet (Zeitraum %s bis %s, %s).",
+            since.strftime("%d.%m. %H:%M"), now.strftime("%d.%m. %H:%M"),
+            _fmt_duration((now - since).total_seconds()),
+        )
     else:
         logger.error("Morgenreport konnte nicht gesendet werden.")
 

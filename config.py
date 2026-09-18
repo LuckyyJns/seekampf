@@ -23,7 +23,7 @@ RESOURCE_KEYS = ("gold", "stein", "holz")
 # zurueckgehalten (nicht fuer Ausbauten verplant); nachts 0%, alles verbaubar.
 DAY_BUFFER_START_HOUR = 7
 DAY_BUFFER_END_HOUR = 16
-DAY_BUFFER_PCT = 0.15
+DAY_BUFFER_PCT = 0.01
 
 # --- Priorisierung (uebernommen aus dem vom Nutzer bereitgestellten
 # "bot test"-Skript, siehe planner.py fuer die Kaskade) ---
@@ -46,7 +46,10 @@ STORAGE_TRIGGER_RATIO = 0.60
 # durchschnittlichen Ressourcen-Gebaeude-Kosten kostet.
 HAUPTHAUS_MAX_COST_RATIO = 0.55
 # Steinmauer/Wachturm erst, wenn die Warteschlange schon so lange leer ist
-# UND nichts Wichtigeres bezahlbar war (2h Standard).
+# UND die Prioritaets-Kaskade in dieser Zeit nichts Wichtigeres gebaut hat
+# (2h Standard). Ein bezahlbares, aber noch nicht notwendiges Lagerhaus haelt
+# die Uhr nicht auf - das Lagerhaus kommt dran, sobald STORAGE_TRIGGER_RATIO
+# greift.
 LOW_PRIORITY_DELAY_SECONDS = 7200
 
 # Heuristik zur Erkennung des Lagerhaus-Gebaeudes anhand von typ/name aus
@@ -59,6 +62,10 @@ STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "l
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 REPORT_HOUR = 7
+# Der Morgenreport deckt den Zeitraum seit dem letzten gesendeten Report ab.
+# Nur falls kein frueherer Report bekannt ist (erster Start), wird auf dieses
+# Fenster zurueckgefallen.
+REPORT_FALLBACK_WINDOW_HOURS = 24
 
 _override = os.environ.get("SEEKAMPF_ISLAND_IDS_OVERRIDE", "").strip()
 MANUAL_ISLAND_IDS = (
@@ -70,4 +77,8 @@ MANUAL_ISLAND_IDS = (
 FINISHED_CONSTRUCTION_STATUSES = {"fertig", "abgeschlossen", "completed", "done", "abgebrochen", "cancelled"}
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-LOG_FILE = os.path.join(LOG_DIR, "bot.log")
+# Pro Kalendertag eine eigene Datei: logs/bot-YYYY-MM-DD.log
+LOG_FILE_PREFIX = "bot"
+LOG_RETENTION_DAYS = 60
+# Zusaetzlich nach stdout (bei systemd sichtbar via journalctl -u seekampf-bot)
+LOG_TO_STDOUT = True

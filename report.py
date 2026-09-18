@@ -1,36 +1,75 @@
-"""Baut den taeglichen Morgenreport (Format angelehnt an die urspruengliche
-README-Vorlage, aber auf unsere echte Insel/Ressourcen zugeschnitten)."""
+"""Baut den taeglichen Morgenreport.
+
+Der Zeitraum ist nicht mehr "seit 0 Uhr", sondern "seit dem letzten
+gesendeten Report" (bot.py uebergibt since/until). Weil der Bot pro Tag eine
+eigene Logdatei schreibt, werden dafuer alle Dateien im Zeitraum gelesen.
+"""
 from __future__ import annotations
 
 import ast
+import os
 import re
-from datetime import date, datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
-BUILT_RE = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}) [\d:]+ \[INFO\] Insel (\S+): Ausbau '(\w+)' gestartet \(Kosten: (\{.*\})\)$"
-)
-ERROR_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}) [\d:]+ \[(ERROR|WARNING)\] (.*)$")
+import config
+
+TZ = ZoneInfo(config.TIMEZONE_NAME)
+
+WOCHENTAGE = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 
 
-def _today_events(log_path: str, today: date) -> tuple[list[tuple[str, dict]], list[str]]:
+def _fmt_day(dt: datetime, with_time: bool = False) -> str:
+    stamp = dt.strftime("%d.%m. %H:%M") if with_time else dt.strftime("%d.%m.")
+    return f"{WOCHENTAGE[dt.weekday()]} {stamp}"
+
+
+LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(\w+)\] (.*)$")
+BUILT_RE = re.compile(r"^Insel (\S+): Ausbau '(\w+)' gestartet \(Kosten: (\{.*\})\)$")
+
+
+def _log_files(log_dir: str, since: datetime, until: datetime) -> list[str]:
+    """Alle Logdateien, die Zeilen aus dem Zeitraum enthalten koennen."""
+    files = []
+    day = since.date()
+    while day <= until.date():
+        path = os.path.join(log_dir, f"{config.LOG_FILE_PREFIX}-{day.isoformat()}.log")
+        if os.path.exists(path):
+            files.append(path)
+        day += timedelta(days=1)
+    return files
+
+
+def _events(log_dir: str, since: datetime, until: datetime, island_id) -> tuple[list[tuple[str, dict]], list[str]]:
+    """(gebaute Ausbauten dieser Insel, Fehlermeldungen) im Zeitraum."""
     built: list[tuple[str, dict]] = []
     problems: list[str] = []
-    try:
-        with open(log_path, "r", encoding="utf-8") as f:
-            for line in f:
-                m = BUILT_RE.match(line.rstrip("\n"))
-                if m and date.fromisoformat(m.group(1)) == today:
+    island = str(island_id)
+    for path in _log_files(log_dir, since, until):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    m = LINE_RE.match(line.rstrip("\n"))
+                    if not m:
+                        continue  # z. B. Traceback-Zeilen
                     try:
-                        kosten = ast.literal_eval(m.group(4))
-                    except (ValueError, SyntaxError):
-                        kosten = {}
-                    built.append((m.group(3), kosten))
-                    continue
-                m = ERROR_RE.match(line.rstrip("\n"))
-                if m and date.fromisoformat(m.group(1)) == today and m.group(2) == "ERROR":
-                    problems.append(m.group(3)[:200])
-    except OSError:
-        pass
+                        stamp = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=TZ)
+                    except ValueError:
+                        continue
+                    if not (since <= stamp <= until):
+                        continue
+                    level, message = m.group(2), m.group(3)
+                    hit = BUILT_RE.match(message)
+                    if hit and hit.group(1) == island:
+                        try:
+                            kosten = ast.literal_eval(hit.group(3))
+                        except (ValueError, SyntaxError):
+                            kosten = {}
+                        built.append((hit.group(2), kosten))
+                    elif level == "ERROR":
+                        problems.append(message[:200])
+        except OSError:
+            continue
     return built, problems
 
 
@@ -42,11 +81,16 @@ def _fmt_hours(seconds: float) -> str:
     return f"{h}h {m}min" if h else f"{m}min"
 
 
-def build_report(*, resources: dict, buildings: list, queue: list, next_hint: str | None, log_path: str) -> str:
-    today = datetime.now().date()
-    built, problems = _today_events(log_path, today)
+def build_report(*, island_id, resources: dict, queue: list, next_hint: str | None,
+                 since: datetime, until: datetime, log_dir: str) -> str:
+    built, problems = _events(log_dir, since, until, island_id)
+    window = _fmt_hours((until - since).total_seconds())
 
-    lines = [f"Seekampf – {today.strftime('%a %d.%m.')} · {len(built)} Ausbauten", ""]
+    lines = [
+        f"Seekampf – {_fmt_day(until)} · {len(built)} Ausbauten",
+        f"Zeitraum: seit {_fmt_day(since, with_time=True)} ({window})",
+        "",
+    ]
 
     if built:
         lines.append(f"Gebaut ({len(built)})")

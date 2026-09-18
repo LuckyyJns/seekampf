@@ -61,6 +61,27 @@ def _resource_score(name: str, candidate: dict, capacity: float, store) -> float
     return weight / cost_norm
 
 
+def average_resource_cost(candidates: dict) -> float | None:
+    """Durchschnittliche Gesamtkosten der Ressourcen-Gebaeude-Ausbauten."""
+    resource_candidates = [c for n, c in candidates.items() if n in config.RESOURCE_BUILDINGS]
+    if not resource_candidates:
+        return None
+    return sum(total_cost(c["cost"]) for c in resource_candidates) / len(resource_candidates)
+
+
+def storage_needed(candidates: dict, capacity: float) -> bool:
+    """True, sobald irgendein anderer anstehender Ausbau schon nah an die
+    Kapazitaetsgrenze geht - dann bekommt das Lagerhaus Vorrang."""
+    trigger_pool = [
+        c for n, c in candidates.items()
+        if n != "lagerhaus" and n not in config.LOW_PRIORITY_BUILDINGS
+    ]
+    return any(
+        c["cost"].get(r, 0.0) >= config.STORAGE_TRIGGER_RATIO * max(capacity, 1.0)
+        for c in trigger_pool for r in config.RESOURCE_KEYS
+    )
+
+
 def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allow_low: bool):
     payable = {n: c for n, c in candidates.items() if affordable(c["cost"], current)}
 
@@ -73,25 +94,16 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allo
     if resource_choices:
         return max(resource_choices, key=lambda x: x[0])[1]
 
-    resource_candidates = [c for n, c in candidates.items() if n in config.RESOURCE_BUILDINGS]
-    average_resource_cost = (
-        sum(total_cost(c["cost"]) for c in resource_candidates) / len(resource_candidates)
-        if resource_candidates else None
-    )
+    average_cost = average_resource_cost(candidates)
 
     # 2a. Lagerhaus, sobald irgendein anderer anstehender Ausbau schon nah an
     #     die Kapazitaetsgrenze geht.
-    trigger_pool = [c for n, c in candidates.items() if n != "lagerhaus" and n not in config.LOW_PRIORITY_BUILDINGS]
-    storage_needed = any(
-        c["cost"].get(r, 0.0) >= config.STORAGE_TRIGGER_RATIO * max(capacity, 1.0)
-        for c in trigger_pool for r in config.RESOURCE_KEYS
-    )
-    if storage_needed and "lagerhaus" in payable:
+    if storage_needed(candidates, capacity) and "lagerhaus" in payable:
         return payable["lagerhaus"]
 
     # 2b. Hauptgebaeude nur, wenn deutlich guenstiger als der Ressourcen-Durchschnitt.
-    if "haupthaus" in payable and average_resource_cost is not None:
-        if total_cost(payable["haupthaus"]["cost"]) <= config.HAUPTHAUS_MAX_COST_RATIO * average_resource_cost:
+    if "haupthaus" in payable and average_cost is not None:
+        if total_cost(payable["haupthaus"]["cost"]) <= config.HAUPTHAUS_MAX_COST_RATIO * average_cost:
             return payable["haupthaus"]
 
     # 2c. Hafen.
@@ -103,7 +115,8 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allo
         return payable["kaserne"]
 
     # 4. Steinmauer/Wachturm erst, wenn die Warteschlange schon eine Weile leer
-    #    war und nichts Wichtigeres bezahlbar ist (siehe bot.py: LOW_PRIORITY_SINCE).
+    #    war und die Kaskade in dieser Zeit nichts Wichtigeres gebaut hat
+    #    (siehe bot.py: LOW_PRIORITY_SINCE).
     if allow_low:
         low_choices = []
         for name in config.LOW_PRIORITY_BUILDINGS:
@@ -114,3 +127,31 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allo
         if low_choices:
             return max(low_choices, key=lambda x: x[0])[1]
     return None
+
+
+def rejection_reason(name: str, candidates: dict, capacity: float, allow_low: bool) -> str:
+    """Warum wurde dieser bezahlbare Kandidat trotzdem nicht gebaut?
+    Spiegelt exakt die Regeln aus choose_upgrade wider (fuer die Logausgabe)."""
+    if name in config.LOW_PRIORITY_BUILDINGS and not allow_low:
+        return "niedrige Prioritaet"
+    if name == "lagerhaus" and not storage_needed(candidates, capacity):
+        return (f"noch nicht noetig, kein Ausbau kostet mehr als "
+                f"{config.STORAGE_TRIGGER_RATIO:.0%} der Lagerkapazitaet")
+    if name == "haupthaus":
+        average_cost = average_resource_cost(candidates)
+        if average_cost is not None:
+            own = total_cost(candidates[name]["cost"])
+            if own > config.HAUPTHAUS_MAX_COST_RATIO * average_cost:
+                return (f"zu teuer: {own:.0f} statt hoechstens "
+                        f"{config.HAUPTHAUS_MAX_COST_RATIO * average_cost:.0f} "
+                        f"({config.HAUPTHAUS_MAX_COST_RATIO:.0%} der Ressourcen-Durchschnittskosten)")
+    return "von einem hoeher priorisierten Ausbau verdraengt"
+
+
+def missing_resources(cost: dict, current: dict) -> dict:
+    """Welche Rohstoffe fehlen noch und wie viel (nur die fehlenden)."""
+    return {
+        r: cost.get(r, 0.0) - current.get(r, 0.0)
+        for r in config.RESOURCE_KEYS
+        if cost.get(r, 0.0) - current.get(r, 0.0) > 0
+    }
