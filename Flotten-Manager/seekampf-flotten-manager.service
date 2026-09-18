@@ -6,6 +6,7 @@ Wants=network-online.target
 # neu zu starten - erst dann gilt der Dienst als "failed".
 StartLimitIntervalSec=600
 StartLimitBurst=5
+OnFailure=seekampf-flotten-manager-alert.service
 
 [Service]
 Type=simple

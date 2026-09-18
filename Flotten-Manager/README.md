@@ -76,7 +76,7 @@ uv sync                       # .venv anlegen
 Als Dauerdienst:
 
 ```bash
-sudo cp seekampf-flotten-manager.service /etc/systemd/system/
+sudo cp seekampf-flotten-manager.service seekampf-flotten-manager-alert.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now seekampf-flotten-manager
 journalctl -u seekampf-flotten-manager -f
@@ -84,6 +84,22 @@ journalctl -u seekampf-flotten-manager -f
 
 Der Dienst startet nach einem Neustart von selbst und raidet sofort weiter;
 fahrende Flotten werden aus `data/state.json` wieder uebernommen.
+
+### Ausfall-Alarm
+
+Gibt systemd den Dienst auf (fuenf Fehlstarts in zehn Minuten), zieht
+`OnFailure=` die Unit `seekampf-flotten-manager-alert.service` hoch, die per
+Telegram meldet, dass keine Flotte mehr faehrt - samt der letzten Logzeilen.
+Das ist noetig, weil der Manager in genau diesem Moment selbst nichts mehr
+senden kann. Von Hand pruefen:
+
+```bash
+sudo systemctl start seekampf-flotten-manager-alert
+```
+
+Der Flotten-Manager benutzt einen **eigenen API-Schluessel**, nicht den des
+Ressourcen-Bots - so laesst sich einer von beiden zurueckziehen, ohne den
+anderen lahmzulegen.
 
 ## Dateien
 
@@ -96,5 +112,6 @@ fahrende Flotten werden aus `data/state.json` wieder uebernommen.
 | `state.py` | `data/state.json`: Einstellungen, Ziele, Flotten, Statistik |
 | `api_client.py` | die genutzten Seekampf-Endpunkte |
 | `report.py` / `notify.py` | Telegram-Morgenreport |
+| `alert.py` | Telegram-Alarm, den systemd bei Ausfall des Dienstes startet |
 | `static/index.html` | die Weboberflaeche (ein File, kein Build) |
 | `logs/flotte-JJJJ-MM-TT.log` | eine Logdatei pro Tag, 60 Tage Aufbewahrung |

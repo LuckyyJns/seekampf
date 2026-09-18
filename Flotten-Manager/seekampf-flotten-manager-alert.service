@@ -1,0 +1,8 @@
+[Unit]
+Description=Telegram-Alarm, wenn der Seekampf Flotten-Manager ausfaellt
+
+[Service]
+Type=oneshot
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Flotten-Manager
+ExecStart=/home/jannishoy/Seekampf/Flotten-Manager/.venv/bin/python /home/jannishoy/Seekampf/Flotten-Manager/alert.py "systemd hat seekampf-flotten-manager.service als fehlgeschlagen markiert - es faehrt keine Flotte mehr und die Weboberflaeche ist offline."
