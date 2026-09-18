@@ -55,12 +55,17 @@ class SeekampfClient:
             return None
         return response.json()
 
-    def get_my_island_ids(self):
-        """GET /me/islands -> Liste von IslandListItem ({id, name, koordinaten, punkte})."""
+    def get_my_islands(self):
+        """GET /me/islands -> Liste von IslandListItem ({id, name, koordinaten, punkte}).
+        Zurueck kommen nur die fuer den Bot relevanten Felder id und name; der
+        Name landet im Telegram-Report."""
         if config.MANUAL_ISLAND_IDS:
-            return config.MANUAL_ISLAND_IDS
+            return [{"id": i, "name": f"Insel {i}"} for i in config.MANUAL_ISLAND_IDS]
         islands = self._request("GET", "/me/islands")
-        return [item["id"] for item in islands]
+        return [
+            {"id": item["id"], "name": item.get("name") or f"Insel {item['id']}"}
+            for item in islands
+        ]
 
     def get_island_resources(self, island_id):
         """GET /islands/{id}/resources -> ResourcesOut

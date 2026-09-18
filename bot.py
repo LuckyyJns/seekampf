@@ -22,27 +22,44 @@ from store import Store
 
 TZ = ZoneInfo(config.TIMEZONE_NAME)
 
-# In-memory: seit wann ist die Warteschlange einer Insel leer, ohne dass die
-# Prioritaets-Kaskade etwas Wichtigeres bauen wollte? Ueberlebt keinen Neustart -
-# im schlimmsten Fall wartet der Bot nach einem Neustart erneut die volle
-# Verzoegerung ab, bevor Steinmauer/Wachturm drankommen. Unkritisch.
+# Seit wann ist die Warteschlange einer Insel leer, ohne dass die
+# Prioritaets-Kaskade etwas Wichtigeres bauen wollte? Wird in data/learned.json
+# mitgespeichert und beim Start wieder geladen, damit ein Neustart die
+# Leerlauf-Wartezeit nicht von vorne beginnen laesst.
 LOW_PRIORITY_SINCE: dict[str, float] = {}
 
-
-def _day_buffer_pct(now: datetime | None = None) -> float:
-    now = now or datetime.now(TZ)
-    if config.DAY_BUFFER_START_HOUR <= now.hour < config.DAY_BUFFER_END_HOUR:
-        return config.DAY_BUFFER_PCT
-    return 0.0
+# Gesundheitszustand fuer die Ausfall-Alarme (siehe _track_health).
+HEALTH = {"failures": 0, "alerted": False}
 
 
-def _usable_resources(resources: dict, buffer_pct: float) -> dict:
-    """Fuer Ausbau-Entscheidungen nutzbare Rohstoffe: echter Bestand minus
-    Tagesreserve (buffer_pct * Kapazitaet). Nur fuer die Auswahl - der Report
-    zeigt weiterhin den echten Lagerstand."""
-    capacity = float(resources.get("kapazitaet", 0) or 0)
-    reserve = buffer_pct * capacity
-    return {r: max(0.0, resources.get(r, 0.0) - reserve) for r in config.RESOURCE_KEYS}
+def _load_low_priority(store) -> None:
+    """Leerlauf-Uhren aus dem Store in den Speicher holen (einmal beim Start)."""
+    LOW_PRIORITY_SINCE.clear()
+    for key, value in (store.data.get("low_priority_since") or {}).items():
+        try:
+            LOW_PRIORITY_SINCE[key] = float(value)
+        except (TypeError, ValueError):
+            continue
+
+
+def _start_low_priority(store, key: str, now_ts: float) -> None:
+    """Uhr starten, falls sie nicht schon laeuft."""
+    if key in LOW_PRIORITY_SINCE:
+        return
+    LOW_PRIORITY_SINCE[key] = now_ts
+    store.data.setdefault("low_priority_since", {})[key] = now_ts
+    store.save()
+
+
+def _stop_low_priority(store, key: str) -> None:
+    LOW_PRIORITY_SINCE.pop(key, None)
+    if (store.data.get("low_priority_since") or {}).pop(key, None) is not None:
+        store.save()
+
+
+def _usable_resources(resources: dict) -> dict:
+    """Fuer Ausbau-Entscheidungen nutzbare Rohstoffe: der komplette Lagerstand."""
+    return {r: float(resources.get(r, 0.0) or 0.0) for r in config.RESOURCE_KEYS}
 
 
 def _lager_key(buildings: list) -> str | None:
@@ -110,17 +127,16 @@ def _allow_low_at(key: str, queue_empty: bool, at_ts: float) -> bool:
     return at_ts - LOW_PRIORITY_SINCE[key] >= config.LOW_PRIORITY_DELAY_SECONDS
 
 
-def _projected_usable(resources: dict, seconds_ahead: float, now: datetime) -> dict:
-    """Nutzbarer Lagerstand in `seconds_ahead` Sekunden (Produktion hochgerechnet,
-    bei der Lagerkapazitaet gedeckelt, Tagesreserve des Zielzeitpunkts abgezogen)."""
+def _projected_usable(resources: dict, seconds_ahead: float) -> dict:
+    """Lagerstand in `seconds_ahead` Sekunden (Produktion hochgerechnet, bei der
+    Lagerkapazitaet gedeckelt)."""
     prod = resources.get("produktion_pro_h") or {}
     capacity = float(resources.get("kapazitaet", 0) or 0)
-    reserve = _day_buffer_pct(now + timedelta(seconds=seconds_ahead)) * capacity
     out = {}
     for r in config.RESOURCE_KEYS:
         rate = float(prod.get(r, 0) or 0)
         grown = float(resources.get(r, 0) or 0) + rate * seconds_ahead / 3600.0
-        out[r] = max(0.0, min(capacity, grown) - reserve)
+        out[r] = min(capacity, grown)
     return out
 
 
@@ -152,7 +168,7 @@ def _forecast(candidates: dict, resources: dict, capacity: float, store, key: st
     bezahlbar bzw. die Steinmauer/Wachturm-Sperre faellt) und laesst dort die
     echte Prioritaets-Kaskade entscheiden.
     Rueckgabe: (Sekunden, gewaehlter Kandidat, unerreichbare Kandidaten je Grund)."""
-    usable_now = _usable_resources(resources, _day_buffer_pct(now))
+    usable_now = _usable_resources(resources)
     points = {0.0}
     unreachable: dict[str, list[str]] = {"lager": [], "produktion": []}
     for name, candidate in candidates.items():
@@ -166,7 +182,7 @@ def _forecast(candidates: dict, resources: dict, capacity: float, store, key: st
         points.add(release + 1.0)
 
     for seconds in sorted(points):
-        projected = _projected_usable(resources, seconds, now)
+        projected = _projected_usable(resources, seconds)
         allow_low = _allow_low_at(key, queue_empty, now_ts + seconds)
         chosen = choose_upgrade(candidates, projected, capacity, store, allow_low)
         if chosen is not None:
@@ -180,7 +196,7 @@ def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key:
     if not candidates:
         return "keine ausbaubaren Gebaeude verfuegbar (Voraussetzungen fehlen)"
 
-    usable_now = _usable_resources(resources, _day_buffer_pct(now))
+    usable_now = _usable_resources(resources)
     payable = [n for n, c in candidates.items() if affordable(c["cost"], usable_now)]
 
     parts = []
@@ -228,7 +244,6 @@ def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key:
 def _log_status(logger, island_id, resources, active_orders, started, reason, now):
     prod = resources.get("produktion_pro_h") or {}
     capacity = float(resources.get("kapazitaet", 0) or 0)
-    buffer_pct = _day_buffer_pct(now)
 
     fields = [
         f"Insel {island_id}",
@@ -236,9 +251,6 @@ def _log_status(logger, island_id, resources, active_orders, started, reason, no
         f"Lager {_fmt_res(resources)} von {capacity:.0f}",
         f"Produktion {_fmt_res(prod, '+')} pro h",
     ]
-    if buffer_pct > 0:
-        fields.append(f"Tagesreserve {buffer_pct:.0%} ({buffer_pct * capacity:.0f})")
-
     slot_seconds, slot_order = _next_slot_free(active_orders, now)
     if slot_order is not None and not (reason and "naechster Platz frei" in reason):
         fields.append(
@@ -272,7 +284,7 @@ def process_island(client, island_id, store, logger):
     next_hint = None
     while free_slots > 0 and acted < config.MAX_UPGRADES_PER_TICK:
         now_dt = datetime.now(TZ)
-        current = _usable_resources(resources, _day_buffer_pct(now_dt))
+        current = _usable_resources(resources)
         capacity = float(resources.get("kapazitaet", 0) or 0)
         levels = projected_levels(buildings, active_orders)
         candidates = collect_candidates(buildings, levels)
@@ -280,7 +292,7 @@ def process_island(client, island_id, store, logger):
         now = time.time()
         queue_empty = len(active_orders) == 0
         if not queue_empty:
-            LOW_PRIORITY_SINCE.pop(key, None)
+            _stop_low_priority(store, key)
         allow_low = (
             queue_empty and key in LOW_PRIORITY_SINCE
             and now - LOW_PRIORITY_SINCE[key] >= config.LOW_PRIORITY_DELAY_SECONDS
@@ -296,15 +308,15 @@ def process_island(client, island_id, store, logger):
             # Lagerhaus, das noch nicht noetig ist (oder ein zu teures
             # Haupthaus), blockiert die Uhr also nicht mehr.
             if queue_empty:
-                LOW_PRIORITY_SINCE.setdefault(key, now)
+                _start_low_priority(store, key, now)
             else:
-                LOW_PRIORITY_SINCE.pop(key, None)
+                _stop_low_priority(store, key)
             next_hint = _skip_reason(
                 candidates, resources, capacity, store, key, queue_empty, allow_low, now_dt, now
             )
             break
 
-        LOW_PRIORITY_SINCE.pop(key, None)
+        _stop_low_priority(store, key)
         try:
             client.start_upgrade(island_id, chosen["building"])
         except ApiError as exc:
@@ -348,6 +360,51 @@ def process_island(client, island_id, store, logger):
     return resources, orders, next_hint
 
 
+def _notifier():
+    """Telegram-Notifier, oder None wenn nicht konfiguriert."""
+    if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
+        return None
+    return build_notifier({
+        "service": "telegram",
+        "bot_token": config.TELEGRAM_BOT_TOKEN,
+        "chat_id": config.TELEGRAM_CHAT_ID,
+    })
+
+
+def _alert(logger, title: str, text: str) -> bool:
+    """Sofort-Alarm aufs Handy (unabhaengig vom Morgenreport)."""
+    notifier = _notifier()
+    if notifier is None:
+        logger.error("Alarm nicht zustellbar, Telegram nicht konfiguriert: %s", text)
+        return False
+    if notifier.send(title, text):
+        logger.info("Alarm gesendet: %s", title)
+        return True
+    logger.error("Alarm konnte nicht gesendet werden: %s", title)
+    return False
+
+
+def _track_health(ok: bool, logger) -> None:
+    """Alarm, wenn mehrere Durchlaeufe hintereinander scheitern - und Entwarnung,
+    sobald es wieder laeuft. Pro Stoerung jeweils genau eine Nachricht."""
+    if ok:
+        if HEALTH["alerted"]:
+            _alert(logger, "Seekampf-Bot laeuft wieder",
+                   f"Nach {HEALTH['failures']} fehlgeschlagenen Durchlaeufen war der letzte "
+                   f"Durchlauf wieder erfolgreich.")
+            HEALTH["alerted"] = False
+        HEALTH["failures"] = 0
+        return
+
+    HEALTH["failures"] += 1
+    if HEALTH["failures"] >= config.ALERT_AFTER_FAILED_TICKS and not HEALTH["alerted"]:
+        minutes = HEALTH["failures"] * config.POLL_INTERVAL_SECONDS // 60
+        _alert(logger, "Seekampf-Bot: Störung",
+               f"{HEALTH['failures']} Durchlaeufe in Folge fehlgeschlagen (seit ca. {minutes} Minuten "
+               f"kein Ausbau moeglich). Details: journalctl -u seekampf-bot -n 50")
+        HEALTH["alerted"] = True
+
+
 def _report_window_start(store, now: datetime) -> datetime:
     """Beginn des Berichtszeitraums: der letzte gesendete Report, sonst das
     Standardfenster (24h)."""
@@ -374,16 +431,14 @@ def _maybe_send_report(island_reports, store, logger):
     since = _report_window_start(store, now)
     bodies = [
         report.build_report(
-            island_id=island_id, resources=r, queue=o, next_hint=hint,
+            island_id=island_id, island_name=name, resources=r, queue=o, next_hint=hint,
             since=since, until=now, log_dir=config.LOG_DIR,
         )
-        for island_id, (r, o, hint) in island_reports.items()
+        for island_id, (name, r, o, hint) in island_reports.items()
     ]
-    notifier = build_notifier({
-        "service": "telegram",
-        "bot_token": config.TELEGRAM_BOT_TOKEN,
-        "chat_id": config.TELEGRAM_CHAT_ID,
-    })
+    notifier = _notifier()
+    if notifier is None:
+        return
     ok = notifier.send("Seekampf Morgenreport", "\n\n---\n\n".join(bodies))
     if ok:
         store.data["last_report_date"] = today_str
@@ -398,23 +453,32 @@ def _maybe_send_report(island_reports, store, logger):
         logger.error("Morgenreport konnte nicht gesendet werden.")
 
 
-def tick(client, store, logger):
+def tick(client, store, logger) -> bool:
+    """Ein Durchlauf ueber alle Inseln. True, wenn mindestens eine Insel
+    fehlerfrei bearbeitet werden konnte (siehe _track_health)."""
     try:
-        island_ids = client.get_my_island_ids()
+        islands = client.get_my_islands()
     except (ApiError, requests.exceptions.RequestException) as exc:
         logger.error("Konnte Inselliste nicht laden: %s", exc)
-        return
+        return False
+
+    if not islands:
+        logger.error("Die API meldet keine einzige Insel fuer diesen Account.")
+        return False
 
     island_reports = {}
-    for island_id in island_ids:
+    for island in islands:
+        island_id, name = island["id"], island["name"]
         try:
-            island_reports[island_id] = process_island(client, island_id, store, logger)
-        except ApiError as exc:
+            resources, orders, hint = process_island(client, island_id, store, logger)
+            island_reports[island_id] = (name, resources, orders, hint)
+        except (ApiError, requests.exceptions.RequestException) as exc:
             logger.error("API-Fehler auf Insel %s: %s", island_id, exc)
         except Exception:
             logger.exception("Unerwarteter Fehler auf Insel %s", island_id)
 
     _maybe_send_report(island_reports, store, logger)
+    return bool(island_reports)
 
 
 def main():
@@ -424,20 +488,28 @@ def main():
 
     if not config.API_KEY:
         logger.error("SEEKAMPF_API_KEY ist nicht gesetzt (.env pruefen). Beende.")
-        return
+        _alert(logger, "Seekampf-Bot startet nicht",
+               "SEEKAMPF_API_KEY fehlt oder ist leer - bitte .env auf dem Pi pruefen. "
+               "Der Bot baut bis dahin nichts aus.")
+        # Fehlercode statt stiller Rueckkehr: systemd sieht den Fehlstart, gibt
+        # nach StartLimitBurst auf und loest OnFailure (Telegram-Alarm) aus,
+        # statt den Bot alle 10 Sekunden endlos neu zu starten.
+        raise SystemExit(1)
 
     os.makedirs(os.path.dirname(config.STORE_PATH), exist_ok=True)
     store = Store(config.STORE_PATH)
+    _load_low_priority(store)
     client = SeekampfClient()
 
     while True:
         try:
-            tick(client, store, logger)
+            ok = tick(client, store, logger)
         except Exception:
             # Letztes Sicherheitsnetz: der Dauerprozess soll nie durch einen
-            # einzelnen fehlerhaften Tick sterben (z. B. Autostart laeuft nur
-            # beim Login neu, kein automatischer Neustart bei Absturz).
+            # einzelnen fehlerhaften Tick sterben.
             logger.exception("Unerwarteter Fehler im Tick, laeuft beim naechsten Intervall weiter")
+            ok = False
+        _track_health(ok, logger)
         time.sleep(config.POLL_INTERVAL_SECONDS)
 
 

@@ -19,17 +19,16 @@ MAX_UPGRADES_PER_TICK = 3
 # Kapazitaeten pro Rohstoff.
 RESOURCE_KEYS = ("gold", "stein", "holz")
 
-# Tagsueber (07:00-16:00 Europe/Berlin) wird ein Teil der Kapazitaet als Reserve
-# zurueckgehalten (nicht fuer Ausbauten verplant); nachts 0%, alles verbaubar.
-DAY_BUFFER_START_HOUR = 7
-DAY_BUFFER_END_HOUR = 16
-DAY_BUFFER_PCT = 0.01
-
 # --- Priorisierung (uebernommen aus dem vom Nutzer bereitgestellten
 # "bot test"-Skript, siehe planner.py fuer die Kaskade) ---
 RESOURCE_BUILDINGS = ("goldmine", "steingrube", "saegewerk")
+# Hafen und Kaserne teilen sich eine Prioritaetsstufe (nach Lagerhaus und
+# Haupthaus, vor Steinmauer/Wachturm). Innerhalb der Stufe entscheidet die
+# Gewichtung pro Kosten - frueher stand der Hafen eine Stufe hoeher und lief
+# den Wirtschaftsgebaeuden davon (7 Ausbauten allein am 16.09.).
+MID_PRIORITY_BUILDINGS = ("hafen", "kaserne")
 LOW_PRIORITY_BUILDINGS = ("steinmauer", "wachturm")
-TRACKED_BUILDINGS = (*RESOURCE_BUILDINGS, "haupthaus", "lagerhaus", "hafen", "kaserne", *LOW_PRIORITY_BUILDINGS)
+TRACKED_BUILDINGS = (*RESOURCE_BUILDINGS, "haupthaus", "lagerhaus", *MID_PRIORITY_BUILDINGS, *LOW_PRIORITY_BUILDINGS)
 
 # Startgewichte fuer die Kandidaten-Bewertung, bis store.py genug echte
 # Produktions-Beobachtungen gelernt hat (siehe planner._resource_score).
@@ -44,7 +43,13 @@ PRIORITY_WEIGHTS = {
 STORAGE_TRIGGER_RATIO = 0.60
 # Hauptgebaeude wird nur priorisiert, wenn es hoechstens diesen Anteil der
 # durchschnittlichen Ressourcen-Gebaeude-Kosten kostet.
-HAUPTHAUS_MAX_COST_RATIO = 0.55
+# Alle Gebaeude verteuern sich pro Stufe um denselben Faktor (~1.337, aus
+# data/learned.json gemessen), das Haupthaus ist pro Stufe aber rund doppelt so
+# teuer wie ein Ressourcen-Gebaeude. Der Schwellwert legt damit fest, wie weit
+# das Haupthaus dauerhaft zurueckfaellt: 0.55 hielt es ~3 Stufen zurueck (es kam
+# nie dran), 1.0 haelt es ~2 Stufen hinter dem Schnitt - es waechst mit, ohne
+# den Ausbau der Wirtschaft zu verdraengen.
+HAUPTHAUS_MAX_COST_RATIO = 1.0
 # Steinmauer/Wachturm erst, wenn die Warteschlange schon so lange leer ist
 # UND die Prioritaets-Kaskade in dieser Zeit nichts Wichtigeres gebaut hat
 # (2h Standard). Ein bezahlbares, aber noch nicht notwendiges Lagerhaus haelt
@@ -57,6 +62,10 @@ LOW_PRIORITY_DELAY_SECONDS = 7200
 WAREHOUSE_BUILDING_KEYWORDS = ("lager", "speicher", "warehouse")
 
 STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "learned.json")
+
+# Nach so vielen fehlgeschlagenen Durchlaeufen in Folge geht ein Telegram-Alarm
+# raus (bei 300s Intervall also nach ~15 Minuten ohne erfolgreichen Tick).
+ALERT_AFTER_FAILED_TICKS = 3
 
 # Telegram-Morgenreport
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")

@@ -81,8 +81,8 @@ def _fmt_hours(seconds: float) -> str:
     return f"{h}h {m}min" if h else f"{m}min"
 
 
-def build_report(*, island_id, resources: dict, queue: list, next_hint: str | None,
-                 since: datetime, until: datetime, log_dir: str) -> str:
+def build_report(*, island_id, island_name: str, resources: dict, queue: list,
+                 next_hint: str | None, since: datetime, until: datetime, log_dir: str) -> str:
     built, problems = _events(log_dir, since, until, island_id)
     window = _fmt_hours((until - since).total_seconds())
 
@@ -105,7 +105,7 @@ def build_report(*, island_id, resources: dict, queue: list, next_hint: str | No
     cap = resources.get("kapazitaet", 0) or 1
     lines.append("Wirtschaft")
     lines.append(
-        f"- Heiminsel: {prod.get('gold', 0):.0f}/{prod.get('stein', 0):.0f}/{prod.get('holz', 0):.0f} G/S/H pro h"
+        f"- {island_name}: {prod.get('gold', 0):.0f}/{prod.get('stein', 0):.0f}/{prod.get('holz', 0):.0f} G/S/H pro h"
     )
     lines.append(
         f"  Lager {resources.get('gold', 0):.0f}/{resources.get('stein', 0):.0f}/{resources.get('holz', 0):.0f} "
@@ -124,12 +124,12 @@ def build_report(*, island_id, resources: dict, queue: list, next_hint: str | No
     if active:
         lines.append("Läuft gerade")
         for o in active:
-            lines.append(f"- Heiminsel: {o.get('building_typ')} → {o.get('ziel_stufe')}")
+            lines.append(f"- {island_name}: {o.get('building_typ')} → {o.get('ziel_stufe')}")
         lines.append("")
     if waiting:
         lines.append(f"In der Warteschlange ({len(waiting)})")
         for o in waiting:
-            lines.append(f"- Heiminsel: {o.get('building_typ')} → {o.get('ziel_stufe')}")
+            lines.append(f"- {island_name}: {o.get('building_typ')} → {o.get('ziel_stufe')}")
         lines.append("")
 
     if next_hint:

@@ -82,6 +82,19 @@ def storage_needed(candidates: dict, capacity: float) -> bool:
     )
 
 
+def _best_by_weight(names, payable: dict, capacity: float, default_weight: float):
+    """Bestes Gebaeude einer Prioritaetsstufe: Gewichtung pro (normierten) Kosten."""
+    choices = []
+    for name in names:
+        if name in payable:
+            weight = config.PRIORITY_WEIGHTS.get(name, default_weight)
+            score = weight / max(normalized_cost(payable[name]["cost"], capacity), 1e-6)
+            choices.append((score, payable[name]))
+    if not choices:
+        return None
+    return max(choices, key=lambda x: x[0])[1]
+
+
 def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allow_low: bool):
     payable = {n: c for n, c in candidates.items() if affordable(c["cost"], current)}
 
@@ -106,26 +119,16 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allo
         if total_cost(payable["haupthaus"]["cost"]) <= config.HAUPTHAUS_MAX_COST_RATIO * average_cost:
             return payable["haupthaus"]
 
-    # 2c. Hafen.
-    if "hafen" in payable:
-        return payable["hafen"]
-
-    # 3. Kaserne.
-    if "kaserne" in payable:
-        return payable["kaserne"]
+    # 3. Hafen und Kaserne auf einer Stufe, innerhalb nach Gewichtung pro Kosten.
+    mid = _best_by_weight(config.MID_PRIORITY_BUILDINGS, payable, capacity, 30.0)
+    if mid is not None:
+        return mid
 
     # 4. Steinmauer/Wachturm erst, wenn die Warteschlange schon eine Weile leer
     #    war und die Kaskade in dieser Zeit nichts Wichtigeres gebaut hat
     #    (siehe bot.py: LOW_PRIORITY_SINCE).
     if allow_low:
-        low_choices = []
-        for name in config.LOW_PRIORITY_BUILDINGS:
-            if name in payable:
-                weight = config.PRIORITY_WEIGHTS.get(name, 5.0)
-                score = weight / max(normalized_cost(payable[name]["cost"], capacity), 1e-6)
-                low_choices.append((score, payable[name]))
-        if low_choices:
-            return max(low_choices, key=lambda x: x[0])[1]
+        return _best_by_weight(config.LOW_PRIORITY_BUILDINGS, payable, capacity, 5.0)
     return None
 
 
