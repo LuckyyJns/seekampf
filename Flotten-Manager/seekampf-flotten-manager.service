@@ -1,0 +1,19 @@
+[Unit]
+Description=Seekampf Flotten-Manager (Raid-Steuerung mit Weboberflaeche)
+After=network-online.target
+Wants=network-online.target
+# Bei einer Absturzschleife nach 5 Starts in 10 Minuten aufgeben, statt endlos
+# neu zu starten - erst dann gilt der Dienst als "failed".
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Flotten-Manager
+ExecStart=/home/jannishoy/Seekampf/Flotten-Manager/.venv/bin/python /home/jannishoy/Seekampf/Flotten-Manager/web.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

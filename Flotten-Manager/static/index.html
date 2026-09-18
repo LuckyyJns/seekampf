@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flotten-Manager</title>
+<style>
+  :root {
+    --bg: #0d1117; --flaeche: #161b22; --rand: #232c37; --text: #e6edf3;
+    --gedaempft: #8b949e; --akzent: #58a6ff; --gut: #3fb950; --warn: #d29922;
+    --schlecht: #f85149; --signal: #f0883e;
+    --gold: #e3b341; --stein: #a9b1ba; --holz: #d18f52;
+    --radius: 10px;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6f8; --flaeche: #ffffff; --rand: #d9dee5; --text: #1b2430;
+    --gedaempft: #5f6b7a; --akzent: #1d6fa5; --gut: #1f7a4d; --warn: #9a6400;
+    --schlecht: #a52222; --signal: #c2570d;
+    --gold: #b7860b; --stein: #6b7280; --holz: #7a5230;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .huelle { max-width: 1180px; margin: 0 auto; padding: 20px 16px 60px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 18px; }
+  h1 { font-size: clamp(20px, 2.6vw, 27px); margin: 0; font-weight: 700;
+       letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+  h1 .anker { color: var(--akzent); }
+  h2 { font-size: 15px; margin: 0 0 10px; color: var(--gedaempft);
+       text-transform: uppercase; letter-spacing: 0.06em; }
+  .insel { color: var(--gedaempft); font-size: 14px; }
+  .schub { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .marke { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
+           border-radius: 999px; font-size: 13px; font-weight: 600;
+           background: color-mix(in srgb, var(--akzent) 14%, transparent); color: var(--akzent); }
+  .marke.gut { background: color-mix(in srgb, var(--gut) 16%, transparent); color: var(--gut); }
+  .marke.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .marke.schlecht { background: color-mix(in srgb, var(--schlecht) 16%, transparent); color: var(--schlecht); }
+  .punkt { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  button {
+    font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px;
+    border: 1px solid var(--rand); background: var(--flaeche); color: var(--text); cursor: pointer;
+  }
+  button:hover { border-color: var(--akzent); }
+  button.haupt { background: var(--akzent); border-color: var(--akzent); color: #fff; }
+  button.stop { background: var(--schlecht); border-color: var(--schlecht); color: #fff; }
+  button.klein { padding: 4px 9px; font-size: 13px; font-weight: 500; }
+  section { background: var(--flaeche); border: 1px solid var(--rand);
+            border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+  /* Kennzahlen-Reihe: flach, ohne Kaesten - kleine Beschriftung ueber der
+     grossen Zahl, darunter eine duenne Trennlinie (Vorbild: image001.png). */
+  .kacheln { display: grid; gap: 18px 28px; padding: 6px 0 22px;
+             border-bottom: 1px solid var(--rand); margin-bottom: 22px;
+             grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); }
+  .kachel .beschriftung { font-size: 13px; color: var(--gedaempft); line-height: 1.2;
+                          display: flex; align-items: center; gap: 5px; }
+  .kachel .wert { font-size: clamp(26px, 3.4vw, 36px); font-weight: 400; line-height: 1.25;
+                  letter-spacing: -0.015em; font-variant-numeric: tabular-nums;
+                  margin-top: 6px; }
+  .kachel.signal .beschriftung { color: var(--signal); }
+  .kachel .icon { font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;
+       color: var(--gedaempft); font-weight: 600; padding: 6px 10px 6px 0; }
+  td { padding: 7px 10px 7px 0; border-top: 1px solid var(--rand); vertical-align: middle; }
+  td.zahl, th.zahl { text-align: right; font-variant-numeric: tabular-nums; }
+  .leise { color: var(--gedaempft); }
+  .mono { font-variant-numeric: tabular-nums; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .formular { display: grid; gap: 14px 20px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .feld { display: flex; flex-direction: column; gap: 4px; }
+  .feld label { font-size: 12px; color: var(--gedaempft); text-transform: uppercase; letter-spacing: 0.05em; }
+  .feld input, .feld select { font: inherit; padding: 7px 9px; border-radius: 7px;
+       border: 1px solid var(--rand); background: var(--bg); color: var(--text); }
+  .feld .hinweis { font-size: 12px; color: var(--gedaempft); }
+  .feld.schalter { flex-direction: row; align-items: center; gap: 8px; }
+  .feld.schalter label { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--text); }
+  .gruppe { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--gedaempft);
+            text-transform: uppercase; letter-spacing: 0.06em; border-top: 1px solid var(--rand);
+            padding-top: 12px; }
+  .gruppe:first-child { border-top: 0; padding-top: 0; }
+  pre#log { margin: 0; max-height: 340px; overflow: auto; font-size: 12.5px; line-height: 1.55;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap;
+            word-break: break-word; }
+  .balken { height: 6px; border-radius: 3px; background: var(--rand); overflow: hidden; min-width: 60px; }
+  .balken > i { display: block; height: 100%; background: var(--akzent); }
+  .fehler { background: color-mix(in srgb, var(--schlecht) 12%, transparent);
+            border-color: color-mix(in srgb, var(--schlecht) 40%, var(--rand)); }
+  .kopfzeile { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .kopfzeile h2 { margin: 0; }
+  .kopfzeile .rechts { margin-left: auto; display: flex; gap: 8px; }
+  @media (max-width: 640px) {
+    .verstecken-schmal { display: none; }
+    header { gap: 8px; }
+    .schub { width: 100%; margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="huelle">
+
+  <header>
+    <div>
+      <h1><span class="anker">⚓</span>Seekampf – Raid &amp; Flotten Manager</h1>
+      <div class="insel" id="insel">wird geladen …</div>
+    </div>
+    <div class="schub">
+      <span class="marke" id="statusMarke"><span class="punkt"></span><span id="statusText">…</span></span>
+      <button id="anAus" class="haupt">…</button>
+    </div>
+  </header>
+
+  <section id="fehlerBox" class="fehler" hidden>
+    <strong>Fehler:</strong> <span id="fehlerText"></span>
+  </section>
+
+  <div class="kacheln" id="kacheln"></div>
+
+  <section>
+    <div class="kopfzeile">
+      <h2>Flotten unterwegs</h2>
+      <div class="rechts leise" id="flottenZahl"></div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Ziel</th><th class="verstecken-schmal">Insel</th><th>Phase</th>
+        <th>Beute</th><th class="zahl">Ankunft</th><th class="zahl">Rückkehr</th>
+      </tr></thead>
+      <tbody id="flotten"><tr><td colspan="6" class="leise">keine Flotte unterwegs</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="kopfzeile">
+      <h2>Zielrotation</h2>
+      <div class="rechts">
+        <span class="leise" id="scanInfo"></span>
+        <button class="klein" id="scanJetzt">Jetzt scannen</button>
+        <button class="klein" id="blacklistLeeren">Blacklist leeren</button>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th></th><th>Koordinaten</th><th class="verstecken-schmal">Name</th>
+        <th class="zahl">Fahrzeit</th><th class="zahl">Raids</th>
+        <th class="verstecken-schmal">Letzte Beute</th><th class="zahl">Beute gesamt</th>
+        <th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="ziele"><tr><td colspan="9" class="leise">noch nicht gescannt</td></tr></tbody>
+    </table>
+  </section>
+
+  <section>
+    <div class="kopfzeile">
+      <h2>Einstellungen</h2>
+      <div class="rechts">
+        <span class="leise" id="settingsInfo"></span>
+        <button class="klein" id="speichern">Speichern</button>
+      </div>
+    </div>
+    <div class="formular" id="formular"></div>
+  </section>
+
+  <section>
+    <div class="kopfzeile">
+      <h2>Log</h2>
+      <div class="rechts">
+        <span class="leise" id="logDatei"></span>
+        <button class="klein" id="statsReset">Statistik zurücksetzen</button>
+      </div>
+    </div>
+    <pre id="log">…</pre>
+  </section>
+
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let daten = null;
+let zeitVersatz = 0;      // Serverzeit - Browserzeit, damit Countdowns stimmen
+let logAmEnde = true;
+
+const FELDER = [
+  { gruppe: "Suchbereich" },
+  { key: "scan_radius_sektoren", label: "Radius (Sektoren)", typ: "number", schritt: 1,
+    hinweis: "0 = nur eigener Sektor, 1 = 3×3, 2 = 5×5" },
+  { key: "scan_intervall_stunden", label: "Neu-Scan alle (h)", typ: "number", schritt: 1 },
+
+  { gruppe: "Flotte" },
+  { key: "flotte_kriegsschiffe", label: "Kriegsschiffe je Flotte", typ: "number", schritt: 1 },
+  { key: "flotte_handelsschiffe", label: "Handelsschiffe je Flotte", typ: "number", schritt: 1,
+    hinweis: "je Schiff 75 Beute" },
+  { key: "flotte_einheiten", label: "Steinewerfer je Flotte", typ: "number", schritt: 1 },
+  { key: "max_flotten", label: "Max. Flotten gleichzeitig", typ: "number", schritt: 1,
+    hinweis: "0 = so viele, wie Schiffe da sind" },
+
+  { gruppe: "Angriff" },
+  { key: "rohstoff_modus", label: "Beute-Priorisierung", typ: "select",
+    optionen: [["knappster", "knappster Rohstoff"], ["gleichmaessig", "gleichmäßig"],
+               ["gold", "immer Gold"], ["stein", "immer Stein"], ["holz", "immer Holz"]],
+    hinweis: "rechnet ein, was schon unterwegs ist" },
+  { key: "ausgleich_schwelle", label: "Ausgleichsschwelle", typ: "number", schritt: 0.01,
+    hinweis: "Anteil der Lagerkapazität; darunter gleichmäßig" },
+  { key: "razzia_ziel", label: "Razzia-Ziel", typ: "text",
+    hinweis: "haupthaus ist auf freien Inseln Stufe 0 → kein Schaden" },
+
+  { gruppe: "Sicherheit" },
+  { key: "lager_voll_schwelle", label: "Lager-voll-Schwelle", typ: "number", schritt: 0.01,
+    hinweis: "Pause, wenn alle drei Rohstoffe darüber liegen" },
+  { key: "niederlagen_bis_blacklist", label: "Niederlagen bis Blacklist", typ: "number", schritt: 1 },
+  { key: "blacklist_tage", label: "Blacklist-Dauer (Tage)", typ: "number", schritt: 1 },
+  { key: "rueckruf_bei_bedrohung", label: "Flotten bei Bedrohung zurückrufen", typ: "checkbox" },
+
+  { gruppe: "Takt & Telegram" },
+  { key: "tick_sekunden", label: "Takt (Sekunden)", typ: "number", schritt: 1 },
+  { key: "telegram_report", label: "Telegram-Morgenreport", typ: "checkbox" },
+  { key: "report_stunde", label: "Report um (Uhr)", typ: "number", schritt: 1 },
+];
+
+function zahl(n, stellen = 0) {
+  return (n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: stellen });
+}
+function dauer(sekunden) {
+  if (sekunden === null || sekunden === undefined) return "–";
+  let s = Math.max(0, Math.round(sekunden));
+  const t = Math.floor(s / 86400); s -= t * 86400;
+  const h = Math.floor(s / 3600);  s -= h * 3600;
+  const m = Math.floor(s / 60);    s -= m * 60;
+  if (t) return `${t}d ${h}h`;
+  if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (m) return `${m}:${String(s).padStart(2, "0")}`;
+  return `${s}s`;
+}
+function laufzeit(sekunden) {
+  // Bewusst ohne Tage-Umbruch: die Gesamtlaufzeit liest sich als "141h 41m".
+  const s = Math.max(0, Math.round(sekunden || 0));
+  return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
+}
+function jetzt() { return Date.now() / 1000 + zeitVersatz; }
+function uhrzeit(ts) {
+  if (!ts) return "–";
+  return new Date(ts * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+}
+function beuteText(b) {
+  if (!b) return "–";
+  const teile = [["gold", "G"], ["stein", "S"], ["holz", "H"]]
+    .filter(([k]) => (b[k] ?? 0) > 0).map(([k, kurz]) => `${zahl(b[k])} ${kurz}`);
+  return teile.length ? teile.join(" · ") : "nichts";
+}
+
+async function hole(pfad, optionen) {
+  const antwort = await fetch(pfad, optionen);
+  if (!antwort.ok) throw new Error(await antwort.text());
+  return antwort.json();
+}
+async function post(pfad, koerper) {
+  return hole(pfad, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(koerper ?? {}),
+  });
+}
+
+function zeichneKacheln(d) {
+  const s = d.stats;
+  const k = [
+    { wert: zahl(s.raids), label: "Raids gesamt" },
+    { wert: zahl(s.inseln_besucht), label: "Inseln besucht" },
+    { wert: zahl(s.gold), label: "Gold" },
+    { wert: zahl(s.stein), label: "Stein" },
+    { wert: zahl(s.holz), label: "Holz" },
+    { wert: laufzeit(s.laufzeit_s), label: "Laufzeit" },
+    { wert: zahl(s.loot_pro_stunde), label: "Loot / Stunde", icon: "\u26a1", klasse: "signal" },
+  ];
+  $("kacheln").innerHTML = k.map(x =>
+    `<div class="kachel ${x.klasse || ""}">
+       <div class="beschriftung">${x.icon ? `<span class="icon">${x.icon}</span>` : ""}${x.label}</div>
+       <div class="wert">${x.wert}</div>
+     </div>`).join("");
+}
+
+function zeichneFlotten(d) {
+  const koerper = $("flotten");
+  $("flottenZahl").textContent = d.flotten.length
+    ? `${d.flotten.length} unterwegs` : "";
+  if (!d.flotten.length) {
+    koerper.innerHTML = `<tr><td colspan="6" class="leise">keine Flotte unterwegs</td></tr>`;
+    return;
+  }
+  const t = jetzt();
+  koerper.innerHTML = d.flotten.map(f => {
+    const hin = f.angekommen;
+    const phase = hin
+      ? `<span class="marke gut"><span class="punkt"></span>Rückweg</span>`
+      : `<span class="marke"><span class="punkt"></span>Hinweg</span>`;
+    const prio = f.prioritaet ? ` <span class="leise">(${f.prioritaet})</span>` : "";
+    return `<tr>
+      <td class="mono">${f.koordinaten}${prio}</td>
+      <td class="verstecken-schmal">${f.ziel_name || "–"}</td>
+      <td>${phase}</td>
+      <td>${hin ? beuteText(f.loot) : "<span class='leise'>–</span>"}</td>
+      <td class="zahl">${hin ? `<span class="leise">${uhrzeit(f.arrive_at)}</span>`
+                             : `<b>${dauer((f.arrive_at || t) - t)}</b>`}</td>
+      <td class="zahl">${f.return_at ? `<b>${dauer(f.return_at - t)}</b>
+          <span class="leise">${uhrzeit(f.return_at)}</span>` : "–"}</td>
+    </tr>`;
+  }).join("");
+}
+
+function zeichneZiele(d) {
+  const koerper = $("ziele");
+  if (!d.ziele.length) {
+    koerper.innerHTML = `<tr><td colspan="9" class="leise">noch keine freien Inseln gefunden</td></tr>`;
+    return;
+  }
+  const t = jetzt();
+  const unterwegs = new Set(d.flotten.map(f => f.koordinaten));
+  const maxBeute = Math.max(1, ...d.ziele.map(z =>
+    (z.beute_gesamt.gold + z.beute_gesamt.stein + z.beute_gesamt.holz)));
+  koerper.innerHTML = d.ziele.map(z => {
+    const summe = z.beute_gesamt.gold + z.beute_gesamt.stein + z.beute_gesamt.holz;
+    const gesperrt = z.blacklist_bis && (z.blacklist_bis === "dauerhaft" || z.blacklist_bis > t);
+    let status;
+    if (gesperrt) {
+      const rest = z.blacklist_bis === "dauerhaft" ? "dauerhaft" : dauer(z.blacklist_bis - t);
+      status = `<span class="marke schlecht" title="${z.blacklist_grund || ""}">
+                <span class="punkt"></span>gesperrt ${rest}</span>`;
+    } else if (unterwegs.has(z.koordinaten)) {
+      status = `<span class="marke"><span class="punkt"></span>angefahren</span>`;
+    } else if (z.koordinaten === d.naechstes_ziel) {
+      status = `<span class="marke gut"><span class="punkt"></span>als Nächstes</span>`;
+    } else {
+      status = `<span class="leise">bereit</span>`;
+    }
+    return `<tr>
+      <td>${z.niederlagen_gesamt ? `<span title="${z.niederlagen_gesamt} Niederlagen">⚔</span>` : ""}</td>
+      <td class="mono">${z.koordinaten}</td>
+      <td class="verstecken-schmal">${z.name}</td>
+      <td class="zahl">${dauer(z.fahrzeit_s)}</td>
+      <td class="zahl">${zahl(z.raids)}</td>
+      <td class="verstecken-schmal">${beuteText(z.letzte_beute)}</td>
+      <td class="zahl">${zahl(summe)}
+        <div class="balken"><i style="width:${Math.round(100 * summe / maxBeute)}%"></i></div></td>
+      <td>${status}</td>
+      <td><button class="klein" data-sperre="${z.koordinaten}">
+            ${gesperrt ? "frei" : "sperren"}</button></td>
+    </tr>`;
+  }).join("");
+  koerper.querySelectorAll("[data-sperre]").forEach(b => {
+    b.onclick = async () => {
+      await post(`/api/ziele/${b.dataset.sperre}/sperre`);
+      aktualisieren();
+    };
+  });
+}
+
+function zeichneFormular(s) {
+  if ($("formular").dataset.gebaut) return;   // nicht beim Tippen ueberschreiben
+  $("formular").dataset.gebaut = "1";
+  $("formular").innerHTML = FELDER.map(f => {
+    if (f.gruppe) return `<div class="gruppe">${f.gruppe}</div>`;
+    const hinweis = f.hinweis ? `<span class="hinweis">${f.hinweis}</span>` : "";
+    if (f.typ === "checkbox") {
+      return `<div class="feld schalter">
+        <input type="checkbox" id="s_${f.key}" ${s[f.key] ? "checked" : ""}>
+        <label for="s_${f.key}">${f.label}</label></div>`;
+    }
+    if (f.typ === "select") {
+      const opts = f.optionen.map(([w, t]) =>
+        `<option value="${w}" ${s[f.key] === w ? "selected" : ""}>${t}</option>`).join("");
+      return `<div class="feld"><label for="s_${f.key}">${f.label}</label>
+        <select id="s_${f.key}">${opts}</select>${hinweis}</div>`;
+    }
+    return `<div class="feld"><label for="s_${f.key}">${f.label}</label>
+      <input type="${f.typ}" step="${f.schritt ?? "any"}" id="s_${f.key}" value="${s[f.key]}">
+      ${hinweis}</div>`;
+  }).join("");
+}
+
+async function speichern() {
+  const nutzlast = {};
+  for (const f of FELDER) {
+    if (f.gruppe) continue;
+    const el = $(`s_${f.key}`);
+    nutzlast[f.key] = f.typ === "checkbox" ? el.checked : el.value;
+  }
+  const antwort = await post("/api/settings", nutzlast);
+  const n = Object.keys(antwort.geaendert).length;
+  $("settingsInfo").textContent = n ? `${n} Änderung(en) übernommen` : "nichts geändert";
+  setTimeout(() => ($("settingsInfo").textContent = ""), 4000);
+}
+
+function zeichneKopf(d) {
+  const i = d.insel;
+  $("insel").textContent = i.name
+    ? `${i.name} (${i.koordinaten}) · ${zahl(i.rohstoffe.gold)} Gold · ${zahl(i.rohstoffe.stein)} Stein · `
+      + `${zahl(i.rohstoffe.holz)} Holz von je ${zahl(i.rohstoffe.kapazitaet)}`
+    : "Insel wird ermittelt …";
+
+  const marke = $("statusMarke");
+  let klasse = "marke", text;
+  if (!d.laeuft) { klasse += " schlecht"; text = "gestoppt"; }
+  else if (d.insel.bedrohung) { klasse += " warn"; text = "Bedrohung im Anflug"; }
+  else if (d.pause_grund) { klasse += " warn"; text = d.pause_grund; }
+  else { klasse += " gut"; text = "läuft"; }
+  marke.className = klasse;
+  $("statusText").textContent = text;
+
+  const knopf = $("anAus");
+  knopf.textContent = d.laeuft ? "Stoppen" : "Starten";
+  knopf.className = d.laeuft ? "stop" : "haupt";
+
+  $("fehlerBox").hidden = !d.fehler;
+  $("fehlerText").textContent = d.fehler || "";
+  $("scanInfo").textContent = d.letzter_scan
+    ? `letzter Scan vor ${dauer(jetzt() - d.letzter_scan)}` : "noch kein Scan";
+}
+
+async function aktualisieren() {
+  try {
+    const d = await hole("/api/status");
+    zeitVersatz = d.serverzeit - Date.now() / 1000;
+    daten = d;
+    zeichneKopf(d); zeichneKacheln(d); zeichneFlotten(d); zeichneZiele(d);
+    zeichneFormular(d.settings);
+  } catch (e) {
+    $("fehlerBox").hidden = false;
+    $("fehlerText").textContent = "Weboberfläche erreicht den Dienst nicht: " + e.message;
+  }
+}
+
+async function logHolen() {
+  try {
+    const d = await hole("/api/log?zeilen=250");
+    const el = $("log");
+    logAmEnde = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+    el.textContent = (d.zeilen || []).join("\n") || "(noch nichts geloggt)";
+    $("logDatei").textContent = d.datei || "";
+    if (logAmEnde) el.scrollTop = el.scrollHeight;
+  } catch (e) { /* Log ist Beiwerk - Fehler steht schon oben */ }
+}
+
+$("anAus").onclick = async () => {
+  await post("/api/control", { aktion: daten && daten.laeuft ? "stop" : "start" });
+  aktualisieren();
+};
+$("scanJetzt").onclick = async (e) => {
+  e.target.disabled = true; e.target.textContent = "scannt …";
+  try { const r = await post("/api/scan"); $("scanInfo").textContent =
+          `${r.gefunden} freie Inseln (${r.neu.length} neu)`; }
+  finally { e.target.disabled = false; e.target.textContent = "Jetzt scannen"; aktualisieren(); }
+};
+$("blacklistLeeren").onclick = async () => { await post("/api/blacklist/clear"); aktualisieren(); };
+$("statsReset").onclick = async () => {
+  if (confirm("Statistik wirklich auf null zurücksetzen?")) {
+    await post("/api/stats/reset"); aktualisieren();
+  }
+};
+$("speichern").onclick = speichern;
+
+aktualisieren();
+logHolen();
+setInterval(aktualisieren, 3000);
+setInterval(logHolen, 5000);
+setInterval(() => { if (daten) { zeichneFlotten(daten); zeichneZiele(daten); } }, 1000);
+</script>
+</body>
+</html>
