@@ -13,6 +13,7 @@ config.PRIORITY_WEIGHTS als Startwert.
 from __future__ import annotations
 
 import config
+import gamedata
 
 
 def affordable(cost: dict, current: dict) -> bool:
@@ -50,13 +51,25 @@ def collect_candidates(buildings: list, levels: dict) -> dict:
     return result
 
 
-def _resource_score(name: str, candidate: dict, capacity: float, store) -> float:
-    cost_norm = max(normalized_cost(candidate["cost"], capacity), 1e-6)
+def resource_gain(name: str, candidate: dict, store) -> tuple[float | None, str]:
+    """Produktionsplus pro Stunde, das dieser Ausbau bringt - und woher der Wert
+    stammt. Erste Wahl sind die offiziellen Regeltabellen (gamedata.py), die
+    jede Stufe kennen; die aus Beobachtungen gelernten Werte greifen nur, wenn
+    die Tabelle fehlt (Datei nicht geholt, Stufe ausserhalb 1-20)."""
+    gain = gamedata.production_gain(name, candidate["level"], candidate["target_level"])
+    if gain is not None:
+        return gain, "Tabelle"
     learned = store.production_delta(name, candidate["target_level"])
     if learned is not None:
-        gain = learned.gold + learned.stein + learned.holz
-        if gain > 0:
-            return gain / cost_norm
+        return learned.gold + learned.stein + learned.holz, "gelernt"
+    return None, "Gewichtung"
+
+
+def _resource_score(name: str, candidate: dict, capacity: float, store) -> float:
+    cost_norm = max(normalized_cost(candidate["cost"], capacity), 1e-6)
+    gain, _ = resource_gain(name, candidate, store)
+    if gain is not None and gain > 0:
+        return gain / cost_norm
     weight = config.PRIORITY_WEIGHTS.get(name, 100.0)
     return weight / cost_norm
 

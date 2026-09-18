@@ -3,4 +3,7 @@ __pycache__/
 *.pyc
 logs/
 .venv/
-data/
+data/*
+# Ausnahme: die Tabellen aus den Spielregeln sind feste Referenzdaten,
+# kein Laufzeitzustand - die gehoeren ins Repo.
+!data/gamedata.json

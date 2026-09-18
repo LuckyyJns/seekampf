@@ -1,0 +1,1203 @@
+{
+ "quelle": "https://seekampf.de/legal/regeln",
+ "gebaeude": {
+  "haupthaus": {
+   "1": {
+    "gold": 130.0,
+    "stein": 200.0,
+    "holz": 80.0,
+    "bauzeit_s": 1200
+   },
+   "2": {
+    "gold": 174.0,
+    "stein": 267.0,
+    "holz": 107.0,
+    "bauzeit_s": 1489
+   },
+   "3": {
+    "gold": 232.0,
+    "stein": 358.0,
+    "holz": 143.0,
+    "bauzeit_s": 1847
+   },
+   "4": {
+    "gold": 311.0,
+    "stein": 478.0,
+    "holz": 191.0,
+    "bauzeit_s": 2291
+   },
+   "5": {
+    "gold": 416.0,
+    "stein": 640.0,
+    "holz": 256.0,
+    "bauzeit_s": 2841
+   },
+   "6": {
+    "gold": 556.0,
+    "stein": 855.0,
+    "holz": 342.0,
+    "bauzeit_s": 3525
+   },
+   "7": {
+    "gold": 743.0,
+    "stein": 1144.0,
+    "holz": 457.0,
+    "bauzeit_s": 4372
+   },
+   "8": {
+    "gold": 994.0,
+    "stein": 1529.0,
+    "holz": 612.0,
+    "bauzeit_s": 5424
+   },
+   "9": {
+    "gold": 1329.0,
+    "stein": 2045.0,
+    "holz": 818.0,
+    "bauzeit_s": 6728
+   },
+   "10": {
+    "gold": 1778.0,
+    "stein": 2735.0,
+    "holz": 1094.0,
+    "bauzeit_s": 8346
+   },
+   "11": {
+    "gold": 2377.0,
+    "stein": 3657.0,
+    "holz": 1463.0,
+    "bauzeit_s": 10353
+   },
+   "12": {
+    "gold": 3179.0,
+    "stein": 4890.0,
+    "holz": 1956.0,
+    "bauzeit_s": 12842
+   },
+   "13": {
+    "gold": 4250.0,
+    "stein": 6539.0,
+    "holz": 2616.0,
+    "bauzeit_s": 15930
+   },
+   "14": {
+    "gold": 5684.0,
+    "stein": 8744.0,
+    "holz": 3498.0,
+    "bauzeit_s": 19761
+   },
+   "15": {
+    "gold": 7601.0,
+    "stein": 11693.0,
+    "holz": 4677.0,
+    "bauzeit_s": 24513
+   },
+   "16": {
+    "gold": 8789.0,
+    "stein": 13522.0,
+    "holz": 5409.0,
+    "bauzeit_s": 27302
+   },
+   "17": {
+    "gold": 10164.0,
+    "stein": 15637.0,
+    "holz": 6255.0,
+    "bauzeit_s": 30408
+   },
+   "18": {
+    "gold": 11753.0,
+    "stein": 18082.0,
+    "holz": 7233.0,
+    "bauzeit_s": 33867
+   },
+   "19": {
+    "gold": 13591.0,
+    "stein": 20910.0,
+    "holz": 8364.0,
+    "bauzeit_s": 37720
+   },
+   "20": {
+    "gold": 15717.0,
+    "stein": 24180.0,
+    "holz": 9672.0,
+    "bauzeit_s": 42011
+   }
+  },
+  "goldmine": {
+   "1": {
+    "gold": 65.0,
+    "stein": 100.0,
+    "holz": 40.0,
+    "produktion_pro_h": 55.0,
+    "bauzeit_s": 960
+   },
+   "2": {
+    "gold": 87.0,
+    "stein": 134.0,
+    "holz": 53.0,
+    "produktion_pro_h": 65.0,
+    "bauzeit_s": 1191
+   },
+   "3": {
+    "gold": 116.0,
+    "stein": 179.0,
+    "holz": 72.0,
+    "produktion_pro_h": 76.0,
+    "bauzeit_s": 1477
+   },
+   "4": {
+    "gold": 155.0,
+    "stein": 239.0,
+    "holz": 96.0,
+    "produktion_pro_h": 89.0,
+    "bauzeit_s": 1832
+   },
+   "5": {
+    "gold": 208.0,
+    "stein": 320.0,
+    "holz": 128.0,
+    "produktion_pro_h": 105.0,
+    "bauzeit_s": 2273
+   },
+   "6": {
+    "gold": 278.0,
+    "stein": 428.0,
+    "holz": 171.0,
+    "produktion_pro_h": 124.0,
+    "bauzeit_s": 2820
+   },
+   "7": {
+    "gold": 372.0,
+    "stein": 572.0,
+    "holz": 229.0,
+    "produktion_pro_h": 145.0,
+    "bauzeit_s": 3498
+   },
+   "8": {
+    "gold": 497.0,
+    "stein": 765.0,
+    "holz": 306.0,
+    "produktion_pro_h": 171.0,
+    "bauzeit_s": 4339
+   },
+   "9": {
+    "gold": 665.0,
+    "stein": 1022.0,
+    "holz": 409.0,
+    "produktion_pro_h": 201.0,
+    "bauzeit_s": 5382
+   },
+   "10": {
+    "gold": 889.0,
+    "stein": 1367.0,
+    "holz": 547.0,
+    "produktion_pro_h": 236.0,
+    "bauzeit_s": 6677
+   },
+   "11": {
+    "gold": 1188.0,
+    "stein": 1828.0,
+    "holz": 731.0,
+    "produktion_pro_h": 277.0,
+    "bauzeit_s": 8282
+   },
+   "12": {
+    "gold": 1589.0,
+    "stein": 2445.0,
+    "holz": 978.0,
+    "produktion_pro_h": 326.0,
+    "bauzeit_s": 10274
+   },
+   "13": {
+    "gold": 2125.0,
+    "stein": 3270.0,
+    "holz": 1308.0,
+    "produktion_pro_h": 383.0,
+    "bauzeit_s": 12744
+   },
+   "14": {
+    "gold": 2842.0,
+    "stein": 4372.0,
+    "holz": 1749.0,
+    "produktion_pro_h": 451.0,
+    "bauzeit_s": 15809
+   },
+   "15": {
+    "gold": 3800.0,
+    "stein": 5847.0,
+    "holz": 2339.0,
+    "produktion_pro_h": 530.0,
+    "bauzeit_s": 19610
+   },
+   "16": {
+    "gold": 5082.0,
+    "stein": 7818.0,
+    "holz": 3127.0,
+    "produktion_pro_h": 623.0,
+    "bauzeit_s": 21841
+   },
+   "17": {
+    "gold": 6796.0,
+    "stein": 10455.0,
+    "holz": 4182.0,
+    "produktion_pro_h": 732.0,
+    "bauzeit_s": 24326
+   },
+   "18": {
+    "gold": 9087.0,
+    "stein": 13981.0,
+    "holz": 5592.0,
+    "produktion_pro_h": 861.0,
+    "bauzeit_s": 27094
+   },
+   "19": {
+    "gold": 12152.0,
+    "stein": 18695.0,
+    "holz": 7478.0,
+    "produktion_pro_h": 1012.0,
+    "bauzeit_s": 30176
+   },
+   "20": {
+    "gold": 16250.0,
+    "stein": 25000.0,
+    "holz": 10000.0,
+    "produktion_pro_h": 1190.0,
+    "bauzeit_s": 33609
+   }
+  },
+  "steingrube": {
+   "1": {
+    "gold": 65.0,
+    "stein": 100.0,
+    "holz": 40.0,
+    "produktion_pro_h": 75.0,
+    "bauzeit_s": 960
+   },
+   "2": {
+    "gold": 87.0,
+    "stein": 134.0,
+    "holz": 53.0,
+    "produktion_pro_h": 87.0,
+    "bauzeit_s": 1191
+   },
+   "3": {
+    "gold": 116.0,
+    "stein": 179.0,
+    "holz": 72.0,
+    "produktion_pro_h": 100.0,
+    "bauzeit_s": 1477
+   },
+   "4": {
+    "gold": 155.0,
+    "stein": 239.0,
+    "holz": 96.0,
+    "produktion_pro_h": 116.0,
+    "bauzeit_s": 1832
+   },
+   "5": {
+    "gold": 208.0,
+    "stein": 320.0,
+    "holz": 128.0,
+    "produktion_pro_h": 134.0,
+    "bauzeit_s": 2273
+   },
+   "6": {
+    "gold": 278.0,
+    "stein": 428.0,
+    "holz": 171.0,
+    "produktion_pro_h": 155.0,
+    "bauzeit_s": 2820
+   },
+   "7": {
+    "gold": 372.0,
+    "stein": 572.0,
+    "holz": 229.0,
+    "produktion_pro_h": 180.0,
+    "bauzeit_s": 3498
+   },
+   "8": {
+    "gold": 497.0,
+    "stein": 765.0,
+    "holz": 306.0,
+    "produktion_pro_h": 208.0,
+    "bauzeit_s": 4339
+   },
+   "9": {
+    "gold": 665.0,
+    "stein": 1022.0,
+    "holz": 409.0,
+    "produktion_pro_h": 240.0,
+    "bauzeit_s": 5382
+   },
+   "10": {
+    "gold": 889.0,
+    "stein": 1367.0,
+    "holz": 547.0,
+    "produktion_pro_h": 278.0,
+    "bauzeit_s": 6677
+   },
+   "11": {
+    "gold": 1188.0,
+    "stein": 1828.0,
+    "holz": 731.0,
+    "produktion_pro_h": 321.0,
+    "bauzeit_s": 8282
+   },
+   "12": {
+    "gold": 1589.0,
+    "stein": 2445.0,
+    "holz": 978.0,
+    "produktion_pro_h": 372.0,
+    "bauzeit_s": 10274
+   },
+   "13": {
+    "gold": 2125.0,
+    "stein": 3270.0,
+    "holz": 1308.0,
+    "produktion_pro_h": 430.0,
+    "bauzeit_s": 12744
+   },
+   "14": {
+    "gold": 2842.0,
+    "stein": 4372.0,
+    "holz": 1749.0,
+    "produktion_pro_h": 497.0,
+    "bauzeit_s": 15809
+   },
+   "15": {
+    "gold": 3800.0,
+    "stein": 5847.0,
+    "holz": 2339.0,
+    "produktion_pro_h": 575.0,
+    "bauzeit_s": 19610
+   },
+   "16": {
+    "gold": 5082.0,
+    "stein": 7818.0,
+    "holz": 3127.0,
+    "produktion_pro_h": 665.0,
+    "bauzeit_s": 21841
+   },
+   "17": {
+    "gold": 6796.0,
+    "stein": 10455.0,
+    "holz": 4182.0,
+    "produktion_pro_h": 769.0,
+    "bauzeit_s": 24326
+   },
+   "18": {
+    "gold": 9087.0,
+    "stein": 13981.0,
+    "holz": 5592.0,
+    "produktion_pro_h": 890.0,
+    "bauzeit_s": 27094
+   },
+   "19": {
+    "gold": 12152.0,
+    "stein": 18695.0,
+    "holz": 7478.0,
+    "produktion_pro_h": 1029.0,
+    "bauzeit_s": 30176
+   },
+   "20": {
+    "gold": 16250.0,
+    "stein": 25000.0,
+    "holz": 10000.0,
+    "produktion_pro_h": 1190.0,
+    "bauzeit_s": 33609
+   }
+  },
+  "saegewerk": {
+   "1": {
+    "gold": 65.0,
+    "stein": 100.0,
+    "holz": 40.0,
+    "produktion_pro_h": 65.0,
+    "bauzeit_s": 960
+   },
+   "2": {
+    "gold": 87.0,
+    "stein": 134.0,
+    "holz": 53.0,
+    "produktion_pro_h": 76.0,
+    "bauzeit_s": 1191
+   },
+   "3": {
+    "gold": 116.0,
+    "stein": 179.0,
+    "holz": 72.0,
+    "produktion_pro_h": 88.0,
+    "bauzeit_s": 1477
+   },
+   "4": {
+    "gold": 155.0,
+    "stein": 239.0,
+    "holz": 96.0,
+    "produktion_pro_h": 103.0,
+    "bauzeit_s": 1832
+   },
+   "5": {
+    "gold": 208.0,
+    "stein": 320.0,
+    "holz": 128.0,
+    "produktion_pro_h": 120.0,
+    "bauzeit_s": 2273
+   },
+   "6": {
+    "gold": 278.0,
+    "stein": 428.0,
+    "holz": 171.0,
+    "produktion_pro_h": 140.0,
+    "bauzeit_s": 2820
+   },
+   "7": {
+    "gold": 372.0,
+    "stein": 572.0,
+    "holz": 229.0,
+    "produktion_pro_h": 163.0,
+    "bauzeit_s": 3498
+   },
+   "8": {
+    "gold": 497.0,
+    "stein": 765.0,
+    "holz": 306.0,
+    "produktion_pro_h": 190.0,
+    "bauzeit_s": 4339
+   },
+   "9": {
+    "gold": 665.0,
+    "stein": 1022.0,
+    "holz": 409.0,
+    "produktion_pro_h": 221.0,
+    "bauzeit_s": 5382
+   },
+   "10": {
+    "gold": 889.0,
+    "stein": 1367.0,
+    "holz": 547.0,
+    "produktion_pro_h": 258.0,
+    "bauzeit_s": 6677
+   },
+   "11": {
+    "gold": 1188.0,
+    "stein": 1828.0,
+    "holz": 731.0,
+    "produktion_pro_h": 300.0,
+    "bauzeit_s": 8282
+   },
+   "12": {
+    "gold": 1589.0,
+    "stein": 2445.0,
+    "holz": 978.0,
+    "produktion_pro_h": 350.0,
+    "bauzeit_s": 10274
+   },
+   "13": {
+    "gold": 2125.0,
+    "stein": 3270.0,
+    "holz": 1308.0,
+    "produktion_pro_h": 408.0,
+    "bauzeit_s": 12744
+   },
+   "14": {
+    "gold": 2842.0,
+    "stein": 4372.0,
+    "holz": 1749.0,
+    "produktion_pro_h": 475.0,
+    "bauzeit_s": 15809
+   },
+   "15": {
+    "gold": 3800.0,
+    "stein": 5847.0,
+    "holz": 2339.0,
+    "produktion_pro_h": 554.0,
+    "bauzeit_s": 19610
+   },
+   "16": {
+    "gold": 5082.0,
+    "stein": 7818.0,
+    "holz": 3127.0,
+    "produktion_pro_h": 645.0,
+    "bauzeit_s": 21841
+   },
+   "17": {
+    "gold": 6796.0,
+    "stein": 10455.0,
+    "holz": 4182.0,
+    "produktion_pro_h": 752.0,
+    "bauzeit_s": 24326
+   },
+   "18": {
+    "gold": 9087.0,
+    "stein": 13981.0,
+    "holz": 5592.0,
+    "produktion_pro_h": 876.0,
+    "bauzeit_s": 27094
+   },
+   "19": {
+    "gold": 12152.0,
+    "stein": 18695.0,
+    "holz": 7478.0,
+    "produktion_pro_h": 1021.0,
+    "bauzeit_s": 30176
+   },
+   "20": {
+    "gold": 16250.0,
+    "stein": 25000.0,
+    "holz": 10000.0,
+    "produktion_pro_h": 1190.0,
+    "bauzeit_s": 33609
+   }
+  },
+  "lagerhaus": {
+   "1": {
+    "gold": 61.0,
+    "stein": 50.0,
+    "holz": 110.0,
+    "kapazitaet": 1000.0,
+    "pluenderschutz": 440.0,
+    "bauzeit_s": 960
+   },
+   "2": {
+    "gold": 81.0,
+    "stein": 66.0,
+    "holz": 147.0,
+    "kapazitaet": 1322.0,
+    "pluenderschutz": 680.0,
+    "bauzeit_s": 1187
+   },
+   "3": {
+    "gold": 108.0,
+    "stein": 89.0,
+    "holz": 197.0,
+    "kapazitaet": 1749.0,
+    "pluenderschutz": 920.0,
+    "bauzeit_s": 1467
+   },
+   "4": {
+    "gold": 145.0,
+    "stein": 118.0,
+    "holz": 263.0,
+    "kapazitaet": 2312.0,
+    "pluenderschutz": 1160.0,
+    "bauzeit_s": 1814
+   },
+   "5": {
+    "gold": 193.0,
+    "stein": 158.0,
+    "holz": 352.0,
+    "kapazitaet": 3058.0,
+    "pluenderschutz": 1400.0,
+    "bauzeit_s": 2242
+   },
+   "6": {
+    "gold": 259.0,
+    "stein": 212.0,
+    "holz": 470.0,
+    "kapazitaet": 4044.0,
+    "pluenderschutz": 1640.0,
+    "bauzeit_s": 2772
+   },
+   "7": {
+    "gold": 346.0,
+    "stein": 283.0,
+    "holz": 629.0,
+    "kapazitaet": 5347.0,
+    "pluenderschutz": 1880.0,
+    "bauzeit_s": 3427
+   },
+   "8": {
+    "gold": 463.0,
+    "stein": 378.0,
+    "holz": 841.0,
+    "kapazitaet": 7071.0,
+    "pluenderschutz": 2120.0,
+    "bauzeit_s": 4237
+   },
+   "9": {
+    "gold": 619.0,
+    "stein": 506.0,
+    "holz": 1125.0,
+    "kapazitaet": 9351.0,
+    "pluenderschutz": 2360.0,
+    "bauzeit_s": 5238
+   },
+   "10": {
+    "gold": 827.0,
+    "stein": 677.0,
+    "holz": 1504.0,
+    "kapazitaet": 12365.0,
+    "pluenderschutz": 2600.0,
+    "bauzeit_s": 6476
+   },
+   "11": {
+    "gold": 1106.0,
+    "stein": 905.0,
+    "holz": 2011.0,
+    "kapazitaet": 14219.0,
+    "pluenderschutz": 2840.0,
+    "bauzeit_s": 8005
+   },
+   "12": {
+    "gold": 1479.0,
+    "stein": 1210.0,
+    "holz": 2690.0,
+    "kapazitaet": 16351.0,
+    "pluenderschutz": 3080.0,
+    "bauzeit_s": 9897
+   },
+   "13": {
+    "gold": 1978.0,
+    "stein": 1618.0,
+    "holz": 3597.0,
+    "kapazitaet": 18803.0,
+    "pluenderschutz": 3320.0,
+    "bauzeit_s": 12235
+   },
+   "14": {
+    "gold": 2645.0,
+    "stein": 2164.0,
+    "holz": 4809.0,
+    "kapazitaet": 21622.0,
+    "pluenderschutz": 3560.0,
+    "bauzeit_s": 15126
+   },
+   "15": {
+    "gold": 3537.0,
+    "stein": 2894.0,
+    "holz": 6431.0,
+    "kapazitaet": 24865.0,
+    "pluenderschutz": 3800.0,
+    "bauzeit_s": 18700
+   },
+   "16": {
+    "gold": 4730.0,
+    "stein": 3870.0,
+    "holz": 8600.0,
+    "kapazitaet": 28593.0,
+    "pluenderschutz": 4040.0,
+    "bauzeit_s": 23118
+   },
+   "17": {
+    "gold": 6325.0,
+    "stein": 5175.0,
+    "holz": 11500.0,
+    "kapazitaet": 32880.0,
+    "pluenderschutz": 4280.0,
+    "bauzeit_s": 28580
+   },
+   "18": {
+    "gold": 8458.0,
+    "stein": 6920.0,
+    "holz": 15379.0,
+    "kapazitaet": 37811.0,
+    "pluenderschutz": 4520.0,
+    "bauzeit_s": 35332
+   },
+   "19": {
+    "gold": 11311.0,
+    "stein": 9254.0,
+    "holz": 20565.0,
+    "kapazitaet": 43480.0,
+    "pluenderschutz": 4760.0,
+    "bauzeit_s": 43680
+   },
+   "20": {
+    "gold": 15125.0,
+    "stein": 12375.0,
+    "holz": 27500.0,
+    "kapazitaet": 50000.0,
+    "pluenderschutz": 5000.0,
+    "bauzeit_s": 54000
+   }
+  },
+  "steinmauer": {
+   "1": {
+    "gold": 42.0,
+    "stein": 140.0,
+    "holz": 21.0,
+    "bauzeit_s": 720
+   },
+   "2": {
+    "gold": 56.0,
+    "stein": 187.0,
+    "holz": 28.0,
+    "bauzeit_s": 885
+   },
+   "3": {
+    "gold": 75.0,
+    "stein": 250.0,
+    "holz": 38.0,
+    "bauzeit_s": 1087
+   },
+   "4": {
+    "gold": 100.0,
+    "stein": 335.0,
+    "holz": 50.0,
+    "bauzeit_s": 1335
+   },
+   "5": {
+    "gold": 134.0,
+    "stein": 448.0,
+    "holz": 67.0,
+    "bauzeit_s": 1641
+   },
+   "6": {
+    "gold": 180.0,
+    "stein": 599.0,
+    "holz": 90.0,
+    "bauzeit_s": 2016
+   },
+   "7": {
+    "gold": 240.0,
+    "stein": 801.0,
+    "holz": 120.0,
+    "bauzeit_s": 2477
+   },
+   "8": {
+    "gold": 321.0,
+    "stein": 1070.0,
+    "holz": 161.0,
+    "bauzeit_s": 3043
+   },
+   "9": {
+    "gold": 429.0,
+    "stein": 1431.0,
+    "holz": 215.0,
+    "bauzeit_s": 3738
+   },
+   "10": {
+    "gold": 574.0,
+    "stein": 1914.0,
+    "holz": 287.0,
+    "bauzeit_s": 4593
+   },
+   "11": {
+    "gold": 768.0,
+    "stein": 2560.0,
+    "holz": 384.0,
+    "bauzeit_s": 5643
+   },
+   "12": {
+    "gold": 1027.0,
+    "stein": 3423.0,
+    "holz": 513.0,
+    "bauzeit_s": 6933
+   },
+   "13": {
+    "gold": 1373.0,
+    "stein": 4577.0,
+    "holz": 687.0,
+    "bauzeit_s": 8519
+   },
+   "14": {
+    "gold": 1836.0,
+    "stein": 6121.0,
+    "holz": 918.0,
+    "bauzeit_s": 10466
+   },
+   "15": {
+    "gold": 2456.0,
+    "stein": 8185.0,
+    "holz": 1228.0,
+    "bauzeit_s": 12859
+   },
+   "16": {
+    "gold": 3284.0,
+    "stein": 10946.0,
+    "holz": 1642.0,
+    "bauzeit_s": 15799
+   },
+   "17": {
+    "gold": 4391.0,
+    "stein": 14637.0,
+    "holz": 2196.0,
+    "bauzeit_s": 19411
+   },
+   "18": {
+    "gold": 5872.0,
+    "stein": 19573.0,
+    "holz": 2936.0,
+    "bauzeit_s": 23849
+   },
+   "19": {
+    "gold": 7852.0,
+    "stein": 26173.0,
+    "holz": 3926.0,
+    "bauzeit_s": 29301
+   },
+   "20": {
+    "gold": 10500.0,
+    "stein": 35000.0,
+    "holz": 5250.0,
+    "bauzeit_s": 36000
+   }
+  },
+  "wachturm": {
+   "1": {
+    "gold": 45.0,
+    "stein": 90.0,
+    "holz": 27.0,
+    "bauzeit_s": 480
+   },
+   "2": {
+    "gold": 60.0,
+    "stein": 120.0,
+    "holz": 36.0,
+    "bauzeit_s": 586
+   },
+   "3": {
+    "gold": 80.0,
+    "stein": 161.0,
+    "holz": 48.0,
+    "bauzeit_s": 717
+   },
+   "4": {
+    "gold": 108.0,
+    "stein": 215.0,
+    "holz": 65.0,
+    "bauzeit_s": 876
+   },
+   "5": {
+    "gold": 144.0,
+    "stein": 288.0,
+    "holz": 86.0,
+    "bauzeit_s": 1070
+   },
+   "6": {
+    "gold": 192.0,
+    "stein": 385.0,
+    "holz": 115.0,
+    "bauzeit_s": 1307
+   },
+   "7": {
+    "gold": 257.0,
+    "stein": 515.0,
+    "holz": 154.0,
+    "bauzeit_s": 1597
+   },
+   "8": {
+    "gold": 344.0,
+    "stein": 688.0,
+    "holz": 206.0,
+    "bauzeit_s": 1951
+   },
+   "9": {
+    "gold": 460.0,
+    "stein": 920.0,
+    "holz": 276.0,
+    "bauzeit_s": 2384
+   },
+   "10": {
+    "gold": 615.0,
+    "stein": 1231.0,
+    "holz": 369.0,
+    "bauzeit_s": 2913
+   },
+   "11": {
+    "gold": 823.0,
+    "stein": 1646.0,
+    "holz": 494.0,
+    "bauzeit_s": 3559
+   },
+   "12": {
+    "gold": 1100.0,
+    "stein": 2201.0,
+    "holz": 660.0,
+    "bauzeit_s": 4349
+   },
+   "13": {
+    "gold": 1471.0,
+    "stein": 2943.0,
+    "holz": 883.0,
+    "bauzeit_s": 5313
+   },
+   "14": {
+    "gold": 1967.0,
+    "stein": 3935.0,
+    "holz": 1180.0,
+    "bauzeit_s": 6492
+   },
+   "15": {
+    "gold": 2631.0,
+    "stein": 5262.0,
+    "holz": 1579.0,
+    "bauzeit_s": 7932
+   },
+   "16": {
+    "gold": 3518.0,
+    "stein": 7036.0,
+    "holz": 2111.0,
+    "bauzeit_s": 9692
+   },
+   "17": {
+    "gold": 4705.0,
+    "stein": 9409.0,
+    "holz": 2823.0,
+    "bauzeit_s": 11842
+   },
+   "18": {
+    "gold": 6291.0,
+    "stein": 12583.0,
+    "holz": 3775.0,
+    "bauzeit_s": 14469
+   },
+   "19": {
+    "gold": 8413.0,
+    "stein": 16826.0,
+    "holz": 5048.0,
+    "bauzeit_s": 17678
+   },
+   "20": {
+    "gold": 11250.0,
+    "stein": 22500.0,
+    "holz": 6750.0,
+    "bauzeit_s": 21600
+   }
+  },
+  "kaserne": {
+   "1": {
+    "gold": 110.0,
+    "stein": 170.0,
+    "holz": 68.0,
+    "bauzeit_s": 1200
+   },
+   "2": {
+    "gold": 148.0,
+    "stein": 227.0,
+    "holz": 91.0,
+    "bauzeit_s": 1480
+   },
+   "3": {
+    "gold": 198.0,
+    "stein": 304.0,
+    "holz": 122.0,
+    "bauzeit_s": 1826
+   },
+   "4": {
+    "gold": 264.0,
+    "stein": 407.0,
+    "holz": 163.0,
+    "bauzeit_s": 2253
+   },
+   "5": {
+    "gold": 353.0,
+    "stein": 544.0,
+    "holz": 217.0,
+    "bauzeit_s": 2779
+   },
+   "6": {
+    "gold": 472.0,
+    "stein": 727.0,
+    "holz": 291.0,
+    "bauzeit_s": 3428
+   },
+   "7": {
+    "gold": 632.0,
+    "stein": 972.0,
+    "holz": 389.0,
+    "bauzeit_s": 4229
+   },
+   "8": {
+    "gold": 845.0,
+    "stein": 1300.0,
+    "holz": 520.0,
+    "bauzeit_s": 5217
+   },
+   "9": {
+    "gold": 1130.0,
+    "stein": 1738.0,
+    "holz": 695.0,
+    "bauzeit_s": 6436
+   },
+   "10": {
+    "gold": 1511.0,
+    "stein": 2324.0,
+    "holz": 930.0,
+    "bauzeit_s": 7939
+   },
+   "11": {
+    "gold": 2020.0,
+    "stein": 3108.0,
+    "holz": 1243.0,
+    "bauzeit_s": 9794
+   },
+   "12": {
+    "gold": 2702.0,
+    "stein": 4157.0,
+    "holz": 1663.0,
+    "bauzeit_s": 12082
+   },
+   "13": {
+    "gold": 3613.0,
+    "stein": 5558.0,
+    "holz": 2223.0,
+    "bauzeit_s": 14905
+   },
+   "14": {
+    "gold": 4831.0,
+    "stein": 7433.0,
+    "holz": 2973.0,
+    "bauzeit_s": 18387
+   },
+   "15": {
+    "gold": 6460.0,
+    "stein": 9939.0,
+    "holz": 3976.0,
+    "bauzeit_s": 22682
+   },
+   "16": {
+    "gold": 7471.0,
+    "stein": 11494.0,
+    "holz": 4597.0,
+    "bauzeit_s": 25192
+   },
+   "17": {
+    "gold": 8639.0,
+    "stein": 13291.0,
+    "holz": 5316.0,
+    "bauzeit_s": 27981
+   },
+   "18": {
+    "gold": 9990.0,
+    "stein": 15370.0,
+    "holz": 6148.0,
+    "bauzeit_s": 31078
+   },
+   "19": {
+    "gold": 11553.0,
+    "stein": 17773.0,
+    "holz": 7109.0,
+    "bauzeit_s": 34517
+   },
+   "20": {
+    "gold": 13359.0,
+    "stein": 20553.0,
+    "holz": 8221.0,
+    "bauzeit_s": 38338
+   }
+  },
+  "hafen": {
+   "1": {
+    "gold": 108.0,
+    "stein": 144.0,
+    "holz": 180.0,
+    "bauzeit_s": 1440
+   },
+   "2": {
+    "gold": 144.0,
+    "stein": 193.0,
+    "holz": 241.0,
+    "bauzeit_s": 1769
+   },
+   "3": {
+    "gold": 193.0,
+    "stein": 257.0,
+    "holz": 322.0,
+    "bauzeit_s": 2174
+   },
+   "4": {
+    "gold": 258.0,
+    "stein": 344.0,
+    "holz": 430.0,
+    "bauzeit_s": 2671
+   },
+   "5": {
+    "gold": 345.0,
+    "stein": 460.0,
+    "holz": 576.0,
+    "bauzeit_s": 3281
+   },
+   "6": {
+    "gold": 462.0,
+    "stein": 616.0,
+    "holz": 770.0,
+    "bauzeit_s": 4031
+   },
+   "7": {
+    "gold": 618.0,
+    "stein": 823.0,
+    "holz": 1029.0,
+    "bauzeit_s": 4953
+   },
+   "8": {
+    "gold": 826.0,
+    "stein": 1101.0,
+    "holz": 1376.0,
+    "bauzeit_s": 6086
+   },
+   "9": {
+    "gold": 1104.0,
+    "stein": 1472.0,
+    "holz": 1840.0,
+    "bauzeit_s": 7477
+   },
+   "10": {
+    "gold": 1477.0,
+    "stein": 1969.0,
+    "holz": 2461.0,
+    "bauzeit_s": 9186
+   },
+   "11": {
+    "gold": 1975.0,
+    "stein": 2633.0,
+    "holz": 3291.0,
+    "bauzeit_s": 11286
+   },
+   "12": {
+    "gold": 2641.0,
+    "stein": 3521.0,
+    "holz": 4401.0,
+    "bauzeit_s": 13867
+   },
+   "13": {
+    "gold": 3531.0,
+    "stein": 4708.0,
+    "holz": 5885.0,
+    "bauzeit_s": 17037
+   },
+   "14": {
+    "gold": 4722.0,
+    "stein": 6296.0,
+    "holz": 7870.0,
+    "bauzeit_s": 20932
+   },
+   "15": {
+    "gold": 6314.0,
+    "stein": 8419.0,
+    "holz": 10524.0,
+    "bauzeit_s": 25718
+   },
+   "16": {
+    "gold": 7302.0,
+    "stein": 9736.0,
+    "holz": 12170.0,
+    "bauzeit_s": 27640
+   },
+   "17": {
+    "gold": 8444.0,
+    "stein": 11258.0,
+    "holz": 14073.0,
+    "bauzeit_s": 29705
+   },
+   "18": {
+    "gold": 9764.0,
+    "stein": 13019.0,
+    "holz": 16274.0,
+    "bauzeit_s": 31925
+   },
+   "19": {
+    "gold": 11291.0,
+    "stein": 15055.0,
+    "holz": 18819.0,
+    "bauzeit_s": 34310
+   },
+   "20": {
+    "gold": 13057.0,
+    "stein": 17409.0,
+    "holz": 21762.0,
+    "bauzeit_s": 36874
+   }
+  }
+ }
+}

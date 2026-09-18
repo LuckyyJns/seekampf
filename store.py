@@ -3,8 +3,9 @@
 Bei jedem Tick werden die von der API gemeldeten Kosten/Bauzeiten pro Stufe
 mitgeschrieben. Steigt genau ein Gebaeude um genau eine Stufe, laesst sich der
 Sprung der Stundenproduktion (bzw. der Lagerkapazitaet) diesem Ausbau
-zuordnen - planner.py bewertet die Ressourcen-Gebaeude damit nach echtem
-Ertrag statt nach fester Gewichtung (siehe production_delta).
+zuordnen. Seit gamedata.py die offiziellen Regeltabellen bereitstellt, ist
+production_delta nur noch der Rueckfall fuer den Fall, dass die Tabelle fehlt
+oder eine Stufe nicht kennt.
 
 Die Kosten-, Bauzeit- und Kapazitaetspunkte werden weiter gesammelt, auch wenn
 sie derzeit nichts liest: es ist das Archiv, aus dem spaetere Auswertungen

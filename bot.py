@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import requests
 
 import config
+import gamedata
 import report
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
@@ -17,6 +18,7 @@ from planner import (
     missing_resources,
     projected_levels,
     rejection_reason,
+    resource_gain,
 )
 from store import Store
 
@@ -331,7 +333,12 @@ def process_island(client, island_id, store, logger):
         logger.info(
             "Insel %s: Ausbau '%s' gestartet (Kosten: %s)", island_id, chosen["building"], chosen["cost"]
         )
-        started.append(f"{chosen['building']} → {chosen['target_level']}")
+        label = f"{chosen['building']} → {chosen['target_level']}"
+        if chosen["building"] in config.RESOURCE_BUILDINGS:
+            gain, quelle = resource_gain(chosen["building"], chosen, store)
+            if gain:
+                label += f" (+{gain:.0f}/h, {quelle})"
+        started.append(label)
         acted += 1
         free_slots -= 1
 
@@ -483,8 +490,9 @@ def tick(client, store, logger) -> bool:
 
 def main():
     logger = get_logger()
-    logger.info("Seekampf-Bot gestartet (Poll-Intervall: %ss, Planer: Prioritaets-Kaskade + gelernte Produktion)",
-                config.POLL_INTERVAL_SECONDS)
+    logger.info("Seekampf-Bot gestartet (Poll-Intervall: %ss, Planer: Prioritaets-Kaskade, "
+                "Ertragsbewertung aus %s)", config.POLL_INTERVAL_SECONDS,
+                "den Regeltabellen" if gamedata.available() else "gelernten Beobachtungen")
 
     if not config.API_KEY:
         logger.error("SEEKAMPF_API_KEY ist nicht gesetzt (.env pruefen). Beende.")
