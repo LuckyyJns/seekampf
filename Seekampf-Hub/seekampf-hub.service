@@ -4,6 +4,8 @@ After=network-online.target
 Wants=network-online.target
 StartLimitIntervalSec=600
 StartLimitBurst=5
+# Gibt systemd auf, meldet seekampf-hub-alert.service das per Telegram.
+OnFailure=seekampf-hub-alert.service
 
 [Service]
 Type=simple

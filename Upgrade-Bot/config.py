@@ -63,9 +63,14 @@ WAREHOUSE_BUILDING_KEYWORDS = ("lager", "speicher", "warehouse")
 
 STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "learned.json")
 
-# Nach so vielen fehlgeschlagenen Durchlaeufen in Folge geht ein Telegram-Alarm
-# raus (bei 300s Intervall also nach ~15 Minuten ohne erfolgreichen Tick).
-ALERT_AFTER_FAILED_TICKS = 3
+# Schlagen die Durchlaeufe so lange am Stueck fehl, geht ein Telegram-Alarm raus.
+ALERT_AFTER_FAILED_MINUTES = 15
+
+# Ereignisgesteuerte Durchlaeufe: wird ein Bauplatz frei oder ein Ausbau
+# bezahlbar, schaut der Bot so viele Sekunden danach nach - aber nie oefter
+# als alle EREIGNIS_MIN_ABSTAND_S. POLL_INTERVAL_SECONDS bleibt die Obergrenze.
+EREIGNIS_PUFFER_S = 5
+EREIGNIS_MIN_ABSTAND_S = 60
 
 # Telegram-Morgenreport
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")

@@ -15,6 +15,7 @@ import glob
 import json
 import os
 import re
+import tempfile
 import threading
 import time
 from datetime import datetime, timedelta
@@ -53,6 +54,7 @@ def neue_insel(name: str = "", koordinaten: str = "", aktiv: bool = False) -> di
         "rotation_index": 0,
         "letzter_scan": None,
         "pause_grund": None,
+        "ausgleich_rolle": "aus",  # Rohstoff-Ausgleich: "aus" | "spender" | "empfaenger"
         "stats": _leere_stats(),
     }
 
@@ -61,6 +63,10 @@ class State:
     def __init__(self, path: str = config.STATE_PATH):
         self.path = path
         self.lock = threading.RLock()
+        self._speicher_lock = threading.Lock()
+        # Pfad der beiseitegelegten Datei, falls state.json unlesbar war -
+        # web.py meldet das dann und laesst den Manager pausiert anlaufen.
+        self.defekt: str | None = None
         self.data = self._load()
 
     # ------------------------------------------------------------ Laden/Speichern
@@ -70,8 +76,16 @@ class State:
             try:
                 with open(self.path, "r", encoding="utf-8") as f:
                     roh = json.load(f)
+                if not isinstance(roh, dict):
+                    raise ValueError("kein JSON-Objekt")
             except (ValueError, OSError):
-                roh = {}
+                # Nie stillschweigend mit leerem Stand weitermachen: das naechste
+                # Speichern wuerde Statistik, Ziellisten und die Herkunft der
+                # fahrenden Flotten endgueltig ueberschreiben. Die kaputte Datei
+                # bleibt zur Rettung liegen.
+                self.defekt = f"{self.path}.defekt-{time.strftime('%Y%m%d-%H%M%S')}"
+                os.replace(self.path, self.defekt)
+                roh = {"laeuft": False}
 
         daten = {
             "laeuft": True,          # nach einem Neustart sofort weiterraiden
@@ -84,6 +98,7 @@ class State:
             "report_basis": None,    # Statistik-Stand beim letzten Report
             "verbuchte_berichte": [],  # message_ids, damit nichts doppelt zaehlt
             "pause_grund": None,
+            "ausgleich": None,       # Rohstoff-Ausgleich: Fahrten, Summen, letzte Lieferungen
         }
         daten.update({k: v for k, v in roh.items() if k in daten})
         # Aus der Ein-Insel-Zeit: Zielliste und Rotation lagen oben. Sie gehoeren
@@ -91,7 +106,11 @@ class State:
         if not daten["inseln"] and "ziele" in roh:
             daten["altbestand"] = {k: roh.get(k) for k in
                                    ("ziele", "rotation", "rotation_index", "letzter_scan")}
+        if not isinstance(daten["ausgleich"], dict):
+            import ausgleich  # spaet: ausgleich importiert geo/config, nicht state
+            daten["ausgleich"] = ausgleich.leerer_stand()
         for insel in daten["inseln"].values():
+            insel.setdefault("ausgleich_rolle", "aus")
             stats = _leere_stats()
             stats.update(insel.get("stats") or {})
             insel["stats"] = stats
@@ -109,18 +128,44 @@ class State:
         daten["stats"] = stats
         return daten
 
-    def save(self) -> None:
+    def _kopie(self) -> dict:
+        """Tiefe Kopie des Zustands.
+
+        Der Bot-Thread aendert data ohne Lock (er haelt es nicht ueber seine
+        API-Aufrufe hinweg, sonst haenge die Weboberflaeche). Trifft die Kopie
+        genau auf so eine Aenderung, wirft deepcopy "changed size during
+        iteration" - dann einfach noch einmal.
+        """
         with self.lock:
-            schnappschuss = copy.deepcopy(self.data)
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        tmp = self.path + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(schnappschuss, f, ensure_ascii=False, indent=1)
-        os.replace(tmp, self.path)
+            for _ in range(4):
+                try:
+                    return copy.deepcopy(self.data)
+                except RuntimeError:
+                    time.sleep(0.01)
+            return copy.deepcopy(self.data)
+
+    def save(self) -> None:
+        # Bot-Thread und Weboberflaeche speichern unabhaengig voneinander. Ohne
+        # eigene Sperre und mit festem Temp-Namen nahm der eine dem anderen die
+        # Temp-Datei unter den Fuessen weg (FileNotFoundError beim os.replace).
+        with self._speicher_lock:
+            schnappschuss = self._kopie()
+            ordner = os.path.dirname(self.path)
+            os.makedirs(ordner, exist_ok=True)
+            fd, tmp = tempfile.mkstemp(dir=ordner, prefix=".state-", suffix=".json")
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    json.dump(schnappschuss, f, ensure_ascii=False, indent=1)
+                    f.flush()
+                    os.fsync(f.fileno())  # erst auf der Karte, dann umbenennen
+                os.replace(tmp, self.path)
+            except BaseException:
+                if os.path.exists(tmp):
+                    os.remove(tmp)
+                raise
 
     def snapshot(self) -> dict:
-        with self.lock:
-            return copy.deepcopy(self.data)
+        return self._kopie()
 
     # ----------------------------------------------------------- Einstellungen
     @property

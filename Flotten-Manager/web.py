@@ -10,11 +10,13 @@ Als Dienst:       systemctl start seekampf-flotten-manager
 """
 from __future__ import annotations
 
+import os
 import threading
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
+import requests
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException
 
@@ -32,7 +34,24 @@ client = SeekampfClient()
 notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
 manager = FlottenManager(client, state, notifier)
 
+if state.defekt:
+    log.error("data/state.json war unlesbar und liegt jetzt unter %s - Manager startet PAUSIERT",
+              state.defekt)
+    notifier.send("Flotten-Manager: state.json defekt",
+                  f"data/state.json liess sich nicht lesen und wurde als {os.path.basename(state.defekt)} "
+                  "beiseitegelegt. Der Manager laeuft pausiert. Stand aus der naechtlichen Sicherung "
+                  "(~/Seekampf-Sicherungen) zurueckspielen oder im Seekampf-Hub neu starten.")
+
 _stop = threading.Event()
+
+
+def _kurz(e: Exception) -> str:
+    """Die eigentliche Ursache eines requests-Fehlers ohne die verschachtelte Kette."""
+    text = str(e)
+    for marke in ("Caused by ", "Errno"):
+        if marke in text:
+            return text[text.index(marke):][:160].rstrip(")'\"")
+    return text[:160]
 _thread: threading.Thread | None = None
 
 
@@ -48,6 +67,10 @@ def _schleife() -> None:
         except ApiError as e:
             manager.letzter_fehler = str(e)
             log.error("Tick fehlgeschlagen: %s", e)
+        except requests.RequestException as e:
+            # Netzaussetzer: eine Zeile genuegt, der naechste Tick versucht es wieder.
+            manager.letzter_fehler = f"Netzwerk: {type(e).__name__}"
+            log.error("Tick fehlgeschlagen (Netzwerk): %s", _kurz(e))
         except Exception as e:  # noqa: BLE001 - der Thread darf nie enden
             manager.letzter_fehler = f"{type(e).__name__}: {e}"
             log.exception("Unerwarteter Fehler im Tick")
@@ -110,6 +133,8 @@ def status():
             "truppen": ov.get("truppen") or {},
             "bedrohung": bool(ov.get("bedrohung_im_anflug")),
             "freie_flotten": manager._freie_flotten(iid, ov) if ov else 0,
+            "ausgleich_rolle": insel.get("ausgleich_rolle") or "aus",
+            "handel_reserviert": iid in manager.ausgleich.reserviert,
             "stats": _stats_ausgabe(insel["stats"]),
             "letzter_scan": insel.get("letzter_scan"),
             "naechstes_ziel": manager.naechstes_ziel_vorschau(insel),
@@ -200,6 +225,51 @@ def scannen(insel_id: int):
         return manager.scan(insel_id)
     except ApiError as e:
         raise HTTPException(502, str(e)) from e
+
+
+@app.get("/api/ausgleich")
+def ausgleich_status():
+    """Rohstoff-Ausgleich fuer den Seekampf-Hub: Rollen, Bestand, Bedarf,
+    Ueberschuss, was unterwegs ist und die letzten Lieferungen."""
+    daten = state.snapshot()
+    ov_alle = manager._overview or {}
+    bericht = manager.ausgleich.bericht.get("inseln") or {}
+    inseln = []
+    for iid_text, insel in daten["inseln"].items():
+        ov = ov_alle.get(int(iid_text)) or {}
+        b = bericht.get(iid_text) or {}
+        inseln.append({
+            "id": int(iid_text), "name": insel.get("name"), "koordinaten": insel.get("koordinaten"),
+            "rolle": insel.get("ausgleich_rolle") or "aus", "gehoert_uns": int(iid_text) in ov_alle,
+            "rohstoffe": ov.get("rohstoffe") or {}, "bedrohung": bool(ov.get("bedrohung_im_anflug")),
+            "handelsschiffe": {t: (ov.get("schiffe") or {}).get(t, 0) for t in config.HANDELSSCHIFF_TYPEN},
+            "bedarf": b.get("bedarf") or {}, "ueberschuss": b.get("ueberschuss") or {},
+            "unterwegs": b.get("unterwegs") or {}, "upgrade": b.get("upgrade"), "hinweis": b.get("hinweis"),
+            "reserviert": int(iid_text) in manager.ausgleich.reserviert,
+        })
+    s = daten["settings"]
+    return {
+        "aktiv": s["ausgleich_aktiv"], "laeuft": daten["laeuft"],
+        "hinweis": manager.ausgleich.bericht.get("hinweis"),
+        "settings": {k: v for k, v in s.items() if k.startswith("ausgleich_")},
+        "inseln": inseln, "stand": daten.get("ausgleich") or {}, "serverzeit": time.time(),
+    }
+
+
+@app.post("/api/inseln/{insel_id}/rolle")
+def rolle_setzen(insel_id: int, payload: dict = Body(...)):
+    """Rolle einer Insel im Rohstoff-Ausgleich: aus, spender oder empfaenger."""
+    rolle = str(payload.get("rolle") or "")
+    if rolle not in ("aus", "spender", "empfaenger"):
+        raise HTTPException(400, "rolle muss aus, spender oder empfaenger sein")
+    with state.lock:
+        insel = state.insel(insel_id)
+        if insel is None:
+            raise HTTPException(404, f"Insel {insel_id} ist nicht bekannt")
+        insel["ausgleich_rolle"] = rolle
+    state.save()
+    log.info("Seekampf-Hub: %s im Rohstoff-Ausgleich: %s", insel.get("name") or insel_id, rolle)
+    return {"id": insel_id, "rolle": rolle}
 
 
 @app.post("/api/stats/reset")

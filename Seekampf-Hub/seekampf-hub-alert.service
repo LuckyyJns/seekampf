@@ -1,0 +1,8 @@
+[Unit]
+Description=Telegram-Alarm, wenn der Seekampf-Hub ausfaellt
+
+[Service]
+Type=oneshot
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Seekampf-Hub
+ExecStart=/usr/bin/python3 /home/jannishoy/Seekampf/Seekampf-Hub/alert.py "systemd hat seekampf-hub.service als fehlgeschlagen markiert - die Weboberflaeche ist offline, die Bots laufen weiter."

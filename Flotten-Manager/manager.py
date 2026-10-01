@@ -24,9 +24,14 @@ import config
 import geo
 import scanner
 from api_client import ApiError
+from ausgleich import Ausgleich
 from state import neue_insel
 
 log = logging.getLogger("seekampf_flotten_manager")
+
+# Steht ein Ziel unter Anfaengerschutz, wird es so lange uebersprungen, statt
+# es in jeder Runde erneut anzufahren.
+ANFAENGERSCHUTZ_SPERRE_S = 6 * 3600
 
 
 def iso_zu_epoch(wert: str | None) -> float | None:
@@ -108,6 +113,7 @@ class FlottenManager:
         self._letzter_tick_ts: float | None = None
         self._dirty = False
         self._letzte_speicherung = 0.0
+        self.ausgleich = Ausgleich(self)
 
     # ------------------------------------------------------------------ Basis
     @property
@@ -131,6 +137,15 @@ class FlottenManager:
         """
         bestand = dict(ov.get("schiffe") or {})
         bestand.update(ov.get("truppen") or {})
+        return bestand
+
+    def vorrat_fuer_raids(self, insel_id: int, ov: dict) -> dict:
+        """Wie vorrat(), aber ohne die Handelsschiffe, die der Rohstoff-Ausgleich
+        gerade fuer eine Lieferung zurueckhaelt."""
+        bestand = self.vorrat(ov)
+        if insel_id in self.ausgleich.reserviert:
+            for typ in config.HANDELSSCHIFF_TYPEN:
+                bestand[typ] = 0
         return bestand
 
     def flotte_ships(self, vorrat: dict | None = None) -> dict:
@@ -169,6 +184,12 @@ class FlottenManager:
                     eintrag = self.state.insel(iid)
                     if eintrag is None:
                         eintrag = neue_insel()
+                        # Rolle im Rohstoff-Ausgleich von der bisher neuesten
+                        # Insel uebernehmen - nur "empfaenger"; Spender wird
+                        # eine neue Insel nie von selbst.
+                        bisher = list(self.state.data["inseln"].values())
+                        if bisher and bisher[-1].get("ausgleich_rolle") == "empfaenger":
+                            eintrag["ausgleich_rolle"] = "empfaenger"
                         self.state.data["inseln"][str(iid)] = eintrag
                         if self.gestartet:
                             log.info("Neue Insel %s (%s) - im Seekampf-Hub einschalten, um von dort zu raiden",
@@ -238,6 +259,7 @@ class FlottenManager:
         self._berichte_aufloesen()
 
         if not self.state.data["laeuft"]:
+            self.ausgleich.reserviert = set()
             self._pause("gestoppt")
             self._speichern_wenn_noetig(jetzt)
             self.letzter_tick = jetzt
@@ -246,6 +268,8 @@ class FlottenManager:
         alles = self.overview()
         self._pause(None)
         self._report_wenn_faellig(jetzt)
+        # Vor den Raids: eine faellige Lieferung bekommt die Handelsschiffe zuerst.
+        self.ausgleich.tick(alles, flotten_api, jetzt)
         aktiv = set(self.aktive_inseln())
         for iid_text, insel in self.state.data["inseln"].items():
             iid = int(iid_text)
@@ -320,6 +344,7 @@ class FlottenManager:
             "recallable_until": iso_zu_epoch(f.get("recallable_until")),
             "state": f.get("state"),
             "loot": f.get("loot") or {},
+            "resources": f.get("resources") or {},
             "angekommen": False,
             "verbucht": False,
             "zurueckgerufen": False,
@@ -369,6 +394,10 @@ class FlottenManager:
             if not rec["angekommen"] and rec["arrive_at"] and jetzt >= rec["arrive_at"]:
                 # Ankunft waehrend eines Ausfalls verpasst - jetzt nachtragen.
                 self._ankunft(rec, jetzt)
+            if rec.get("mission") != "attack":
+                log.info("RUECKKEHR  Flotte #%s (%s) von %s (%s)",
+                         fid, rec.get("mission"), rec["koordinaten"], rec["ziel_name"])
+                continue
             log.info("RUECKKEHR  Flotte #%s von %s (%s) - Beute laut Flotte: %s",
                      fid, rec["koordinaten"], rec["ziel_name"], fmt_beute(rec.get("loot")))
 
@@ -378,6 +407,13 @@ class FlottenManager:
         log.info("ANKUNFT    Flotte #%s bei %s (%s)%s", rec["id"], koord, rec["ziel_name"],
                  f" - Rueckkehr in {fmt_dauer((rec['return_at'] or jetzt) - jetzt)}"
                  if rec.get("return_at") else "")
+
+        if rec.get("mission") != "attack":
+            # Handel/Transport (Rohstoff-Ausgleich, Allianz-Bot, von Hand):
+            # kein Raid, kein Kampfbericht - nichts zu verbuchen.
+            rec["verbucht"] = True
+            self._dirty = True
+            return
 
         if not rec["verbucht"]:
             rec["verbucht"] = True
@@ -393,7 +429,7 @@ class FlottenManager:
             if ziel is not None:
                 ziel["raids"] += 1
                 ziel["letzter_raid"] = jetzt
-            if iid is not None and rec.get("mission") == "attack":
+            if iid is not None:
                 self.state.verlauf_buchen(iid, jetzt, raids=1)
             self.state.data.setdefault("offene_berichte", []).append({
                 "koordinaten": koord, "flotte": rec["id"], "insel_id": iid,
@@ -550,7 +586,9 @@ class FlottenManager:
             self._insel_pause(insel, "Bedrohung im Anflug (Rueckruf abgeschaltet)")
             return True
         for f in flotten_api:
-            if f.get("origin_island_id") != insel_id:
+            # Nur Raids: Handelsfahrten (Ausgleich, Beistand und Leihe-Rueckgabe
+            # des Allianz-Bots) haben ein Versprechen dahinter und fahren weiter.
+            if f.get("origin_island_id") != insel_id or f.get("mission") != "attack":
                 continue
             rec = self.state.data["flotten"].get(str(f.get("id")))
             if rec is None or rec["zurueckgerufen"] or rec["angekommen"]:
@@ -603,7 +641,7 @@ class FlottenManager:
         truppen/schiffe in der Uebersicht zaehlen nur, was NICHT unterwegs ist -
         die Rechnung beruecksichtigt fahrende Flotten damit automatisch.
         """
-        vorrat = self.vorrat(ov)
+        vorrat = self.vorrat_fuer_raids(insel_id, ov)
         # Je Klasse zaehlt die Summe ueber alle Typen: ein kleines und ein
         # grosses Handelsschiff sind zwei Handelsschiffe.
         reicht_fuer = [sum(int(vorrat.get(t, 0) or 0) for t in typen) // anzahl
@@ -711,6 +749,17 @@ class FlottenManager:
         log.info("Ziel %s aus der Rotation genommen: %s", koord, grund)
         self._dirty = True
 
+    def _ziel_sperren(self, koord: str, sekunden: float, grund: str) -> None:
+        """Ein Ziel fuer ALLE eigenen Inseln voruebergehend sperren."""
+        bis = time.time() + sekunden
+        for insel in self.state.data["inseln"].values():
+            ziel = insel["ziele"].get(koord)
+            if ziel is not None and ziel.get("blacklist_bis") != "dauerhaft":
+                ziel["blacklist_bis"] = bis
+                ziel["blacklist_grund"] = grund
+        log.info("SPERRE     %s fuer %s gesperrt: %s", koord, fmt_dauer(sekunden), grund)
+        self._dirty = True
+
     def _losschicken(self, insel_id: int, insel: dict, jetzt: float) -> None:
         # Erst mit dem zwischengespeicherten Stand grob pruefen; sieht es nach
         # einer freien Flotte aus, den Bestand frisch holen, bevor wirklich
@@ -730,7 +779,7 @@ class FlottenManager:
         units = self.flotte_units()
         # Was noch im Hafen liegt. Jede losgeschickte Flotte wird abgezogen,
         # damit die naechste nicht dieselben Schiffe einplant.
-        rest = self.vorrat(ov)
+        rest = self.vorrat_fuer_raids(insel_id, ov)
         versuche = len(insel["rotation"]) + offen
 
         for _ in itertools.repeat(None, versuche):
@@ -765,6 +814,9 @@ class FlottenManager:
             try:
                 antwort = self.client.create_fleet(payload)
             except ApiError as e:
+                if e.code == "newbie_protection":
+                    self._ziel_sperren(ziel["koordinaten"], ANFAENGERSCHUTZ_SPERRE_S, "Anfaengerschutz")
+                    continue
                 log.error("Flotte von %s nach %s konnte nicht starten: %s",
                           insel.get("name"), ziel["koordinaten"], e)
                 return  # fehlt etwas (Schiffe, Einheiten), hilft der naechste Versuch auch nicht

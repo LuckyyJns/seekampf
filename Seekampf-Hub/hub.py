@@ -17,6 +17,8 @@ Als Dienst:       systemctl start seekampf-hub
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import glob
 import json
 import logging
@@ -32,8 +34,9 @@ from contextlib import asynccontextmanager
 import httpx
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 
+import gesundheit
 from karte import Karte
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -91,6 +94,18 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Seekampf-Hub", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def nur_von_der_eigenen_seite(request: Request, call_next):
+    """Schutz gegen Cross-Site-Requests: Im Heimnetz gibt es keinen Login,
+    also koennte sonst jede beliebige Webseite, die man im Heimnetz oeffnet,
+    unbemerkt Dienste stoppen oder Einstellungen aendern. Aendernde Anfragen
+    muessen deshalb den Kopf X-Seekampf-Hub tragen - den setzt nur die eigene
+    Seite; eine fremde Seite darf ihn ohne CORS-Freigabe nicht mitschicken."""
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("x-seekampf-hub") != "1":
+        return JSONResponse({"detail": "Anfrage ohne X-Seekampf-Hub-Kopf abgelehnt"}, status_code=403)
+    return await call_next(request)
+
+
 # ------------------------------------------------------------------ Dateien
 def _pfad(bot: str, *teile: str) -> str:
     return os.path.join(BOTS[bot]["ordner"], "data", *teile)
@@ -125,9 +140,22 @@ def _befehl_ablegen(bot: str, befehl: dict) -> str:
     return befehl["id"]
 
 
+@contextlib.contextmanager
+def _dateisperre(bot: str):
+    """Dieselbe Sperre, unter der der Upgrade-Bot neue Inseln eintraegt."""
+    pfad = _pfad(bot, "steuerung.lock")
+    os.makedirs(os.path.dirname(pfad), exist_ok=True)
+    with open(pfad, "a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
 def _steuerung_aendern(bot: str, aendern) -> dict:
     """steuerung.json lesen, per Funktion aendern, zurueckschreiben."""
-    with _schreib_lock:
+    with _schreib_lock, _dateisperre(bot):
         pfad = _pfad(bot, "steuerung.json")
         daten = _json_lesen(pfad) or {}
         aendern(daten)
@@ -339,6 +367,17 @@ def allianz_befehl(payload: dict = Body(...)):
         return {"id": _befehl_ablegen("allianz", {"typ": "anfrage_beenden",
                                                   "insel_id": payload.get("insel_id")})}
     raise HTTPException(400, "Unbekannter Befehl")
+
+
+# --------------------------------------------------------------- Gesundheit
+@app.get("/api/gesundheit")
+async def gesundheit_daten():
+    try:
+        antwort = await _http.get("/api/status", timeout=5.0)
+        flotte_status = antwort.json() if antwort.status_code == 200 else None
+    except (httpx.HTTPError, ValueError):
+        flotte_status = None
+    return gesundheit.berechnen(BOTS, flotte_status, _dienst_status)
 
 
 # -------------------------------------------------------------------- Karte

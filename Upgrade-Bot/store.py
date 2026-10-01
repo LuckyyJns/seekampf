@@ -32,7 +32,12 @@ class Store:
                 with open(self.path, "r", encoding="utf-8") as f:
                     return json.load(f)
             except (ValueError, OSError):
-                pass
+                # Kaputte Datei beiseitelegen statt beim naechsten Speichern
+                # das gelernte Archiv zu ueberschreiben.
+                try:
+                    os.replace(self.path, self.path + ".defekt")
+                except OSError:
+                    pass
         return {"cost_points": {}, "time_points": {}, "storage_points": {}, "prod_deltas": {}, "last_snapshots": {}}
 
     def save(self) -> None:

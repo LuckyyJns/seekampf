@@ -292,6 +292,18 @@
   .res .leiste i { display: block; height: 100%; border-radius: 99px; }
   .res-key { display: inline-flex; align-items: center; gap: 7px; }
   .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  /* Rohstoff-Ausgleich: Bestand + unterwegs, Strich = Ziel bzw. Reserve */
+  .aus-leiste { position: relative; display: flex; height: 8px; border-radius: 99px; background: var(--flaeche-3); overflow: hidden; }
+  .aus-leiste i { display: block; height: 100%; }
+  .aus-leiste i.unterwegs { opacity: .4; }
+  .aus-leiste .strich { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .75; }
+  .ausgleich-raster { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+  .ausgleich-raster .karte { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .ausgleich-raster .oben { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ausgleich-raster .segment { margin-left: auto; }
+  .ges-liste { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
+  .ges-liste li { padding: 5px 0; border-top: 1px solid var(--rand); overflow-wrap: anywhere; }
+  .ges-liste li:first-child { border-top: 0; }
 
   /* ---------- Warteschlange ---------- */
   .schlange { list-style: none; margin: 0; padding: 0; position: relative; }
@@ -422,8 +434,10 @@
   </div>
   <a href="#uebersicht" data-tab="uebersicht"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Übersicht</a>
   <a href="#karte" data-tab="karte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>Karte</a>
+  <a href="#gesundheit" data-tab="gesundheit"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Gesundheit<span class="dot" id="nav-dot-gesundheit"></span></a>
   <div class="rubrik">Bots</div>
   <a href="#flotte" data-tab="flotte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/></svg>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
+  <a href="#ausgleich" data-tab="ausgleich"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13"/><path d="M14 4l3 3-3 3"/><path d="M20 17H7"/><path d="M10 14l-3 3 3 3"/></svg>Rohstoff-Ausgleich</a>
   <a href="#upgrade" data-tab="upgrade"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M12 11v.01"/></svg>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
   <a href="#allianz" data-tab="allianz"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M15.5 14.8c2.6-.3 4.8 1.4 5.5 4.7"/></svg>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
   <div class="fuss">
@@ -538,6 +552,52 @@
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="flotte"></div></div>
         <pre class="log" data-log="flotte">…</pre>
+      </section>
+    </div>
+
+    <!-- ======================= Rohstoff-Ausgleich ======================= -->
+    <div class="tab" id="tab-ausgleich">
+      <div class="fehler" id="aus-fehler" hidden></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Steuerung</h2>
+          <div class="rechts">
+            <span class="ungespeichert-marke" data-dirty-anzeige="aus-settings" hidden>● ungespeichert</span>
+            <span class="leise klein-text" id="aus-settings-info"></span>
+            <button class="klein" id="aus-speichern">Speichern</button>
+          </div></div>
+        <div class="formular-leiste" style="margin:0 0 12px">
+          <label class="schalter"><input type="checkbox" id="aus-aktiv"><span class="spur"></span><b>Ausgleich aktiv</b></label>
+          <span class="leise klein-text" id="aus-hinweis"></span>
+        </div>
+        <div class="formular" data-form="aus-settings">
+          <div class="feld"><label for="aus-ziel">Empfänger auffüllen bis (%)</label><input type="number" min="5" max="95" step="5" id="aus-ziel"><span class="hinweis">je Rohstoff, Anteil der Lagerkapazität</span></div>
+          <div class="feld"><label for="aus-reserve">Spender behält (%)</label><input type="number" min="0" max="95" step="5" id="aus-reserve"><span class="hinweis">je Rohstoff, darüber wird abgegeben</span></div>
+          <div class="feld"><label for="aus-min">Kleinste Lieferung</label><input type="number" min="0" step="50" id="aus-min"><span class="hinweis">Rohstoffe je Fahrt, verhindert Mini-Fahrten</span></div>
+          <div class="feld check"><input type="checkbox" id="aus-upgrade"><label for="aus-upgrade">Bedarf des Upgrade-Bots mitliefern</label></div>
+        </div>
+        <div class="leise klein-text" style="margin-top:10px">Geliefert wird per Handelsfahrt mit den Handelsschiffen des Spenders. Reichen die im Hafen nicht, hält der Flotten-Manager sie für die Lieferung zurück (keine Raids von dort), höchstens 30 Minuten – danach fährt, was da ist. Bedrohte Inseln liefern nicht und bekommen nichts.</div>
+      </section>
+      <div class="kacheln" id="aus-kacheln"></div>
+      <div class="kopfzeile abschnitt-kopf"><h2>Inseln</h2><div class="rechts leise klein-text">Strich = Ziel (Empfänger) bzw. Reserve (Spender) · blass = unterwegs</div></div>
+      <div class="ausgleich-raster" id="aus-inseln"><div class="leise">wird geladen …</div></div>
+      <section class="karte" style="margin-top:16px">
+        <div class="kopfzeile"><h2>Letzte Lieferungen</h2></div>
+        <div id="aus-lieferungen"></div>
+      </section>
+    </div>
+
+    <!-- ======================= Gesundheit ======================= -->
+    <div class="tab" id="tab-gesundheit">
+      <div class="kacheln" id="ges-kacheln"></div>
+      <div class="kopfzeile abschnitt-kopf" style="margin-top:0"><h2>Bots</h2><div class="rechts leise klein-text">Fehler und Warnungen der letzten 24 Stunden</div></div>
+      <div class="raster" id="ges-bots"></div>
+      <section class="karte" style="margin-top:16px">
+        <div class="kopfzeile"><h2>Bau-Warteschlangen – Leerlauf in 24 h</h2></div>
+        <div id="ges-leerlauf"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Nächtliche Sicherung</h2></div>
+        <div id="ges-sicherung"></div>
       </section>
     </div>
 
@@ -709,7 +769,7 @@ async function hole(pfad, optionen) {
   return antwort.json();
 }
 const sende = (methode) => (pfad, koerper) => hole(pfad, {
-  method: methode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(koerper ?? {}),
+  method: methode, headers: { "Content-Type": "application/json", "X-Seekampf-Hub": "1" }, body: JSON.stringify(koerper ?? {}),
 });
 const post = sende("POST"), put = sende("PUT");
 
@@ -761,11 +821,13 @@ function ungespeichertIn(tab) {
 // ======================================================================
 // Navigation: Hamburger + Tabs ueber den Hash
 // ======================================================================
-const TABS = { uebersicht: "Übersicht", karte: "Karte", flotte: "Flotten-Manager", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot" };
+const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot" };
 const UNTERTITEL = {
   uebersicht: "Alle Bots und Inseln auf einen Blick",
   karte: "Die ganze Welt – Spieler, Allianzen und deine Flotten",
   flotte: "Raids auf freie Inseln – je Insel steuerbar",
+  ausgleich: "Überschuss der Hauptinsel an die Ausbauinseln liefern",
+  gesundheit: "Läuft alles – und tut es auch etwas?",
   upgrade: "Bau-Warteschlangen, Priorisierung und Ausbau von Hand",
   allianz: "Allianz-Protokoll: Notrufe, Beistand, Rohstoff-Anfragen",
 };
@@ -1457,6 +1519,7 @@ function zeichneUpgradeFormular(karte, id, steuer, i) {
 }
 function formularVerwerfen(form) {
   if (form === "fl-settings") $("fl-formular").dataset.gebaut = "";
+  else if (form === "aus-settings") ausgleichFormGebaut = "";
   else if (form === "al-strategie") $("al-strategie").dataset.gebaut = "";
   else if (form === "al-anfrage") ["gold", "stein", "holz"].forEach(k => $(`al-anfrage-${k}`).value = "");
   else if (form.startsWith("up-form-")) {
@@ -2346,11 +2409,220 @@ farbenLesen();
 // ======================================================================
 // Takt
 // ======================================================================
+// ======================================================================
+// Rohstoff-Ausgleich (laeuft im Flotten-Manager)
+// ======================================================================
+let ausgleich = null, ausgleichFormGebaut = "";
+const ROLLEN = [["aus", "Aus"], ["spender", "Spender"], ["empfaenger", "Empfänger"]];
+
+function ausgleichLeiste(r, k, kap, unterwegs, strich) {
+  const b = Math.min(100, 100 * (r[k] || 0) / kap);
+  const u = Math.max(0, Math.min(100 - b, 100 * (unterwegs || 0) / kap));
+  return `<span class="aus-leiste"><i style="width:${b}%;background:var(--${k})"></i><i class="unterwegs" style="width:${u}%;background:var(--${k})"></i>
+    ${strich != null ? `<span class="strich" style="left:${Math.min(99, strich * 100)}%"></span>` : ""}</span>`;
+}
+function zeichneAusgleich() {
+  const a = ausgleich;
+  if (!a) return;
+  const st = a.settings;
+  $("aus-aktiv").checked = !!st.ausgleich_aktiv;
+  $("aus-hinweis").textContent = !a.laeuft ? "Flotten-Manager ist gestoppt – es wird nichts geliefert"
+    : a.hinweis ? a.hinweis : "aktiv – prüft alle 5 Sekunden";
+  const gebaut = JSON.stringify(st);
+  if (!ungespeichert.has("aus-settings") && ausgleichFormGebaut !== gebaut) {
+    ausgleichFormGebaut = gebaut;
+    $("aus-ziel").value = Math.round(st.ausgleich_ziel * 100);
+    $("aus-reserve").value = Math.round(st.ausgleich_reserve * 100);
+    $("aus-min").value = st.ausgleich_min_menge;
+    $("aus-upgrade").checked = !!st.ausgleich_upgrade_bedarf;
+  }
+  const g = a.stand.geliefert || {};
+  $("aus-kacheln").innerHTML = [
+    { wert: zahl(a.stand.fahrten || 0), label: "Lieferungen" },
+    ...ROHSTOFFE.map(([k, n]) => ({ wert: zahl(g[k] || 0), label: `${n} geliefert`, farbe: `var(--${k})` })),
+  ].map(x => `<div class="kachel" ${x.farbe ? `style="--kachel-farbe:${x.farbe}"` : ""}>
+      <div class="beschriftung">${x.farbe ? `<i class="swatch" style="background:${x.farbe}"></i>` : ""}${x.label}</div>
+      <div class="wert">${x.wert}</div></div>`).join("");
+
+  $("aus-inseln").innerHTML = a.inseln.filter(i => i.gehoert_uns).map(i => {
+    const r = i.rohstoffe || {}, kap = r.kapazitaet || 1;
+    const strich = i.rolle === "empfaenger" ? st.ausgleich_ziel : i.rolle === "spender" ? st.ausgleich_reserve : null;
+    const zahlen = (k) => {
+      const teile = [`${zahl(r[k])}`];
+      if (i.unterwegs?.[k]) teile.push(`<span class="leise">+${zahl(i.unterwegs[k])}</span>`);
+      if (i.rolle === "empfaenger" && i.bedarf?.[k]) teile.push(`<span style="color:var(--warn)">fehlt ${zahl(i.bedarf[k])}</span>`);
+      if (i.rolle === "spender" && i.ueberschuss?.[k]) teile.push(`<span style="color:var(--gut)">frei ${zahl(i.ueberschuss[k])}</span>`);
+      return teile.join(" ");
+    };
+    const schiffe = (i.handelsschiffe?.kleines_handelsschiff || 0) + (i.handelsschiffe?.grosses_handelsschiff || 0);
+    const plan = i.upgrade && i.rolle === "empfaenger"
+      ? `<div class="leise klein-text">Upgrade-Bot als Nächstes: ${esc(gname(i.upgrade.gebaeude))} ${i.upgrade.ziel_stufe ?? ""}${
+          Object.keys(i.upgrade.fehlt || {}).length ? ` – fehlt ${beuteText(i.upgrade.fehlt)}` : ""}</div>` : "";
+    let marke = "";
+    if (i.bedrohung) marke = `<span class="marke warn"><span class="punkt"></span>Bedrohung</span>`;
+    else if (i.reserviert) marke = `<span class="marke warn"><span class="punkt"></span>hält Handelsschiffe zurück</span>`;
+    return `<section class="karte">
+      <div class="oben">${avatar(i.name, i.id)}
+        <span class="namenblock" style="display:flex;flex-direction:column"><b>${esc(i.name)}</b><span class="leise mono klein-text">${esc(i.koordinaten)}</span></span>
+        <div class="segment" role="group" aria-label="Rolle von ${esc(i.name)}">${ROLLEN.map(([w, t]) =>
+          `<button class="${i.rolle === w ? "an" : ""}" data-aus-rolle="${i.id}|${w}">${t}</button>`).join("")}</div></div>
+      ${marke ? `<div>${marke}</div>` : ""}
+      <div class="res" style="grid-template-columns:56px 1fr auto">${ROHSTOFFE.map(([k, n]) => `
+        <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+        ${ausgleichLeiste(r, k, kap, i.unterwegs?.[k], strich)}
+        <span class="mono klein-text">${zahlen(k)}</span>`).join("")}</div>
+      <div class="leise klein-text">Lager ${zahl(kap)}${i.rolle === "spender" ? ` · ${schiffe} Handelsschiffe im Hafen` : ""}</div>
+      ${plan}
+      ${i.hinweis && i.rolle !== "aus" ? `<div class="klein-text">${esc(i.hinweis)}</div>` : ""}
+    </section>`;
+  }).join("") || `<div class="leise">keine Inseln</div>`;
+
+  const l = a.stand.lieferungen || [];
+  $("aus-lieferungen").innerHTML = l.length ? `<div class="tabelle-rahmen"><table><thead><tr><th>Abfahrt</th><th>Von → Nach</th>
+      <th>Rohstoffe</th><th class="verstecken-schmal">Schiffe</th><th class="zahl">Ankunft</th></tr></thead><tbody>${l.map(x => `<tr>
+      <td>${uhrzeit(x.zeit)}</td><td>${esc(x.von_name)} → ${esc(x.nach_name)}</td><td>${beuteText(x.rohstoffe)}</td>
+      <td class="verstecken-schmal klein-text">${mengenText(x.schiffe)}</td>
+      <td class="zahl">${x.ankunft && x.ankunft > jetzt() ? `<b>${countdown(x.ankunft, "angekommen")}</b>` : uhrzeit(x.ankunft)}</td></tr>`).join("")}
+      </tbody></table></div>` : `<div class="leise klein-text">noch keine Lieferung</div>`;
+}
+async function ausgleichHolen() {
+  const box = $("aus-fehler");
+  try {
+    ausgleich = await hole("/api/flotte/ausgleich");
+    box.hidden = true;
+  } catch (e) {
+    box.hidden = false;
+    box.textContent = `Flotten-Manager nicht erreichbar: ${e.message}`;
+    return;
+  }
+  if (tab === "ausgleich") zeichneAusgleich();
+}
+$("aus-inseln").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-aus-rolle]");
+  if (!b || b.classList.contains("an")) return;
+  const [id, rolle] = b.dataset.ausRolle.split("|");
+  await aktion(b, () => post(`/api/flotte/inseln/${id}/rolle`, { rolle }), `Rolle: ${ROLLEN.find(x => x[0] === rolle)[1]}`);
+  ausgleichHolen();
+});
+$("aus-aktiv").addEventListener("change", async (e) => {
+  const an = e.target.checked;
+  if (an && !confirm("Rohstoff-Ausgleich einschalten? Der Flotten-Manager schickt dann selbständig Handelsfahrten von den Spender- zu den Empfänger-Inseln.")) {
+    e.target.checked = false; return;
+  }
+  await aktion(e.target, () => post("/api/flotte/settings", { ausgleich_aktiv: an }), `Rohstoff-Ausgleich ${an ? "eingeschaltet" : "ausgeschaltet"}`);
+  ausgleichHolen();
+});
+$("aus-speichern").onclick = async (e) => {
+  const ziel = Number($("aus-ziel").value) / 100, reserve = Number($("aus-reserve").value) / 100;
+  if (!(ziel > 0 && ziel < 1) || !(reserve >= 0 && reserve < 1)) return melde("Prozentwerte zwischen 0 und 100 angeben", "schlecht");
+  const r = await aktion(e.target, () => post("/api/flotte/settings", {
+    ausgleich_ziel: ziel, ausgleich_reserve: reserve,
+    ausgleich_min_menge: Math.max(0, Math.round(Number($("aus-min").value) || 0)),
+    ausgleich_upgrade_bedarf: $("aus-upgrade").checked,
+  }));
+  if (!r) return;
+  dirtySetzen("aus-settings", false);
+  ausgleichFormGebaut = "";
+  const n = Object.keys(r.geaendert).length;
+  $("aus-settings-info").textContent = n ? `${n} Änderung(en) übernommen` : "nichts geändert";
+  setTimeout(() => ($("aus-settings-info").textContent = ""), 4000);
+  ausgleichHolen();
+};
+
+// ======================================================================
+// Gesundheit
+// ======================================================================
+let gesundheit = null;
+const GES_BOTS = [["flotte", "Flotten-Manager"], ["upgrade", "Upgrade-Bot"], ["allianz", "Allianz-Bot"]];
+
+/** Ampel je Bot: [Klasse, Text]. Frisch heisst: letzter Durchlauf jünger als ein paar Takte. */
+function gesBewertung(name, g) {
+  const d = g.dienste[name], lauf = g.durchlauf[name] || {}, log = g.logs[name] || {};
+  if (!d || d.zustand !== "active") return ["schlecht", "Dienst läuft nicht"];
+  const grenze = name === "upgrade" ? (lauf.takt_s || 300) + 180 : Math.max(120, 6 * (lauf.takt_s || 15));
+  if (!lauf.letzter) return ["schlecht", lauf.fehler || "noch kein Durchlauf"];
+  if (g.serverzeit - lauf.letzter > grenze) return ["schlecht", `kein Durchlauf seit ${dauer(g.serverzeit - lauf.letzter)}`];
+  if (lauf.fehler) return ["warn", "letzter Durchlauf mit Fehler"];
+  if (name === "flotte" && lauf.laeuft === false) return ["warn", "Raiden gestoppt"];
+  if ((log.fehler || 0) > 0) return ["warn", `${log.fehler} Fehler in 24 h`];
+  return ["gut", "alles in Ordnung"];
+}
+function zeichneGesundheit() {
+  const g = gesundheit;
+  if (!g) return;
+  const sys = g.system, sich = g.sicherung;
+  const sichAlter = sich.letzte ? g.serverzeit - sich.letzte.zeit : null;
+  const k = [
+    { label: "Temperatur", wert: sys.temperatur != null ? `${zahl(sys.temperatur, 1)} °C` : "–", schlecht: sys.temperatur > 75 },
+    { label: "Drosselung", wert: sys.gedrosselt === "0x0" ? "keine" : (sys.gedrosselt || "–"), schlecht: sys.gedrosselt && sys.gedrosselt !== "0x0" },
+    { label: "Speicherkarte frei", wert: `${zahl(sys.platte.frei / 1e9, 1)} GB`, schlecht: sys.platte.frei / sys.platte.gesamt < 0.1 },
+    { label: "RAM frei", wert: sys.speicher.frei ? `${zahl(sys.speicher.frei / 1e9, 1)} GB` : "–" },
+    { label: "Pi läuft seit", wert: sys.laufzeit_s ? dauer(sys.laufzeit_s) : "–" },
+    { label: "Letzte Sicherung", wert: sichAlter != null ? `vor ${dauer(sichAlter)}` : "keine", schlecht: sichAlter == null || sichAlter > 30 * 3600 },
+  ];
+  $("ges-kacheln").innerHTML = k.map(x => `<div class="kachel" ${x.schlecht ? 'style="--kachel-farbe:var(--schlecht)"' : ""}>
+      <div class="beschriftung">${x.label}</div><div class="wert" ${x.schlecht ? 'style="color:var(--schlecht)"' : ""}>${x.wert}</div></div>`).join("");
+
+  const tunnel = g.dienste.cloudflared;
+  $("ges-bots").innerHTML = GES_BOTS.map(([name, titel]) => {
+    const [klasse, text] = gesBewertung(name, g);
+    const lauf = g.durchlauf[name] || {}, log = g.logs[name] || {};
+    const inselFehler = Object.entries(lauf.inseln_fehler || {}).map(([iid, f]) =>
+      `<li><b>${esc(lauf.namen?.[iid] || iid)}:</b> ${esc(f)}</li>`).join("");
+    const haeufig = (log.haeufig || []).map(h => `<li><b>${h.anzahl}×</b> ${esc(h.text)}</li>`).join("");
+    return `<section class="karte dienst-karte" style="margin:0">
+      <div class="oben"><a href="#${name}">${titel} →</a><span class="marke ${klasse}"><span class="punkt"></span>${esc(text)}</span></div>
+      <div class="klein-text">Letzter Durchlauf: <b>${lauf.letzter ? vor(lauf.letzter) : "–"}</b>${
+        name === "upgrade" && lauf.naechster ? ` · nächster in ${countdown(lauf.naechster, "jetzt")}` : ""}${
+        name === "flotte" && lauf.flotten != null ? ` · ${lauf.flotten} Flotten unterwegs` : ""}</div>
+      ${lauf.fehler ? `<div class="fehler" style="margin:0">${esc(lauf.fehler)}</div>` : ""}
+      <div class="klein-text"><span style="color:${log.fehler ? "var(--schlecht)" : "inherit"}"><b>${log.fehler || 0}</b> Fehler</span> ·
+        <span style="color:${log.warnungen ? "var(--warn)" : "inherit"}"><b>${log.warnungen || 0}</b> Warnungen</span></div>
+      ${inselFehler ? `<ul class="ges-liste">${inselFehler}</ul>` : ""}
+      ${haeufig ? `<ul class="ges-liste leise">${haeufig}</ul>` : ""}
+    </section>`;
+  }).join("") + `<section class="karte dienst-karte" style="margin:0">
+      <div class="oben"><b>Seekampf-Hub &amp; Tunnel</b>${dienstMarke(g.dienste.hub)}</div>
+      <div class="klein-text">Cloudflare-Tunnel (seekampf-hub.com): ${dienstMarke(tunnel)}</div>
+      <div class="leise klein-text">Hub läuft seit ${uhrzeit(g.dienste.hub?.seit, true)}${g.dienste.hub?.neustarts ? ` · ${g.dienste.hub.neustarts} Neustarts` : ""}</div>
+    </section>`;
+
+  const leer = g.logs.upgrade?.leerlauf || {}, namen = g.durchlauf.upgrade?.namen || {};
+  const zeilen = Object.entries(leer).sort((a, b) => b[1].anteil - a[1].anteil).map(([iid, x]) => {
+    const p = Math.round(x.anteil * 100);
+    const farbe = p >= 50 ? "var(--schlecht)" : p >= 20 ? "var(--warn)" : "var(--gut)";
+    return `<tr><td>${esc(namen[iid] || iid)}</td>
+      <td style="min-width:140px"><div class="balken"><i style="width:${p}%;background:${farbe}"></i></div></td>
+      <td class="zahl"><b>${p} %</b></td><td class="zahl leise">${dauer(x.leer_s)} von ${dauer(x.erfasst_s)}</td></tr>`;
+  }).join("");
+  $("ges-leerlauf").innerHTML = zeilen
+    ? `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th>Leer</th><th class="zahl">Anteil</th><th class="zahl">Dauer</th></tr></thead><tbody>${zeilen}</tbody></table></div>
+       <div class="leise klein-text" style="margin-top:8px">Leer = kein Bauauftrag in der Warteschlange, meist weil Rohstoffe fehlen. Der Rohstoff-Ausgleich setzt genau hier an.</div>`
+    : `<div class="leise klein-text">keine Daten</div>`;
+
+  const lauf = sich.lauf || {};
+  $("ges-sicherung").innerHTML = sich.letzte
+    ? `<div class="klein-text">Letzte: <b class="mono">${esc(sich.letzte.datei)}</b> (${zahl(sich.letzte.groesse / 1e6, 1)} MB, ${uhrzeit(sich.letzte.zeit, true)}) ·
+        ${sich.anzahl} Sicherungen, zusammen ${zahl(sich.gesamt_groesse / 1e6, 1)} MB</div>
+       ${lauf.ok === false ? `<div class="fehler" style="margin-top:8px">Letzter Lauf fehlgeschlagen (${uhrzeit(lauf.zeit, true)}): ${esc(lauf.meldung || "")}</div>` : ""}
+       <div class="leise klein-text" style="margin-top:6px">Jede Nacht um 3:30 nach ~/Seekampf-Sicherungen (Code, Einstellungen, Zustände, .env – ohne Logs und .venv), die letzten 7 bleiben.</div>`
+    : `<div class="leise klein-text">Noch keine Sicherung vorhanden. Sie läuft jede Nacht um 3:30.</div>`;
+}
+async function gesundheitHolen() {
+  try { gesundheit = await hole("/api/gesundheit"); } catch (e) { return; }
+  const stufen = GES_BOTS.map(([n]) => gesBewertung(n, gesundheit)[0]);
+  const dot = $("nav-dot-gesundheit");
+  dot.className = "dot " + (stufen.includes("schlecht") ? "schlecht" : stufen.includes("warn") ? "warn" : "gut");
+  if (tab === "gesundheit") zeichneGesundheit();
+}
+
 function aktualisieren() {
   if (tab === "karte") { farbenLesen(); flotteHolen(); angriffeHolen(); karteHolen(); zeichneKarte(); }
   if (tab === "flotte") { flotteHolen(); if (!verlauf) verlaufHolen(); else { diagramm("fl-diagramm", verlauf.gesamt); } }
   if (tab === "upgrade") upgradeHolen();
   if (tab === "allianz") allianzHolen();
+  if (tab === "ausgleich") ausgleichHolen();
+  if (tab === "gesundheit") gesundheitHolen();
   if (tab === "uebersicht") {
     flotteHolen(); upgradeHolen(); allianzHolen();
     if (!verlauf) verlaufHolen(); else diagramm("ue-diagramm", verlauf.gesamt);
@@ -2374,7 +2646,10 @@ setInterval(() => {
   if (tab === "allianz") allianzHolen();
   if (tab === "uebersicht") { flotteHolen(); upgradeHolen(); allianzHolen(); }
   if (tab === "karte") flotteHolen();
+  if (tab === "ausgleich") ausgleichHolen();
 }, 3000);
+setInterval(() => gesundheitHolen(), 20000);
+gesundheitHolen();
 setInterval(() => { if (tab === "karte") angriffeHolen(); }, 20000);
 setInterval(() => { if (tab === "karte") karteHolen(); }, 300000);
 setInterval(dienstHolen, 5000);

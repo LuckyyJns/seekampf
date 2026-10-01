@@ -20,6 +20,24 @@ Beim Umstieg (erster Start dieser Version) bekam die Heimatinsel die
 bisherige Zielliste und Statistik; der Beute-Verlauf wurde aus den Logs
 nachgetragen.
 
+## Rohstoff-Ausgleich
+
+Im Seekampf-Hub unter **Rohstoff-Ausgleich**: Jede Insel ist *Spender*,
+*Empfaenger* oder *aus*. Der Manager fuellt bei Empfaengern jeden Rohstoff bis
+`ausgleich_ziel` der Lagerkapazitaet auf (Standard 50 %) - und mehr, wenn der
+Upgrade-Bot fuer seinen naechsten Ausbau mehr braucht (liest dessen
+`data/status.json`). Spender geben ab, was ueber `ausgleich_reserve` liegt
+(Standard 25 %). Geliefert wird per Handelsfahrt (`mission_type: handel`) mit
+den Handelsschiffen des Spenders, ab `ausgleich_min_menge` Rohstoffen je Fahrt.
+Was schon unterwegs ist, zaehlt mit.
+
+Reichen die Handelsschiffe im Hafen nicht, haelt der Manager sie fuer die
+Lieferung zurueck (die Insel raidet so lange ohne Handelsschiffe), hoechstens
+30 Minuten - dann faehrt, was da ist. Bedrohte Inseln liefern nicht und
+bekommen nichts. Neue Inseln uebernehmen die Rolle *Empfaenger*, wenn die bis
+dahin neueste Insel eine ist. Hauptschalter: `ausgleich_aktiv` (Standard aus).
+Code: `ausgleich.py`.
+
 ## Was er tut
 
 1. **Scannen** – sucht im eingestellten Radius (in Sektoren) alle freien Inseln,
@@ -37,10 +55,14 @@ nachgetragen.
    `GET /map/island/{x}/{y}/{z}` noch einmal geprueft, ob die Insel wirklich
    frei ist. Hat sie inzwischen einen Besitzer, fliegt sie aus der Rotation und
    die Flotte nimmt das naechste Ziel.
+   Steht ein Ziel unter Anfaengerschutz (`409 newbie_protection`), ist es fuer
+   6 Stunden gesperrt, statt in jeder Runde erneut angefahren zu werden.
 4. **Nachhalten** – Ankunft und Rueckkehr jeder Flotte stehen im Log; sobald
    eine Flotte daheim ist, faehrt sie im selben Takt zum naechsten Ziel weiter.
 5. **Auswerten** – aus dem Kampfbericht kommen Sieg/Niederlage und die echte
-   Beute in die Statistik.
+   Beute in die Statistik. Gezaehlt werden nur Raids (`mission: attack`);
+   Handelsfahrten (Ausgleich, Allianz-Bot, von Hand) tauchen im Log auf, aber
+   nicht in der Statistik.
 6. **Aufraeumen** – ist der Bericht verbucht, wird er im Postfach
    ausgeblendet, damit dort nur bleibt, was wirklich Aufmerksamkeit braucht.
 
@@ -61,7 +83,7 @@ Alle Einstellungen greifen sofort, ohne Neustart. Die wichtigsten:
 | `rohstoff_modus` | `knappster` pluendert gezielt den Rohstoff, von dem am wenigsten da ist |
 | `lager_voll_schwelle` | ab diesem Fuellstand aller drei Rohstoffe wird pausiert |
 | `niederlagen_bis_blacklist` / `blacklist_tage` | wann ein Ziel gesperrt wird und wie lange |
-| `rueckruf_bei_bedrohung` | holt fahrende Flotten zurueck, wenn ein Angriff im Anflug ist |
+| `rueckruf_bei_bedrohung` | holt fahrende Raid-Flotten zurueck, wenn ein Angriff im Anflug ist (Handelsfahrten nie) |
 | `berichte_archivieren` | blendet die Kampfberichte der eigenen Raids aus dem Postfach aus |
 
 ### Postfach aufraeumen
@@ -121,8 +143,13 @@ Als Dauerdienst:
 sudo cp seekampf-flotten-manager.service seekampf-flotten-manager-alert.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now seekampf-flotten-manager
-journalctl -u seekampf-flotten-manager -f
+tail -f logs/flotte-$(date +%F).log     # ins Journal gehen nur Warnungen/Fehler
 ```
+
+Ist `data/state.json` beim Start unlesbar, wird sie als
+`state.json.defekt-<Zeit>` beiseitegelegt, der Manager startet **pausiert** und
+meldet sich per Telegram - statt die Statistik still zu ueberschreiben. Dann den
+Stand aus `~/Seekampf-Sicherungen` zurueckspielen oder im Hub neu starten.
 
 Der Dienst startet nach einem Neustart von selbst und raidet sofort weiter;
 fahrende Flotten werden aus `data/state.json` wieder uebernommen.
@@ -150,6 +177,7 @@ anderen lahmzulegen.
 | `web.py` | Einstiegspunkt: uvicorn + Bot-Thread, JSON-Schnittstelle fuer den Seekampf-Hub |
 | `manager.py` | der Takt: Flotten abgleichen, Berichte auswerten, losschicken |
 | `scanner.py` | Bereich abklappern, Zielliste pflegen |
+| `ausgleich.py` | Rohstoff-Ausgleich zwischen den eigenen Inseln |
 | `geo.py` | Feldkoordinaten, Entfernung, Fahrzeit |
 | `state.py` | `data/state.json`: Einstellungen, Inseln (Ziele, Statistik), Flotten, Beute-Verlauf |
 | `api_client.py` | die genutzten Seekampf-Endpunkte |

@@ -10,6 +10,21 @@ Links eine Seitenleiste (Hamburger-Menü) mit den Bereichen **Übersicht**,
 **Flotten-Manager**, **Upgrade-Bot** und **Allianz-Bot**. Einzelne Inseln
 lassen sich direkt verlinken, z. B. `#upgrade/447` oder `#flotte/20`.
 
+## Gesundheit
+
+Menüpunkt **Gesundheit** (der Punkt im Menü ist grün/gelb/rot): je Bot der
+letzte Durchlauf und ob er fehlerfrei war, Fehler und Warnungen der letzten
+24 Stunden (die häufigsten zusammengefasst), wie lange jede Bau-Warteschlange
+leer stand, Temperatur/Drosselung/Speicher des Pi, Cloudflare-Tunnel und die
+nächtliche Sicherung (`~/Seekampf/sicherung.sh`). Code: `gesundheit.py`.
+
+## Rohstoff-Ausgleich
+
+Menüpunkt **Rohstoff-Ausgleich**: Hauptschalter, Rolle je Insel (Spender /
+Empfänger / aus), Auffüll-Ziel, Reserve, kleinste Lieferung; je Insel Bestand,
+was unterwegs ist, Bedarf bzw. Überschuss; die letzten Lieferungen. Die Logik
+läuft im Flotten-Manager (`Flotten-Manager/ausgleich.py`).
+
 ## Karte
 
 Menüpunkt **Karte**: die ganze Welt (100 × 100 Sektoren) statt der 3 × 3
@@ -70,6 +85,14 @@ erreichbar und zeigt das an.
 Ungespeicherte Formulare werden beim Wechsel des Bereichs und beim Schließen
 der Seite abgefragt.
 
+Schutz gegen Cross-Site-Requests: Ändernde Anfragen (POST/PUT) brauchen den
+Kopf `X-Seekampf-Hub: 1`, den nur die eigene Seite setzt. Sonst könnte jede
+Webseite, die man im Heimnetz öffnet, unbemerkt Dienste stoppen. Von Hand:
+`curl -H 'X-Seekampf-Hub: 1' -X POST …`.
+
+`steuerung.json` des Upgrade-Bots schreiben Hub und Bot (neue Inseln) unter
+derselben Dateisperre `data/steuerung.lock`.
+
 ## Einrichtung
 
 ```bash
@@ -77,7 +100,7 @@ cd ~/Seekampf/Seekampf-Hub
 uv sync
 sudo install -m 0440 seekampf-hub.sudoers /etc/sudoers.d/seekampf-hub
 sudo visudo -c
-sudo cp seekampf-hub.service /etc/systemd/system/
+sudo cp seekampf-hub.service seekampf-hub-alert.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now seekampf-hub
 ```
@@ -90,6 +113,8 @@ Neustart des Seekampf-Hubs – ohne Platzhalter und ohne gespeichertes Passwort.
 | Datei | Aufgabe |
 | --- | --- |
 | `karte.py` | Welt-Scan, täglicher Planer, Vergleich, Angriffe |
+| `gesundheit.py` | Auswertung für die Gesundheitsseite |
+| `alert.py` / `seekampf-hub-alert.service` | Telegram-Alarm, wenn systemd den Hub aufgibt (Token in `.env`) |
 | `hub.py` | FastAPI-App: Seite, Dienste, Logs, Weiterleitung, Steuerdateien |
 | `static/index.html` | die ganze Oberfläche (ein File, kein Build) |
 | `seekampf-hub.service` | systemd-Unit |

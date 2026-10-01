@@ -85,8 +85,12 @@ def get_logger() -> logging.Logger:
 
     if config.LOG_TO_STDOUT:
         # Landet bei systemd im journal (journalctl -u seekampf-flotten-manager -f).
+        # Ins journal nur Warnungen und Fehler: alles andere steht schon in der
+        # Tages-Logdatei, doppelt geschrieben kostete es nur Schreibzugriffe auf
+        # die SD-Karte. Abstuerze (stderr) landen weiterhin vollstaendig im journal.
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(logging.WARNING)
         logger.addHandler(stream_handler)
 
     return logger

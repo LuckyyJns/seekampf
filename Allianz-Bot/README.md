@@ -22,7 +22,7 @@ der Insel, die am meisten bereitstellen kann.
 | **Entwarnung** | Sobald nichts Feindliches mehr anfliegt und die letzte Ankunft vorbei ist, mit Ergebnis aus dem Kampfbericht. |
 | **Leihe-Rueckgabe** | Nach Entwarnung: je Art `floor(geliehen x Ueberlebensquote)` laut Kampfberichten per Handel zurueck, notfalls in mehreren Fahrten, dann `[RUECKGABE]`. Fehlen Kriegsschiffe, ruft er Raid-Flotten in Rueckruf-Reichweite zurueck. Wartet, solange ein Angriff anfliegt (Telegram-Warnung 1 h vor Fristende, wenn es nicht klappt). |
 | **Beistand** | Nur fuer Mitglieder mit aktiver Bot-Praesenz (Whitelist) und `leihe_rueckgabe`. Nur Speerkaempfer, immer als Leihe, hoechstens 50 % der eigenen je Insel (Verliehenes mitgerechnet, fremde Leihen bei uns nicht). Angeboten wird von der Insel mit der groessten moeglichen Menge, nie von einer bedrohten. Transport auf Kriegsschiffen: aus dem Hafen, sonst werden nach der Zusage Raid-Flotten in Rueckruf-Reichweite zurueckgerufen (im Angebot eingerechnet). Nie, solange die eigene Insel bedroht ist. Zusage -> Versand innerhalb der 10-min-Frist + `[VERSANDT]`; reicht es nicht: was passt, sonst `[ABSAGE] nicht_verfuegbar`. |
-| **Rohstoffe** | Gibt nie etwas her. Faellt auf einer Insel ein Rohstoff unter 10 % ihrer Lagerkapazitaet: `[ANFRAGE]` bis 25 %; Angebote werden automatisch bis zur angefragten Menge zugesagt; `[ERLEDIGT]`, sobald alles wieder auf 25 % ist. Je Insel gibt es nur eine offene Anfrage: Neue Rohstoffe (automatisch oder von Hand) kommen dazu, die Anfrage wird mit derselben Vorgangs-ID neu gepostet und die alte geloescht. |
+| **Rohstoffe** | Gibt nie etwas her. Faellt auf einer Insel ein Rohstoff unter 10 % ihrer Lagerkapazitaet und ist keine Lieferung im Anflug (`handel_im_anflug`, z. B. vom Rohstoff-Ausgleich des Flotten-Managers): `[ANFRAGE]` bis 25 %; Angebote werden automatisch bis zur angefragten Menge zugesagt; `[ERLEDIGT]`, sobald alles wieder auf 25 % ist. Je Insel gibt es nur eine offene Anfrage: Neue Rohstoffe (automatisch oder von Hand) kommen dazu, die Anfrage wird mit derselben Vorgangs-ID neu gepostet und die alte geloescht. |
 
 ## Raid-Flotten zurueckrufen
 
@@ -34,7 +34,9 @@ heimkehrenden Schiffe wartet, tickt er alle 2 s, damit er sie vor dem
 Flotten-Manager (5-s-Takt) greift; gewinnt trotzdem der Flotten-Manager, geht
 los, was noch passt. Der Flotten-Manager selbst wird nicht veraendert: eine von
 aussen zurueckgerufene Flotte faellt dort hoechstens als „Kein Kampfbericht“ im
-Log auf, Ziele werden dadurch nicht gesperrt. Abschaltbar ueber
+Log auf, Ziele werden dadurch nicht gesperrt. Umgekehrt ruft der
+Flotten-Manager bei Bedrohung nur Raid-Flotten zurueck, nie die Handelsfahrten
+des Allianz-Bots (Beistand, Leihe-Rueckgabe). Abschaltbar ueber
 `RUECKRUF_ERLAUBT` in `config.py`.
 
 ## Forum sauber halten
@@ -62,7 +64,7 @@ sudo cp seekampf-allianz-bot*.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now seekampf-allianz-bot
 
-journalctl -u seekampf-allianz-bot -f     # Live-Log
+tail -f logs/allianz-$(date +%F).log      # Live-Log (Journal: nur Warnungen/Fehler)
 .venv/bin/python -m unittest discover -s tests -v   # Tests (Konformitaet + Ablaeufe)
 ```
 

@@ -11,9 +11,16 @@ Der Seekampf-Hub und der Bot reden nur ueber Dateien in data/:
 
 Faellt der Seekampf-Hub aus, laeuft der Bot mit der zuletzt gespeicherten
 Steuerung weiter; fehlt die Datei ganz, gilt fuer jede Insel der Standard.
+
+Einzige Ausnahme vom "Bot liest nur": taucht eine neue Insel auf, uebernimmt
+sie die Steuerung der bis dahin neuesten Insel (neue_inseln_uebernehmen) -
+das schreibt der Bot selbst, damit die Sperren greifen, bevor jemand den
+Seekampf-Hub oeffnet. Beide Seiten schreiben unter steuerung.lock.
 """
 from __future__ import annotations
 
+import contextlib
+import fcntl
 import glob
 import json
 import os
@@ -21,6 +28,7 @@ import tempfile
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 STEUERUNG_PATH = os.path.join(DATA_DIR, "steuerung.json")
+SPERR_PATH = os.path.join(DATA_DIR, "steuerung.lock")
 STATUS_PATH = os.path.join(DATA_DIR, "status.json")
 BEFEHLE_DIR = os.path.join(DATA_DIR, "befehle")
 
@@ -51,6 +59,56 @@ def insel(daten: dict, island_id) -> dict:
     eintrag = dict(STANDARD)
     eintrag.update((daten.get("inseln") or {}).get(str(island_id)) or {})
     return eintrag
+
+
+@contextlib.contextmanager
+def _gesperrt():
+    """Dateisperre gegen gleichzeitiges Schreiben mit dem Seekampf-Hub."""
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(SPERR_PATH, "a") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def _atomar_schreiben(pfad: str, daten: dict) -> None:
+    ordner = os.path.dirname(pfad)
+    fd, tmp = tempfile.mkstemp(dir=ordner, prefix=".bot-", suffix=".json")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(daten, f, ensure_ascii=False, indent=1)
+        os.replace(tmp, pfad)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
+
+
+def neue_inseln_uebernehmen(islands: list) -> list[tuple]:
+    """Inseln ohne eigenen Eintrag bekommen eine Kopie des Eintrags der
+    neuesten Insel, die schon einen hat. "Neueste" heisst: am weitesten hinten
+    in der Inselliste der API (die Reihenfolge, in der die Inseln dazukamen).
+    Gibt [(neue_id, vorlage_id), ...] zurueck."""
+    ids = [str(i["id"]) for i in islands]
+    with _gesperrt():
+        daten = lesen()
+        eintraege = daten.setdefault("inseln", {})
+        uebernommen = []
+        for pos, iid in enumerate(ids):
+            if iid in eintraege:
+                continue
+            vorlage = next((v for v in reversed(ids[:pos]) if v in eintraege), None)
+            if vorlage is None:
+                vorlage = next((v for v in reversed(ids) if v in eintraege), None)
+            if vorlage is None:
+                continue  # noch gar nichts eingestellt: Standard fuer alle
+            eintraege[iid] = json.loads(json.dumps(eintraege[vorlage]))
+            uebernommen.append((iid, vorlage))
+        if uebernommen:
+            _atomar_schreiben(STEUERUNG_PATH, daten)
+    return uebernommen
 
 
 def geaendert() -> bool:

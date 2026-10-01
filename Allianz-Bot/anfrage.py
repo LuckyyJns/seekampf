@@ -74,6 +74,11 @@ class Anfrage:
             return
         if not niedrig or not steuerung.will("anfrage"):
             return
+        if k.overview(insel_id).get("handel_im_anflug"):
+            # Eine Lieferung ist schon unterwegs - meist der Rohstoff-Ausgleich
+            # des Flotten-Managers von der eigenen Hauptinsel. Erst abwarten,
+            # statt die Allianz um etwas zu bitten, das gleich ankommt.
+            return
         a = self._neu(insel_id, niedrig)
         self._posten(a)
         k.melden("Rohstoffe angefragt",

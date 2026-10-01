@@ -25,6 +25,9 @@ WEB_HOST = os.environ.get("FLOTTEN_MANAGER_HOST", "127.0.0.1")
 WEB_PORT = int(os.environ.get("FLOTTEN_MANAGER_PORT", "8081"))
 
 STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
+# Der Rohstoff-Ausgleich liest hier, was der Upgrade-Bot als Naechstes bauen
+# will und was ihm dafuer fehlt.
+UPGRADE_STATUS_PATH = os.path.join(os.path.dirname(BASE_DIR), "Upgrade-Bot", "data", "status.json")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "flotte"
 LOG_RETENTION_DAYS = 60
@@ -103,6 +106,17 @@ DEFAULT_SETTINGS = {
     # er verbucht ist. Berichte zu von Hand gestarteten Angriffen und alles
     # andere im Postfach bleiben unberuehrt.
     "berichte_archivieren": True,
+
+    # --- Rohstoff-Ausgleich zwischen den eigenen Inseln (siehe ausgleich.py) ---
+    "ausgleich_aktiv": False,
+    # Empfaenger: jeden Rohstoff bis zu diesem Anteil der Lagerkapazitaet auffuellen.
+    "ausgleich_ziel": 0.5,
+    # Spender: so viel je Rohstoff behalten (Anteil der eigenen Lagerkapazitaet).
+    "ausgleich_reserve": 0.25,
+    # Kleinste Lieferung - verhindert Mini-Fahrten fuer ein paar Rohstoffe.
+    "ausgleich_min_menge": 300,
+    # Fehlt dem Upgrade-Bot fuer den naechsten Ausbau mehr, wird das mitgeliefert.
+    "ausgleich_upgrade_bedarf": True,
 
     # --- Takt ---
     "tick_sekunden": 5,

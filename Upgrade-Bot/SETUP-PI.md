@@ -50,7 +50,7 @@ beim Login greift).
 
 ```bash
 systemctl status seekampf-upgrade-bot.service
-journalctl -u seekampf-upgrade-bot.service -f     # Live-Systemd-Log
+tail -f logs/bot-$(date +%F).log                  # Live-Log (Journal: nur Warnungen/Fehler)
 tail -f ~/Seekampf/Upgrade-Bot/logs/bot-$(date +%F).log   # Bot-eigenes Log (eine Datei pro Tag)
 ```
 

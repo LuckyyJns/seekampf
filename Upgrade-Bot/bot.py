@@ -33,7 +33,11 @@ TZ = ZoneInfo(config.TIMEZONE_NAME)
 LOW_PRIORITY_SINCE: dict[str, float] = {}
 
 # Gesundheitszustand fuer die Ausfall-Alarme (siehe _track_health).
-HEALTH = {"failures": 0, "alerted": False}
+HEALTH = {"failures": 0, "alerted": False, "since": None}
+
+# Fruehester Zeitpunkt, zu dem sich auf einer Insel etwas tut (Bauplatz frei,
+# naechster Ausbau bezahlbar) - der naechste Durchlauf wird darauf gelegt.
+NAECHSTES_EREIGNIS = {"ts": None}
 
 # Ergebnisse der letzten Befehle aus dem Seekampf-Hub, fuer status.json.
 BEFEHL_ERGEBNISSE: deque = deque(maxlen=20)
@@ -548,23 +552,30 @@ def _alert(logger, title: str, text: str) -> bool:
 
 
 def _track_health(ok: bool, logger) -> None:
-    """Alarm, wenn mehrere Durchlaeufe hintereinander scheitern - und Entwarnung,
-    sobald es wieder laeuft. Pro Stoerung jeweils genau eine Nachricht."""
+    """Alarm, wenn die Durchlaeufe laenger als ALERT_AFTER_FAILED_MINUTES am
+    Stueck scheitern - und Entwarnung, sobald es wieder laeuft. Pro Stoerung
+    jeweils genau eine Nachricht. Gemessen wird Zeit, nicht die Zahl der
+    Durchlaeufe: deren Abstand haengt jetzt von der Bauplanung ab."""
     if ok:
         if HEALTH["alerted"]:
+            dauer = _fmt_duration(time.time() - (HEALTH["since"] or time.time()))
             _alert(logger, "Upgrade-Bot laeuft wieder",
-                   f"Nach {HEALTH['failures']} fehlgeschlagenen Durchlaeufen war der letzte "
-                   f"Durchlauf wieder erfolgreich.")
+                   f"Nach {dauer} Stoerung ({HEALTH['failures']} fehlgeschlagene Durchlaeufe) war der "
+                   f"letzte Durchlauf wieder erfolgreich.")
             HEALTH["alerted"] = False
         HEALTH["failures"] = 0
+        HEALTH["since"] = None
         return
 
     HEALTH["failures"] += 1
-    if HEALTH["failures"] >= config.ALERT_AFTER_FAILED_TICKS and not HEALTH["alerted"]:
-        minutes = HEALTH["failures"] * config.POLL_INTERVAL_SECONDS // 60
+    if HEALTH["since"] is None:
+        HEALTH["since"] = time.time()
+    seit = time.time() - HEALTH["since"]
+    if seit >= config.ALERT_AFTER_FAILED_MINUTES * 60 and not HEALTH["alerted"]:
         _alert(logger, "Upgrade-Bot: Störung",
-               f"{HEALTH['failures']} Durchlaeufe in Folge fehlgeschlagen (seit ca. {minutes} Minuten "
-               f"kein Ausbau moeglich). Details: journalctl -u seekampf-upgrade-bot -n 50")
+               f"Seit {_fmt_duration(seit)} schlagen die Durchlaeufe fehl ({HEALTH['failures']} in Folge) - "
+               f"so lange wird nichts ausgebaut. Details: Seekampf-Hub, Bereich Gesundheit, "
+               f"oder logs/bot-JJJJ-MM-TT.log")
         HEALTH["alerted"] = True
 
 
@@ -592,17 +603,11 @@ def _maybe_send_report(island_reports, store, logger):
         return
 
     since = _report_window_start(store, now)
-    bodies = [
-        report.build_report(
-            island_id=island_id, island_name=name, resources=r, queue=o, next_hint=hint,
-            since=since, until=now, log_dir=config.LOG_DIR,
-        )
-        for island_id, (name, r, o, hint) in island_reports.items()
-    ]
+    text = report.build_summary(island_reports, since=since, until=now, log_dir=config.LOG_DIR)
     notifier = _notifier()
     if notifier is None:
         return
-    ok = notifier.send("Seekampf Morgenreport", "\n\n---\n\n".join(bodies))
+    ok = notifier.send("Seekampf Morgenreport", text)
     if ok:
         store.data["last_report_date"] = today_str
         store.data["last_report_at"] = now.isoformat()
@@ -658,9 +663,16 @@ def tick(client, store, logger, befehle: list | None = None) -> bool:
         _status_schreiben(logger, {}, "Die API meldet keine Insel")
         return False
 
+    try:
+        for neu, vorlage in steuerung.neue_inseln_uebernehmen(islands):
+            logger.info("Insel %s ist neu: Steuerung von Insel %s uebernommen (%s)", neu, vorlage,
+                        steuerung.insel(steuerung.lesen(), neu))
+    except OSError as exc:
+        logger.error("Steuerung fuer neue Insel nicht schreibbar: %s", exc)
     einstellungen = steuerung.lesen()
     island_reports = {}
     status_inseln = {}
+    ereignisse: list[float] = []
     for position, island in enumerate(islands):
         island_id, name = island["id"], island["name"]
         einstellung = steuerung.insel(einstellungen, island_id)
@@ -670,6 +682,9 @@ def tick(client, store, logger, befehle: list | None = None) -> bool:
             resources, orders, hint, info = process_island(
                 client, island_id, store, logger, einstellung, auftraege.pop(str(island_id), None))
             island_reports[island_id] = (name, resources, orders, hint)
+            in_s = (info.get("plan") or {}).get("in_s")
+            if in_s is not None:
+                ereignisse.append(time.time() + in_s)
             eintrag.update(info)
         except (ApiError, requests.exceptions.RequestException) as exc:
             logger.error("API-Fehler auf Insel %s: %s", island_id, exc)
@@ -683,6 +698,7 @@ def tick(client, store, logger, befehle: list | None = None) -> bool:
         for befehl in liste:
             _befehl_ergebnis(befehl, False, f"Insel {befehl.get('insel_id')} gehoert nicht zum Konto")
 
+    NAECHSTES_EREIGNIS["ts"] = min(ereignisse) if ereignisse else None
     _maybe_send_report(island_reports, store, logger)
     _status_schreiben(logger, status_inseln, None if island_reports else "keine Insel fehlerfrei bearbeitet")
     return bool(island_reports)
@@ -724,6 +740,7 @@ def main():
         if faellig or (angestossen and jetzt - letzter >= config.HUB_MIN_ABSTAND_S):
             befehle, wartend, angestossen = wartend, [], False
             NAECHSTER_TICK["ts"] = jetzt + config.POLL_INTERVAL_SECONDS
+            NAECHSTES_EREIGNIS["ts"] = None
             try:
                 ok = tick(client, store, logger, befehle)
             except Exception:
@@ -732,8 +749,15 @@ def main():
                 logger.exception("Unerwarteter Fehler im Tick, laeuft beim naechsten Intervall weiter")
                 ok = False
             letzter = time.time()
-            if faellig:
-                _track_health(ok, logger)
+            _track_health(ok, logger)
+            # Wird vor dem naechsten planmaessigen Durchlauf ein Bauplatz frei
+            # oder ein Ausbau bezahlbar, genau dann nachsehen (kurz danach,
+            # damit Server und Produktion sicher durch sind) - statt bis zu
+            # POLL_INTERVAL_SECONDS ungenutzt zu warten.
+            ereignis = NAECHSTES_EREIGNIS["ts"]
+            if ok and ereignis is not None:
+                frueh = max(ereignis + config.EREIGNIS_PUFFER_S, letzter + config.EREIGNIS_MIN_ABSTAND_S)
+                NAECHSTER_TICK["ts"] = min(NAECHSTER_TICK["ts"], frueh)
         time.sleep(config.HUB_ABFRAGE_S)
 
 
