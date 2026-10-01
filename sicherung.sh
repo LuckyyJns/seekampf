@@ -12,6 +12,8 @@
 # .env des Seekampf-Hubs). Ergebnis des letzten Laufs: letzter-lauf.json
 # (zeigt der Seekampf-Hub unter "Gesundheit").
 #
+# Danach werden Code-Aenderungen committet und nach GitHub gepusht.
+#
 # Eingerichtet per crontab (crontab -l):
 #   30 3 * * * /home/jannishoy/Seekampf/sicherung.sh
 set -uo pipefail
@@ -61,6 +63,27 @@ mv -f "$tmp" "$DATEI"
 # Alte Sicherungen aufraeumen (nach Name = Datum sortiert).
 ls -1 "$ZIEL"/seekampf-*.tar.gz 2>/dev/null | sort | head -n -"$BEHALTEN" | xargs -r rm -f
 
+# Code versionieren: was seit dem letzten Commit an den Bots geaendert wurde,
+# als "Automatische Sicherung" committen und nach GitHub schieben. Zustaende,
+# Logs und .env stehen in .gitignore und gehen nie ins Repo.
+git_info=""
+cd "$QUELLE" || exit 1
+if [ -n "$(git status --porcelain)" ]; then
+  git add -A
+  if git -c user.name="Jannis Hoy" -c user.email="Jannis.hoy@icloud.com" \
+       commit -q -m "Automatische Sicherung $(date +%F)"; then
+    git_info=" · Commit $(git rev-parse --short HEAD)"
+  else
+    git_info=" · Commit fehlgeschlagen"
+  fi
+fi
+if ausgabe=$(timeout 60 git push -q origin HEAD 2>&1); then
+  git_info="$git_info · GitHub aktuell"
+else
+  git_info="$git_info · Push fehlgeschlagen"
+  alarm "Sicherung ok, aber git push nach GitHub fehlgeschlagen: ${ausgabe:0:200}"
+fi
+
 groesse=$(du -h "$DATEI" | cut -f1)
-melden true "$(basename "$DATEI") ($groesse)"
+melden true "$(basename "$DATEI") ($groesse)$git_info"
 echo "Sicherung $DATEI ($groesse)"

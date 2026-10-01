@@ -57,7 +57,7 @@ Portfreigabe im Router, im normalen Browser (auch am Firmenrechner).
 - Login: Cloudflare Access (Team `seekampf-hub`), nur die freigegebene
   E-Mail-Adresse, Code per Mail. Einstellungen im Cloudflare-Dashboard unter
   Zero Trust → Access → Applications → Seekampf-Hub.
-- Tunnel `seekampf-hub` (ID `0db7b5ce-50fb-4ff8-b5bc-730687622ff7`), Dienst
+- Tunnel `seekampf-hub` (ID: `cloudflared tunnel list`), Dienst
   `cloudflared.service`, Konfiguration `/etc/cloudflared/config.yml`.
 - Doppelte Absicherung: cloudflared prüft selbst das Access-Token
   (`originRequest.access`, AUD-Tag der Anwendung). Ohne gültigen Login kommt
