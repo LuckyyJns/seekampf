@@ -1,7 +1,7 @@
 """Der gesamte Zustand des Flotten-Managers in einer JSON-Datei.
 
-Enthaelt Einstellungen, die Zielliste, die gerade fahrenden Flotten und die
-Statistik. Die Weboberflaeche und die Bot-Schleife laufen in einem Prozess,
+Enthaelt Einstellungen, je Insel die Zielliste und Statistik, die gerade
+fahrenden Flotten, die Gesamtstatistik und den Beute-Verlauf je Tag. Die Weboberflaeche und die Bot-Schleife laufen in einem Prozess,
 aber in verschiedenen Threads - jeder Zugriff geht deshalb ueber das Lock.
 
 Geschrieben wird ueber eine temporaere Datei mit os.replace: ein Stromausfall
@@ -11,12 +11,19 @@ nie eine halbe Datei.
 from __future__ import annotations
 
 import copy
+import glob
 import json
 import os
+import re
 import threading
 import time
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import config
+
+TZ = ZoneInfo(config.TIMEZONE_NAME)
+VERLAUF_TAGE = 120
 
 
 def _leere_stats() -> dict:
@@ -34,6 +41,19 @@ def _leere_stats() -> dict:
         # nur Zeit, in der der Manager wirklich lief (gestoppt = Uhr steht).
         "laufzeit_s": 0.0,
         "seit": None,
+    }
+
+
+def neue_insel(name: str = "", koordinaten: str = "", aktiv: bool = False) -> dict:
+    """Je eigene Insel: an/aus, eigene Zielliste samt Rotation, eigene Statistik."""
+    return {
+        "aktiv": aktiv, "name": name, "koordinaten": koordinaten,
+        "ziele": {},             # "x:y:z" -> Ziel-Datensatz
+        "rotation": [],          # Reihenfolge der Koordinaten (stur reihum)
+        "rotation_index": 0,
+        "letzter_scan": None,
+        "pause_grund": None,
+        "stats": _leere_stats(),
     }
 
 
@@ -56,22 +76,32 @@ class State:
         daten = {
             "laeuft": True,          # nach einem Neustart sofort weiterraiden
             "settings": {},
-            "ziele": {},             # "x:y:z" -> Ziel-Datensatz
-            "rotation": [],          # Reihenfolge der Koordinaten (stur reihum)
-            "rotation_index": 0,
+            "inseln": {},            # Insel-ID (str) -> neue_insel()
             "flotten": {},           # fleet_id (str) -> laufende Flotte
-            "stats": _leere_stats(),
-            "letzter_scan": None,
+            "stats": _leere_stats(),  # Gesamt ueber alle Inseln
+            "verlauf": {},           # Insel-ID (str) -> {"JJJJ-MM-TT": {gold, stein, holz, raids}}
             "letzter_report": None,  # ISO-Datum des letzten Telegram-Reports
             "report_basis": None,    # Statistik-Stand beim letzten Report
             "verbuchte_berichte": [],  # message_ids, damit nichts doppelt zaehlt
             "pause_grund": None,
         }
         daten.update({k: v for k, v in roh.items() if k in daten})
+        # Aus der Ein-Insel-Zeit: Zielliste und Rotation lagen oben. Sie gehoeren
+        # der Heimatinsel - welche das ist, weiss erst der Manager (auf_inseln_umstellen).
+        if not daten["inseln"] and "ziele" in roh:
+            daten["altbestand"] = {k: roh.get(k) for k in
+                                   ("ziele", "rotation", "rotation_index", "letzter_scan")}
+        for insel in daten["inseln"].values():
+            stats = _leere_stats()
+            stats.update(insel.get("stats") or {})
+            insel["stats"] = stats
 
         # Neue Einstellungen aus config ergaenzen, bestehende nicht ueberschreiben.
+        # Abgeschaffte Schluessel fallen dabei raus (z. B. die frueher fest
+        # eingestellten Schiffstypen), damit die Datei nicht verwahrlost.
         settings = dict(config.DEFAULT_SETTINGS)
-        settings.update(daten.get("settings") or {})
+        settings.update({k: v for k, v in (daten.get("settings") or {}).items()
+                         if k in config.DEFAULT_SETTINGS})
         daten["settings"] = settings
 
         stats = _leere_stats()
@@ -124,9 +154,38 @@ class State:
             self.save()
         return geaendert
 
+    # ------------------------------------------------------------------ Inseln
+    def insel(self, insel_id) -> dict | None:
+        return self.data["inseln"].get(str(insel_id))
+
+    def auf_inseln_umstellen(self, heimat_id, name: str, koordinaten: str) -> bool:
+        """Einmalig: den Altbestand der Heimatinsel zuordnen. Die bisherige
+        Gesamtstatistik ist ihre Statistik (alle Raids kamen von dort), der
+        Beute-Verlauf wird aus den Logs nachgetragen. True, wenn umgestellt."""
+        alt = self.data.pop("altbestand", None)
+        if alt is None:
+            return False
+        with self.lock:
+            insel = neue_insel(name, koordinaten, aktiv=True)
+            insel["ziele"] = alt.get("ziele") or {}
+            insel["rotation"] = alt.get("rotation") or []
+            insel["rotation_index"] = int(alt.get("rotation_index") or 0)
+            insel["letzter_scan"] = alt.get("letzter_scan")
+            insel["stats"] = copy.deepcopy(self.data["stats"])
+            self.data["inseln"][str(heimat_id)] = insel
+            for rec in self.data["flotten"].values():
+                rec.setdefault("insel_id", heimat_id)
+            for eintrag in self.data.get("offene_berichte") or []:
+                eintrag.setdefault("insel_id", heimat_id)
+            if not self.data["verlauf"]:
+                self.data["verlauf"][str(heimat_id)] = verlauf_aus_logs()
+        self.save()
+        return True
+
     # ------------------------------------------------------------------ Ziele
-    def ziel(self, koord: str) -> dict | None:
-        return self.data["ziele"].get(koord)
+    def ziel(self, insel_id, koord: str) -> dict | None:
+        insel = self.insel(insel_id)
+        return None if insel is None else insel["ziele"].get(koord)
 
     def neues_ziel(self, koord: str, x: int, y: int, z: int, name: str,
                    distanz: float, fahrzeit_s: float) -> dict:
@@ -149,7 +208,44 @@ class State:
 
     # -------------------------------------------------------------- Statistik
     def stats_zuruecksetzen(self) -> None:
+        """Gesamt- und Inselstatistik auf null. Der Beute-Verlauf bleibt - er
+        ist das Archiv, aus dem das Diagramm zeichnet."""
         with self.lock:
             self.data["stats"] = _leere_stats()
+            for insel in self.data["inseln"].values():
+                insel["stats"] = _leere_stats()
             self.data["report_basis"] = None
         self.save()
+
+    # --------------------------------------------------------------- Verlauf
+    def verlauf_buchen(self, insel_id, zeitpunkt: float, raids: int = 0, beute: dict | None = None) -> None:
+        tage = self.data["verlauf"].setdefault(str(insel_id), {})
+        datum = datetime.fromtimestamp(zeitpunkt, TZ).date().isoformat()
+        tag = tage.setdefault(datum, {"gold": 0.0, "stein": 0.0, "holz": 0.0, "raids": 0})
+        tag["raids"] += raids
+        for r, n in (beute or {}).items():
+            tag[r] = tag.get(r, 0.0) + float(n or 0)
+        grenze = (datetime.now(TZ).date() - timedelta(days=VERLAUF_TAGE)).isoformat()
+        for alt in [d for d in tage if d < grenze]:
+            del tage[alt]
+
+
+_BEUTE = re.compile(r"^(\d{4}-\d{2}-\d{2}) \S+ \[\w+\] BEUTE\s+\S+ \(.*\): (.*)$")
+_ANKUNFT = re.compile(r"^(\d{4}-\d{2}-\d{2}) \S+ \[\w+\] ANKUNFT\s")
+_MENGE = re.compile(r"(\d+) (Gold|Stein|Holz)")
+
+
+def verlauf_aus_logs() -> dict:
+    """Beute und Raids je Tag aus den Logdateien - fuer den Verlauf vor der
+    Umstellung auf mehrere Inseln."""
+    tage: dict[str, dict] = {}
+    for pfad in sorted(glob.glob(os.path.join(config.LOG_DIR, f"{config.LOG_FILE_PREFIX}-*.log"))):
+        with open(pfad, encoding="utf-8", errors="replace") as f:
+            for zeile in f:
+                if (m := _ANKUNFT.match(zeile)):
+                    tage.setdefault(m.group(1), {"gold": 0.0, "stein": 0.0, "holz": 0.0, "raids": 0})["raids"] += 1
+                elif (m := _BEUTE.match(zeile)):
+                    tag = tage.setdefault(m.group(1), {"gold": 0.0, "stein": 0.0, "holz": 0.0, "raids": 0})
+                    for n, r in _MENGE.findall(m.group(2)):
+                        tag[r.lower()] += float(n)
+    return tage

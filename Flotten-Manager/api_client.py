@@ -1,7 +1,7 @@
 """Zugriff auf die Seekampf-API, beschraenkt auf das, was der Flotten-Manager
 braucht.
 
-Aufgebaut wie der Client des Ressourcen-Bots: eine Session, automatischer
+Aufgebaut wie der Client des Upgrade-Bots: eine Session, automatischer
 Backoff bei transienten Netzwerkfehlern - aber nur fuer GET. POST /fleets ist
 NICHT idempotent: geht die Antwort auf dem Rueckweg verloren, waere die Flotte
 trotzdem unterwegs, und ein zweiter Versuch schickte eine zweite los.
@@ -114,3 +114,14 @@ class SeekampfClient:
         ({gold, stein, holz}), verluste und battle_id.
         """
         return self._request("GET", "/messages", params={"folder": "combat", "limit": limit}) or []
+
+    def archive_message(self, message_id):
+        """POST /messages/{id}/archive - blendet die Nachricht im Postfach aus.
+
+        Der Ordner der Nachricht bleibt "combat"; sie verschwindet lediglich
+        aus GET /messages?folder=combat. Ueber die API einsehbar bleibt sie
+        einzeln unter GET /messages/{id}, und die oeffentliche Inselseite zeigt
+        sie weiter an. Zurueckholen laesst sie sich ueber die API nicht -
+        einen unarchive-Endpunkt gibt es nicht.
+        """
+        return self._request("POST", f"/messages/{message_id}/archive")

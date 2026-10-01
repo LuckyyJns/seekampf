@@ -1,0 +1,2386 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seekampf-Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a1322; --bg-verlauf: radial-gradient(1200px 600px at 85% -10%, #12305a55, transparent 60%),
+                                 radial-gradient(900px 500px at -10% 110%, #0e4a5a40, transparent 60%);
+    --flaeche: #101b2d; --flaeche-2: #15233a; --flaeche-3: #1b2c47; --rand: #22344f; --rand-stark: #2d4466;
+    --text: #e7eef8; --gedaempft: #8ea2bd; --schwach: #6a7f9c;
+    --akzent: #2ec5d3; --akzent-2: #3b82f6; --akzent-text: #062028;
+    --gut: #34c38f; --warn: #f0b429; --schlecht: #f26d6d; --signal: #f59e4b;
+    /* Rohstoff-Farben: geprueft mit dem dataviz-Validator (Lightness-Band,
+       Chroma, CVD-Abstand, Normalsicht) gegen die Kartenflaeche. */
+    --gold: #c98500; --stein: #3987e5; --holz: #d95926;
+    --schatten: 0 1px 2px rgb(0 0 0 / .25), 0 10px 30px -14px rgb(0 0 0 / .55);
+    --radius: 16px; --radius-klein: 10px; --nav-breite: 248px;
+    --nav-bg: linear-gradient(180deg, #0d1a2e 0%, #0a1424 100%); --nav-text: #d6e2f2; --nav-gedaempft: #7f93b0;
+    --log-bg: #07101d; --log-text: #b9c8dc;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --bg: #eef3f9; --bg-verlauf: radial-gradient(1100px 500px at 90% -10%, #cfe6f5aa, transparent 60%),
+                                   radial-gradient(900px 500px at -10% 110%, #d6f1f0aa, transparent 60%);
+      --flaeche: #ffffff; --flaeche-2: #f5f8fc; --flaeche-3: #ebf1f8; --rand: #dde6f0; --rand-stark: #c8d5e4;
+      --text: #0e1b2e; --gedaempft: #5a6b82; --schwach: #7d8da3;
+      --akzent: #0e8fa0; --akzent-2: #2563eb; --akzent-text: #ffffff;
+      --gut: #1d8a5b; --warn: #a86700; --schlecht: #c23b3b; --signal: #c2570d;
+      --gold: #eda100; --stein: #2a78d6; --holz: #eb6834;
+      --schatten: 0 1px 2px rgb(15 30 50 / .06), 0 10px 28px -16px rgb(15 30 50 / .25);
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #eef3f9; --bg-verlauf: radial-gradient(1100px 500px at 90% -10%, #cfe6f5aa, transparent 60%),
+                                 radial-gradient(900px 500px at -10% 110%, #d6f1f0aa, transparent 60%);
+    --flaeche: #ffffff; --flaeche-2: #f5f8fc; --flaeche-3: #ebf1f8; --rand: #dde6f0; --rand-stark: #c8d5e4;
+    --text: #0e1b2e; --gedaempft: #5a6b82; --schwach: #7d8da3;
+    --akzent: #0e8fa0; --akzent-2: #2563eb; --akzent-text: #ffffff;
+    --gut: #1d8a5b; --warn: #a86700; --schlecht: #c23b3b; --signal: #c2570d;
+    --gold: #eda100; --stein: #2a78d6; --holz: #eb6834;
+    --schatten: 0 1px 2px rgb(15 30 50 / .06), 0 10px 28px -16px rgb(15 30 50 / .25);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg-verlauf), var(--bg); background-attachment: fixed; color: var(--text);
+    font: 15px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-feature-settings: "cv11", "ss01"; -webkit-font-smoothing: antialiased;
+  }
+  button, input, select { font: inherit; }
+  ::selection { background: color-mix(in srgb, var(--akzent) 35%, transparent); }
+
+  /* ---------- Seitenleiste ---------- */
+  nav#seite {
+    position: fixed; inset: 0 auto 0 0; width: var(--nav-breite); z-index: 30;
+    background: var(--nav-bg); color: var(--nav-text); border-right: 1px solid #ffffff10;
+    display: flex; flex-direction: column; padding: 18px 14px; gap: 4px;
+    transition: transform .22s ease;
+  }
+  nav#seite .marke-kopf { display: flex; align-items: center; gap: 12px; padding: 2px 6px 22px; }
+  nav#seite .logo { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex: none;
+                    background: linear-gradient(135deg, #2ec5d3 0%, #3b82f6 100%); color: #fff;
+                    box-shadow: 0 6px 18px -6px #2ec5d399, inset 0 1px 0 #ffffff40; }
+  nav#seite .logo-text { line-height: 1.15; }
+  nav#seite .logo-text b { display: block; font-size: 17px; letter-spacing: -0.02em; color: #fff; }
+  nav#seite .logo-text span { font-size: 12px; color: var(--nav-gedaempft); letter-spacing: .04em; }
+  nav#seite .rubrik { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--nav-gedaempft);
+                      padding: 10px 10px 6px; }
+  nav#seite a {
+    position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px;
+    color: var(--nav-text); text-decoration: none; font-weight: 500; transition: background .15s, color .15s;
+  }
+  nav#seite a:hover { background: #ffffff0d; color: #fff; }
+  nav#seite a.aktiv { background: linear-gradient(90deg, #2ec5d326, #2ec5d30a); color: #fff; }
+  nav#seite a.aktiv::before { content: ""; position: absolute; left: -14px; top: 9px; bottom: 9px; width: 3px;
+                              border-radius: 0 3px 3px 0; background: #2ec5d3; }
+  nav#seite a .symbol { flex: none; opacity: .85; }
+  nav#seite a.aktiv .symbol { opacity: 1; color: #2ec5d3; }
+  nav#seite a .dot { margin-left: auto; box-shadow: 0 0 0 3px #ffffff0d; }
+  nav#seite .fuss { margin-top: auto; padding: 12px 8px 2px; display: flex; align-items: center; gap: 10px;
+                    border-top: 1px solid #ffffff12; }
+  nav#seite .fuss button { background: #ffffff0f; border-color: #ffffff1a; color: var(--nav-text); }
+  nav#seite .fuss button:hover { background: #ffffff1a; }
+  nav#seite #uhr { margin-left: auto; font-size: 13px; color: var(--nav-gedaempft); }
+  #schleier { position: fixed; inset: 0; background: rgb(3 8 16 / .55); backdrop-filter: blur(2px); z-index: 25; display: none; }
+
+  main { margin-left: var(--nav-breite); transition: margin-left .22s ease; min-width: 0; }
+  body.nav-zu nav#seite { transform: translateX(-100%); }
+  body.nav-zu main { margin-left: 0; }
+  .kopf {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(12px) saturate(1.4);
+    border-bottom: 1px solid var(--rand);
+    display: flex; align-items: center; gap: 14px; padding: 12px 24px; flex-wrap: wrap;
+  }
+  .kopf .titelblock { min-width: 0; }
+  .kopf h1 { font-size: clamp(19px, 2.3vw, 24px); margin: 0; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
+  .kopf #untertitel { font-size: 13px; color: var(--gedaempft); }
+  .kopf .rechts { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #hamburger { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 12px; width: 42px; height: 40px;
+               padding: 0; display: grid; place-items: center; cursor: pointer; color: var(--text); box-shadow: var(--schatten); }
+  #hamburger:hover { border-color: var(--akzent); }
+  #hamburger span, #hamburger span::before, #hamburger span::after {
+    display: block; width: 18px; height: 2px; background: currentColor; border-radius: 2px; position: relative; content: "";
+  }
+  #hamburger span::before { position: absolute; top: -6px; }
+  #hamburger span::after { position: absolute; top: 6px; }
+  .huelle { max-width: 1280px; margin: 0 auto; padding: 24px 24px 80px; }
+
+  @media (max-width: 900px) {
+    main { margin-left: 0; }
+    body:not(.nav-offen) nav#seite { transform: translateX(-100%); }
+    body.nav-offen #schleier { display: block; }
+    .kopf { padding: 10px 14px; }
+    .huelle { padding: 16px 14px 70px; }
+  }
+
+  /* ---------- Karten & Ueberschriften ---------- */
+  h2 { font-size: 12px; margin: 0; color: var(--gedaempft); text-transform: uppercase; letter-spacing: 0.09em; font-weight: 700;
+       display: flex; align-items: center; gap: 8px; }
+  h2::before { content: ""; width: 6px; height: 6px; border-radius: 2px; background: var(--akzent); flex: none; }
+  h3 { font-size: 15px; margin: 0 0 8px; }
+  section.karte { background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+                  padding: 20px; margin-bottom: 18px; min-width: 0; box-shadow: var(--schatten); }
+  .kopfzeile { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .kopfzeile .rechts { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .abschnitt-kopf { margin: 26px 0 12px; }
+
+  /* ---------- Marken, Punkte, Knoepfe ---------- */
+  .marke { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+           border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap;
+           background: color-mix(in srgb, var(--akzent) 14%, transparent); color: var(--akzent);
+           border: 1px solid color-mix(in srgb, var(--akzent) 22%, transparent); }
+  .marke.gut { background: color-mix(in srgb, var(--gut) 14%, transparent); color: var(--gut); border-color: color-mix(in srgb, var(--gut) 24%, transparent); }
+  .marke.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 26%, transparent); }
+  .marke.schlecht { background: color-mix(in srgb, var(--schlecht) 14%, transparent); color: var(--schlecht); border-color: color-mix(in srgb, var(--schlecht) 26%, transparent); }
+  .marke.grau { background: color-mix(in srgb, var(--gedaempft) 12%, transparent); color: var(--gedaempft); border-color: color-mix(in srgb, var(--gedaempft) 20%, transparent); }
+  .punkt { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+  .marke.gut .punkt { box-shadow: 0 0 0 3px color-mix(in srgb, var(--gut) 25%, transparent); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--gedaempft); flex: none; }
+  .dot.gut { background: var(--gut); } .dot.warn { background: var(--warn); } .dot.schlecht { background: var(--schlecht); }
+  button {
+    font-weight: 600; padding: 8px 14px; border-radius: var(--radius-klein);
+    border: 1px solid var(--rand-stark); background: var(--flaeche-2); color: var(--text); cursor: pointer;
+    transition: border-color .15s, background .15s, transform .05s, box-shadow .15s;
+  }
+  button:hover:not(:disabled) { border-color: var(--akzent); background: var(--flaeche-3); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:focus-visible { outline: 2px solid var(--akzent); outline-offset: 2px; }
+  button:disabled { opacity: .45; cursor: default; }
+  button.haupt { background: linear-gradient(135deg, var(--akzent), var(--akzent-2)); border-color: transparent; color: #fff;
+                 box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--akzent) 80%, transparent); }
+  button.haupt:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
+  button.stop { background: linear-gradient(135deg, #f26d6d, #d9434f); border-color: transparent; color: #fff;
+                box-shadow: 0 6px 16px -8px #f26d6d99; }
+  button.stop:hover:not(:disabled) { filter: brightness(1.08); border-color: transparent; }
+  button.klein { padding: 5px 11px; font-size: 13px; font-weight: 550; border-radius: 9px; }
+  .leise { color: var(--gedaempft); }
+  .klein-text { font-size: 13px; }
+  .zahl { text-align: right; font-variant-numeric: tabular-nums; }
+  .mono { font-variant-numeric: tabular-nums; font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .93em; }
+  .fehler { background: color-mix(in srgb, var(--schlecht) 10%, var(--flaeche));
+            border: 1px solid color-mix(in srgb, var(--schlecht) 40%, var(--rand));
+            border-radius: var(--radius-klein); padding: 11px 14px; margin-bottom: 16px; }
+  .hinweisbox { background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: 12px;
+                padding: 12px 14px; font-size: 14px; }
+  .raster { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+
+  /* ---------- Tabellen ---------- */
+  .tabelle-rahmen { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.07em;
+       color: var(--schwach); font-weight: 650; padding: 8px 12px 8px 0; white-space: nowrap;
+       position: sticky; top: 0; background: var(--flaeche); z-index: 1; }
+  td { padding: 9px 12px 9px 0; border-top: 1px solid var(--rand); vertical-align: middle; }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover { background: color-mix(in srgb, var(--akzent) 5%, transparent); }
+  th.zahl, td.zahl { text-align: right; }
+  .balken { height: 5px; border-radius: 3px; background: var(--flaeche-3); overflow: hidden; min-width: 60px; margin-top: 4px; }
+  .balken > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--akzent), var(--akzent-2)); }
+
+  /* ---------- Kennzahlen ---------- */
+  .kacheln { display: grid; gap: 12px; margin-bottom: 18px;
+             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .kachel { background: var(--flaeche); border: 1px solid var(--rand); border-radius: 14px; padding: 14px 16px;
+            box-shadow: var(--schatten); position: relative; overflow: hidden; min-width: 0; }
+  .kachel::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--kachel-farbe, transparent); }
+  .kachel .beschriftung { font-size: 12.5px; color: var(--gedaempft); line-height: 1.2; font-weight: 550;
+                          display: flex; align-items: center; gap: 6px; }
+  .kachel .wert { white-space: nowrap; font-size: clamp(20px, 2.2vw, 27px); font-weight: 650; line-height: 1.2;
+                  letter-spacing: -0.025em; font-variant-numeric: tabular-nums; margin-top: 8px; }
+  .kachel.signal { background: linear-gradient(140deg, color-mix(in srgb, var(--akzent) 22%, var(--flaeche)), color-mix(in srgb, var(--akzent-2) 16%, var(--flaeche)));
+                   border-color: color-mix(in srgb, var(--akzent) 40%, var(--rand)); }
+  .kachel.signal .beschriftung { color: var(--akzent); }
+  .kacheln.klein { grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px; }
+  .kacheln.klein .kachel { box-shadow: none; background: var(--flaeche-2); padding: 11px 13px; }
+  .kacheln.klein .wert { font-size: 19px; margin-top: 5px; }
+
+  /* Heldenleiste der Uebersicht */
+  .held { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(200px, calc(50% - 7px)), 1fr)); margin-bottom: 20px; }
+  .held .kachel { padding: 18px 20px; }
+  .held .kachel .wert { font-size: clamp(24px, 2.8vw, 32px); }
+  .held .kachel .unter { font-size: 12.5px; color: var(--gedaempft); margin-top: 2px; }
+  .held .icon { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; flex: none;
+                background: color-mix(in srgb, var(--kachel-farbe, var(--akzent)) 16%, transparent); color: var(--kachel-farbe, var(--akzent)); }
+
+  /* ---------- Schalter ---------- */
+  .schalter { position: relative; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+              user-select: none; font-size: 14px; }
+  .schalter input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .schalter .spur { width: 42px; height: 24px; border-radius: 999px; background: var(--flaeche-3);
+                    border: 1px solid var(--rand-stark); position: relative; transition: background .18s, border-color .18s; flex: none; }
+  .schalter .spur::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+                           border-radius: 50%; background: #fff; transition: transform .18s; box-shadow: 0 1px 3px rgb(0 0 0 / .3); }
+  .schalter input:checked + .spur { background: linear-gradient(135deg, var(--gut), color-mix(in srgb, var(--gut) 70%, var(--akzent))); border-color: transparent; }
+  .schalter input:checked + .spur::after { transform: translateX(18px); }
+  .schalter input:focus-visible + .spur { outline: 2px solid var(--akzent); outline-offset: 2px; }
+  .schalter input:disabled + .spur { opacity: .45; }
+
+  /* ---------- Formulare ---------- */
+  .formular { display: grid; gap: 16px 20px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .feld { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  .feld label, .feld .label { font-size: 11.5px; color: var(--gedaempft); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+  .feld input:not([type=checkbox]), .feld select, select.eingabe {
+       padding: 9px 11px; border-radius: var(--radius-klein); border: 1px solid var(--rand-stark);
+       background: var(--flaeche-2); color: var(--text); min-width: 0; width: 100%; max-width: 100%;
+       transition: border-color .15s, box-shadow .15s; }
+  .feld input:not([type=checkbox]):focus, .feld select:focus, select.eingabe:focus {
+       outline: none; border-color: var(--akzent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--akzent) 25%, transparent); }
+  input[type=checkbox] { accent-color: var(--akzent); width: 16px; height: 16px; }
+  .feld .hinweis { font-size: 12px; color: var(--schwach); }
+  .feld.check { flex-direction: row; align-items: center; gap: 9px; }
+  .feld.check label { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--text); font-weight: 500; }
+  .gruppe { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--akzent);
+            text-transform: uppercase; letter-spacing: 0.09em; border-top: 1px solid var(--rand); padding-top: 16px; }
+  .gruppe:first-child { border-top: 0; padding-top: 0; }
+  .ungespeichert-marke { color: var(--warn); font-size: 13px; font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips label { display: inline-flex; gap: 7px; align-items: center; font-size: 13.5px; cursor: pointer;
+                 text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 500;
+                 padding: 5px 11px 5px 9px; border-radius: 999px; border: 1px solid var(--rand-stark); background: var(--flaeche-2); }
+  .chips label:has(input:checked) { border-color: color-mix(in srgb, var(--schlecht) 50%, var(--rand)); background: color-mix(in srgb, var(--schlecht) 10%, var(--flaeche-2)); }
+  .formular-leiste { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+
+  /* ---------- Insel-Karten (Akkordeon) ---------- */
+  .insel-karte { background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius);
+                 margin-bottom: 12px; min-width: 0; box-shadow: var(--schatten); transition: border-color .15s; }
+  .insel-karte:hover { border-color: var(--rand-stark); }
+  .insel-karte.offen { border-color: color-mix(in srgb, var(--akzent) 35%, var(--rand)); }
+  .insel-kopf { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; flex-wrap: wrap; }
+  .insel-kopf .pfeil { transition: transform .18s; color: var(--schwach); width: 14px; font-size: 11px; }
+  .insel-karte.offen .insel-kopf .pfeil { transform: rotate(90deg); color: var(--akzent); }
+  .avatar { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; flex: none;
+            font-weight: 700; font-size: 14px; color: #fff; letter-spacing: -0.02em;
+            background: linear-gradient(135deg, var(--a1, #2ec5d3), var(--a2, #3b82f6)); box-shadow: inset 0 1px 0 #ffffff33; }
+  .insel-kopf .titel { font-weight: 650; font-size: 15.5px; }
+  .insel-kopf .koord { color: var(--gedaempft); font-size: 12.5px; }
+  .insel-kopf .namenblock { display: flex; flex-direction: column; line-height: 1.25; }
+  .insel-kopf .info { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--gedaempft); }
+  .insel-kopf .info b { color: var(--text); font-weight: 600; }
+  .insel-kopf .schalter-platz { margin-left: auto; }
+  .insel-rumpf { display: none; padding: 6px 18px 20px; border-top: 1px solid var(--rand); }
+  .insel-karte.offen .insel-rumpf { display: block; animation: auf .18s ease; }
+  @keyframes auf { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .unterteil { margin-top: 20px; }
+  .unterteil > h2 { margin-bottom: 10px; }
+
+  /* Insel-Karten der Uebersicht */
+  .insel-raster { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+  .insel-kachel { background: var(--flaeche); border: 1px solid var(--rand); border-radius: var(--radius); padding: 16px;
+                  box-shadow: var(--schatten); display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .insel-kachel .oben { display: flex; gap: 12px; align-items: center; }
+  .insel-kachel .oben .namenblock { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+  .insel-kachel .oben b { font-size: 15.5px; }
+  .insel-kachel .chips-zeile { display: flex; gap: 6px; flex-wrap: wrap; }
+  .insel-kachel .fakten { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+  .insel-kachel .fakten > div { background: var(--flaeche-2); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .insel-kachel .fakten .etikett { display: block; color: var(--gedaempft); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; }
+  .insel-kachel .fakten b { font-weight: 600; font-size: 13.5px; }
+
+  /* ---------- Rohstoff-Leisten ---------- */
+  .res { display: grid; grid-template-columns: 64px 1fr auto; gap: 7px 12px; align-items: center; font-size: 13px; }
+  .res .leiste { height: 8px; border-radius: 99px; background: var(--flaeche-3); overflow: hidden; }
+  .res .leiste i { display: block; height: 100%; border-radius: 99px; }
+  .res-key { display: inline-flex; align-items: center; gap: 7px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+
+  /* ---------- Warteschlange ---------- */
+  .schlange { list-style: none; margin: 0; padding: 0; position: relative; }
+  .schlange li { display: flex; gap: 12px; align-items: center; padding: 10px 12px; margin-bottom: 8px; flex-wrap: wrap;
+                 background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: 12px; }
+  .schlange li:last-child { margin-bottom: 0; }
+  .schlange .rest { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Diagramm ---------- */
+  .diagramm { position: relative; }
+  .diagramm svg { display: block; width: 100%; overflow: visible; }
+  .diagramm .achse text { fill: var(--schwach); font-size: 11px; }
+  .diagramm .gitter { stroke: var(--rand); stroke-width: 1; }
+  .diagramm .treffer { fill: transparent; cursor: crosshair; }
+  .diagramm .treffer:hover { fill: color-mix(in srgb, var(--text) 5%, transparent); }
+  .legende { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--gedaempft); align-items: center; }
+  .legende span { display: inline-flex; align-items: center; gap: 7px; }
+  .tooltip { position: absolute; pointer-events: none; background: var(--flaeche); border: 1px solid var(--rand-stark);
+             border-radius: 12px; padding: 10px 12px; font-size: 13px; box-shadow: 0 12px 32px -8px rgb(0 0 0 / .45);
+             white-space: nowrap; z-index: 5; display: none; min-width: 170px; }
+  .tooltip .zeile { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 1px 0; }
+  .tooltip .zeile b { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Log: Terminal-Optik in beiden Themen ---------- */
+  pre.log { margin: 0; max-height: 380px; overflow: auto; font-size: 12.5px; line-height: 1.6; padding: 14px 16px;
+            background: var(--log-bg); color: var(--log-text); border-radius: 12px; border: 1px solid #ffffff10;
+            font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-word; }
+
+  /* ---------- Dienste ---------- */
+  .dienst { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dienst .knoepfe { display: flex; gap: 6px; flex-wrap: wrap; }
+  .dienst-karte { display: flex; flex-direction: column; gap: 10px; }
+  .dienst-karte .oben { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dienst-karte .oben a, .dienst-karte .oben b { color: var(--text); font-weight: 650; text-decoration: none; font-size: 15px; }
+  .dienst-karte .oben a:hover { color: var(--akzent); }
+  .dienst-karte .oben .marke { margin-left: auto; }
+
+  /* ---------- Meldungen ---------- */
+  #meldungen { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 10px;
+               z-index: 50; max-width: min(420px, calc(100vw - 36px)); }
+  .meldung { background: var(--flaeche); border: 1px solid var(--rand-stark); border-left: 4px solid var(--akzent);
+             border-radius: 12px; padding: 11px 14px; box-shadow: 0 14px 34px -10px rgb(0 0 0 / .5); font-size: 14px;
+             animation: rein .2s ease; }
+  @keyframes rein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .meldung.gut { border-left-color: var(--gut); }
+  .meldung.schlecht { border-left-color: var(--schlecht); }
+
+  .faehigkeit { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-top: 1px solid var(--rand); }
+  .faehigkeit:first-child { border-top: 0; padding-top: 0; }
+  .vorgang { background: var(--flaeche-2); border: 1px solid var(--rand); border-left: 3px solid var(--akzent);
+             border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+  .vorgang.notruf { border-left-color: var(--schlecht); }
+  .vorgang.schuld { border-left-color: var(--warn); }
+  .tab { display: none; }
+  .tab.sichtbar { display: block; animation: auf .2s ease; }
+  .zwei-spalten { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .zwei-spalten > * { min-width: 0; }
+  @media (max-width: 640px) {
+    .verstecken-schmal { display: none; }
+    .zwei-spalten { grid-template-columns: 1fr; }
+    .insel-kopf { padding: 12px 14px; gap: 10px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  /* ---------- Ozeankarte ---------- */
+  :root { --meer: #06101e; --meer-welt: #0b1a2e; --meer-gitter: #15294a; --meer-gitter-stark: #1f3a63;
+          --insel-neutral: #5d7390; --insel-frei: #9fb3cc; --insel-hervor: #2ec5d3; --insel-rand: #06101e;
+          --al1: #3b82f6; --al2: #10b981; --al3: #f97316; --al4: #ec4899; --al5: #facc15; --al6: #a855f7; --al7: #7dd3fc; --al8: #fda4af; --al9: #a3e635; --al10: #e879f9; --al11: #2dd4bf; --al12: #818cf8; --gildenlos: #6b7280; --glow: 1; --feind: #f26d6d; --karte-text: #d6e2f2; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --meer: #c3d8ea; --meer-welt: #dcebf5; --meer-gitter: #c4d9ea; --meer-gitter-stark: #a9c4dc;
+      --insel-neutral: #7d93ad; --insel-frei: #5a6f88; --insel-hervor: #0e8fa0; --insel-rand: #ffffff;
+      --al1: #2563eb; --al2: #059669; --al3: #ea580c; --al4: #db2777; --al5: #eab308; --al6: #9333ea; --al7: #38bdf8; --al8: #f9a8d4; --al9: #65a30d; --al10: #c026d3; --al11: #0d9488; --al12: #6366f1; --gildenlos: #8a94a3; --glow: .45; --feind: #c23b3b; --karte-text: #0e1b2e; }
+  }
+  :root[data-theme="light"] { --meer: #c3d8ea; --meer-welt: #dcebf5; --meer-gitter: #c4d9ea; --meer-gitter-stark: #a9c4dc;
+      --insel-neutral: #7d93ad; --insel-frei: #5a6f88; --insel-hervor: #0e8fa0; --insel-rand: #ffffff;
+      --al1: #2563eb; --al2: #059669; --al3: #ea580c; --al4: #db2777; --al5: #eab308; --al6: #9333ea; --al7: #38bdf8; --al8: #f9a8d4; --al9: #65a30d; --al10: #c026d3; --al11: #0d9488; --al12: #6366f1; --gildenlos: #8a94a3; --glow: .45; --feind: #c23b3b; --karte-text: #0e1b2e; }
+  .karten-leiste { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-bottom: 12px; }
+  .karten-leiste .gruppe-inline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .segment { display: inline-flex; background: var(--flaeche-2); border: 1px solid var(--rand-stark); border-radius: 11px; padding: 3px; }
+  .segment button { border: 0; background: transparent; padding: 5px 12px; border-radius: 8px; font-size: 13.5px; }
+  .segment button.an { background: linear-gradient(135deg, var(--akzent), var(--akzent-2)); color: #fff; }
+  .karten-leiste select.eingabe, .karten-leiste input.eingabe { width: auto; padding: 7px 10px; }
+  .karten-leiste input.eingabe {
+    border-radius: var(--radius-klein); border: 1px solid var(--rand-stark); background: var(--flaeche-2); color: var(--text); min-width: 0; }
+  .ebenen { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ebenen label { display: inline-flex; gap: 7px; align-items: center; font-size: 13px; cursor: pointer; font-weight: 500;
+                  padding: 5px 11px 5px 9px; border-radius: 999px; border: 1px solid var(--rand-stark); background: var(--flaeche-2); }
+  .ebenen label:has(input:checked) { border-color: color-mix(in srgb, var(--akzent) 55%, var(--rand)); background: color-mix(in srgb, var(--akzent) 12%, var(--flaeche-2)); }
+  .karten-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .karten-layout { grid-template-columns: 1fr; } }
+  .karten-rahmen { position: relative; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--rand);
+                   box-shadow: var(--schatten); background: var(--meer); height: calc(100vh - 290px); min-height: 460px;
+                   touch-action: none; }
+  .karten-rahmen canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  .karten-rahmen canvas.zieht { cursor: grabbing; }
+  .karten-knoepfe { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+  .karten-knoepfe button { width: 36px; height: 36px; padding: 0; font-size: 18px; line-height: 1; border-radius: 10px;
+                           background: color-mix(in srgb, var(--flaeche) 88%, transparent); backdrop-filter: blur(6px); }
+  .karten-stand { position: absolute; left: 12px; bottom: 12px; font-size: 12px; color: var(--karte-text);
+                  background: color-mix(in srgb, var(--flaeche) 80%, transparent); backdrop-filter: blur(6px);
+                  border: 1px solid var(--rand); padding: 5px 10px; border-radius: 9px; }
+  .karten-tip { position: absolute; pointer-events: none; z-index: 5; display: none; background: var(--flaeche);
+                border: 1px solid var(--rand-stark); border-radius: 12px; padding: 9px 12px; font-size: 13px; max-width: 280px;
+                box-shadow: 0 12px 32px -8px rgb(0 0 0 / .5); }
+  .karten-seite { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .karten-seite section.karte { margin: 0; padding: 16px; }
+  .info-zeile { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid var(--rand); font-size: 13.5px; }
+  .info-zeile:first-of-type { border-top: 0; }
+  .info-zeile span:first-child { color: var(--gedaempft); }
+  .legende-liste { display: flex; flex-direction: column; gap: 4px; }
+  .legende-liste button { display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; font-weight: 500;
+                          background: transparent; border: 1px solid transparent; padding: 6px 8px; border-radius: 9px; font-size: 13.5px; }
+  .legende-liste button:hover { background: var(--flaeche-2); }
+  .legende-liste button.an { border-color: color-mix(in srgb, var(--akzent) 55%, var(--rand)); background: color-mix(in srgb, var(--akzent) 10%, transparent); }
+  .legende-liste .zahl { margin-left: auto; color: var(--gedaempft); font-size: 12.5px; }
+  .kreis.leuchtend { border: 0; box-shadow: 0 0 7px calc(var(--glow) * 1px) var(--c); width: 11px; height: 11px; }
+  .kreis { width: 12px; height: 12px; border-radius: 50%; flex: none; border: 2px solid var(--insel-rand); box-shadow: 0 0 0 1px var(--rand-stark); }
+  .aenderung { display: block; width: 100%; text-align: left; background: transparent; border: 0; border-top: 1px solid var(--rand);
+               border-radius: 0; padding: 7px 2px; font-weight: 400; font-size: 13px; }
+  .aenderung:hover { background: var(--flaeche-2); }
+  .symbol-form { display: inline-block; width: 11px; height: 11px; background: var(--insel-hervor); flex: none; }
+</style>
+</head>
+<body>
+<nav id="seite" aria-label="Bereiche">
+  <div class="marke-kopf">
+    <span class="logo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21"/><path d="M8 11h8"/><path d="M4 14c0 4 3.6 7 8 7s8-3 8-7"/></svg></span>
+    <span class="logo-text"><b>Seekampf-Hub</b><span>Bots &amp; Inseln</span></span>
+  </div>
+  <a href="#uebersicht" data-tab="uebersicht"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Übersicht</a>
+  <a href="#karte" data-tab="karte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>Karte</a>
+  <div class="rubrik">Bots</div>
+  <a href="#flotte" data-tab="flotte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/></svg>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
+  <a href="#upgrade" data-tab="upgrade"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M12 11v.01"/></svg>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
+  <a href="#allianz" data-tab="allianz"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M15.5 14.8c2.6-.3 4.8 1.4 5.5 4.7"/></svg>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
+  <div class="fuss">
+    <button class="klein" id="thema" title="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>Thema</button>
+    <span id="uhr" class="mono"></span>
+  </div>
+</nav>
+<div id="schleier"></div>
+
+<main>
+  <div class="kopf">
+    <button id="hamburger" aria-label="Menü" aria-controls="seite"><span></span></button>
+    <div class="titelblock"><h1 id="titel">Übersicht</h1><div id="untertitel"></div></div>
+    <div class="rechts" id="kopf-rechts"></div>
+  </div>
+
+  <div class="huelle">
+    <!-- ======================= Übersicht ======================= -->
+    <div class="tab" id="tab-uebersicht">
+      <div class="held" id="ue-held"></div>
+      <div class="kopfzeile abschnitt-kopf" style="margin-top:0"><h2>Inseln</h2><div class="rechts leise klein-text" id="ue-inseln-info"></div></div>
+      <div class="insel-raster" id="ue-inseln"><div class="leise">wird geladen …</div></div>
+      <section class="karte" style="margin-top:18px">
+        <div class="kopfzeile"><h2>Beute der letzten Tage</h2>
+          <div class="rechts"><button class="klein" data-tabelle-fuer="ue-diagramm">Tabelle</button></div></div>
+        <div id="ue-diagramm"></div>
+      </section>
+      <div class="kopfzeile abschnitt-kopf"><h2>Dienste</h2></div>
+      <div class="raster" id="ue-dienste"></div>
+    </div>
+
+    <!-- ======================= Karte ======================= -->
+    <div class="tab" id="tab-karte">
+      <div class="karten-leiste">
+        <div class="segment" role="group" aria-label="Hervorheben nach">
+          <button data-modus="spieler" class="an">Spieler</button><button data-modus="allianz">Allianz</button>
+        </div>
+        <div class="gruppe-inline" id="ka-spieler-wahl">
+          <select class="eingabe" id="ka-spieler" aria-label="Spieler hervorheben"></select>
+        </div>
+        <form class="gruppe-inline" id="ka-suche-form">
+          <input class="eingabe" id="ka-suche" list="ka-suchliste" placeholder="Koordinate oder Spieler …" size="22" aria-label="Suche">
+          <datalist id="ka-suchliste"></datalist>
+          <button class="klein" type="submit">Suchen</button>
+        </form>
+        <div class="gruppe-inline" style="margin-left:auto">
+          <span class="leise klein-text" id="ka-scan-info"></span>
+          <button class="klein" id="ka-scan">Karte jetzt scannen</button>
+        </div>
+      </div>
+      <div class="ebenen" style="margin-bottom:12px">
+        <label><input type="checkbox" data-ebene="flotten" checked>Meine Flotten</label>
+        <label><input type="checkbox" data-ebene="angriffe" checked>Angriffe auf mich</label>
+        <label><input type="checkbox" data-ebene="frei">Freie Inseln &amp; Ruinen</label>
+        <label><input type="checkbox" data-ebene="ziele">Raid-Ziele &amp; Radius</label>
+        <label><input type="checkbox" data-ebene="aenderungen">Änderungen seit letztem Scan</label>
+        <label><input type="checkbox" data-ebene="gitter" checked>Sektorgitter</label>
+      </div>
+      <div class="karten-layout">
+        <div class="karten-rahmen" id="ka-rahmen">
+          <canvas id="ka-canvas"></canvas>
+          <div class="karten-knoepfe">
+            <button id="ka-plus" title="Hineinzoomen">+</button>
+            <button id="ka-minus" title="Herauszoomen">−</button>
+            <button id="ka-einpassen" title="Auf besiedeltes Gebiet" style="font-size:14px">⤢</button>
+            <button id="ka-welt" title="Ganze Welt" style="font-size:12px;font-weight:700">W</button>
+          </div>
+          <div class="karten-stand" id="ka-stand">wird geladen …</div>
+          <div class="karten-tip" id="ka-tip"></div>
+        </div>
+        <div class="karten-seite">
+          <section class="karte" id="ka-info-karte">
+            <div class="kopfzeile" style="margin-bottom:8px"><h2>Insel</h2></div>
+            <div id="ka-info" class="leise klein-text">Klick auf eine Insel für Details.</div>
+          </section>
+          <section class="karte">
+            <div class="kopfzeile" style="margin-bottom:8px"><h2 id="ka-legende-titel">Legende</h2></div>
+            <div id="ka-legende"></div>
+          </section>
+          <section class="karte" id="ka-aenderungen-karte" hidden>
+            <div class="kopfzeile" style="margin-bottom:6px"><h2>Änderungen</h2><div class="rechts leise klein-text" id="ka-aenderungen-info"></div></div>
+            <div id="ka-aenderungen" style="max-height:300px;overflow:auto"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================= Flotten-Manager ======================= -->
+    <div class="tab" id="tab-flotte">
+      <div class="fehler" id="fl-fehler" hidden></div>
+      <div class="kacheln" id="fl-kacheln"></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Beute je Tag – alle Inseln</h2>
+          <div class="rechts"><button class="klein" data-tabelle-fuer="fl-diagramm">Tabelle</button></div></div>
+        <div id="fl-diagramm"></div>
+      </section>
+      <div class="kopfzeile abschnitt-kopf"><h2>Inseln</h2>
+        <div class="rechts">
+          <button class="klein" id="fl-blacklist">Blacklist leeren</button>
+          <button class="klein" id="fl-stats-reset">Statistik zurücksetzen</button>
+        </div></div>
+      <div id="fl-inseln"></div>
+      <section class="karte" style="margin-top:16px">
+        <div class="kopfzeile"><h2>Einstellungen (alle Inseln)</h2>
+          <div class="rechts">
+            <span class="ungespeichert-marke" data-dirty-anzeige="fl-settings" hidden>● ungespeichert</span>
+            <span class="leise klein-text" id="fl-settings-info"></span>
+            <button class="klein" id="fl-speichern">Speichern</button>
+          </div></div>
+        <div class="formular" id="fl-formular" data-form="fl-settings"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="flotte"></div></div>
+        <pre class="log" data-log="flotte">…</pre>
+      </section>
+    </div>
+
+    <!-- ======================= Upgrade-Bot ======================= -->
+    <div class="tab" id="tab-upgrade">
+      <div class="fehler" id="up-fehler" hidden></div>
+      <div class="kopfzeile abschnitt-kopf" style="margin-top:0">
+        <h2>Inseln</h2>
+        <div class="rechts">
+          <span class="leise klein-text" id="up-takt"></span>
+          <button class="klein" id="up-pruefen">Jetzt prüfen</button>
+        </div>
+      </div>
+      <div id="up-inseln"></div>
+      <section class="karte" style="margin-top:16px">
+        <div class="kopfzeile"><h2>Letzte Befehle</h2></div>
+        <div id="up-befehle" class="klein-text leise">noch keine</div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="upgrade"></div></div>
+        <pre class="log" data-log="upgrade">…</pre>
+      </section>
+    </div>
+
+    <!-- ======================= Allianz-Bot ======================= -->
+    <div class="tab" id="tab-allianz">
+      <div class="fehler" id="al-fehler" hidden></div>
+      <div class="zwei-spalten">
+        <section class="karte">
+          <div class="kopfzeile"><h2>Funktionen</h2></div>
+          <div id="al-faehigkeiten"></div>
+        </section>
+        <section class="karte">
+          <div class="kopfzeile"><h2>Rohstoffe anfragen</h2>
+            <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="al-anfrage" hidden>● nicht abgeschickt</span></div></div>
+          <div data-form="al-anfrage">
+            <div class="formular">
+              <div class="feld"><label for="al-anfrage-insel">Insel</label><select id="al-anfrage-insel"></select></div>
+              <div class="feld"><label for="al-anfrage-gold">Gold</label><input type="number" min="0" step="100" id="al-anfrage-gold" placeholder="0"></div>
+              <div class="feld"><label for="al-anfrage-stein">Stein</label><input type="number" min="0" step="100" id="al-anfrage-stein" placeholder="0"></div>
+              <div class="feld"><label for="al-anfrage-holz">Holz</label><input type="number" min="0" step="100" id="al-anfrage-holz" placeholder="0"></div>
+            </div>
+            <div class="formular-leiste">
+              <button class="haupt" id="al-anfrage-senden">Anfrage stellen</button>
+              <span class="leise klein-text" id="al-anfrage-info">Der Bot postet [ANFRAGE] ins Allianz-Forum und sagt Angebote automatisch zu.</span>
+            </div>
+          </div>
+        </section>
+      </div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Laufende Vorgänge</h2></div>
+        <div id="al-vorgaenge"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Strategie</h2>
+          <div class="rechts">
+            <span class="ungespeichert-marke" data-dirty-anzeige="al-strategie" hidden>● ungespeichert</span>
+            <span class="leise klein-text" id="al-strategie-info"></span>
+            <button class="klein" id="al-strategie-speichern">Speichern</button>
+          </div></div>
+        <div class="formular" id="al-strategie" data-form="al-strategie"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Allianz-Mitglieder</h2><div class="rechts leise klein-text" id="al-mitglieder-info"></div></div>
+        <div class="tabelle-rahmen"><table>
+          <thead><tr><th>Name</th><th>Bot</th><th>Fähigkeiten</th><th class="zahl">Präsenz</th></tr></thead>
+          <tbody id="al-mitglieder"></tbody>
+        </table></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="allianz"></div></div>
+        <pre class="log" data-log="allianz">…</pre>
+      </section>
+    </div>
+  </div>
+</main>
+<div id="meldungen" aria-live="polite"></div>
+
+<script>
+"use strict";
+// ======================================================================
+// Hilfen
+// ======================================================================
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let zeitVersatz = 0;               // Serverzeit - Browserzeit
+const jetzt = () => Date.now() / 1000 + zeitVersatz;
+
+function zahl(n, stellen = 0) {
+  return Number(n ?? 0).toLocaleString("de-DE", { maximumFractionDigits: stellen });
+}
+function kompakt(n) {
+  n = Number(n || 0);
+  if (Math.abs(n) >= 1e6) return (n / 1e6).toLocaleString("de-DE", { maximumFractionDigits: 1 }) + " Mio";
+  if (Math.abs(n) >= 1e4) return (n / 1e3).toLocaleString("de-DE", { maximumFractionDigits: 0 }) + "k";
+  return zahl(n);
+}
+function dauer(sek) {
+  if (sek === null || sek === undefined || isNaN(sek)) return "–";
+  let s = Math.max(0, Math.round(sek));
+  const t = Math.floor(s / 86400); s -= t * 86400;
+  const h = Math.floor(s / 3600); s -= h * 3600;
+  const m = Math.floor(s / 60); s -= m * 60;
+  if (t) return `${t}d ${h}h`;
+  if (h) return `${h}h ${String(m).padStart(2, "0")}m`;
+  if (m) return `${m}:${String(s).padStart(2, "0")}`;
+  return `${s}s`;
+}
+function laufzeit(sek) {
+  const s = Math.max(0, Math.round(sek || 0));
+  return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
+}
+/** Zeitpunkt aus Epoch-Sekunden oder ISO-Text in Epoch-Sekunden. */
+function ts(wert) {
+  if (wert === null || wert === undefined || wert === "") return null;
+  if (typeof wert === "number") return wert;
+  const t = Date.parse(wert);
+  return isNaN(t) ? null : t / 1000;
+}
+function uhrzeit(wert, mitTag = false) {
+  const t = ts(wert);
+  if (!t) return "–";
+  const d = new Date(t * 1000);
+  const heute = new Date().toDateString() === d.toDateString();
+  const zeit = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+  return (mitTag || !heute) ? `${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })} ${zeit}` : zeit;
+}
+function vor(wert) {
+  const t = ts(wert);
+  return t ? `vor ${dauer(jetzt() - t)}` : "–";
+}
+/** Countdown-Span: der Sekundentakt unten zaehlt alle [data-bis] herunter. */
+function countdown(bis, fertig = "fertig") {
+  const t = ts(bis);
+  if (!t) return "–";
+  return `<span data-bis="${t}" data-fertig="${esc(fertig)}">${dauer(t - jetzt())}</span>`;
+}
+const GEBAEUDE_NAMEN = {
+  haupthaus: "Haupthaus", goldmine: "Goldmine", steingrube: "Steingrube", saegewerk: "Sägewerk",
+  lagerhaus: "Lagerhaus", hafen: "Hafen", kaserne: "Kaserne", steinmauer: "Steinmauer", wachturm: "Wachturm",
+  labor: "Labor", marktplatz: "Marktplatz",
+};
+const gname = (t) => GEBAEUDE_NAMEN[t] || t;
+const SCHIFF_NAMEN = {
+  kleines_kriegsschiff: "kl. Kriegsschiff", grosses_kriegsschiff: "gr. Kriegsschiff",
+  kleines_handelsschiff: "kl. Handelsschiff", grosses_handelsschiff: "gr. Handelsschiff",
+  spaehschiff: "Spähschiff", kolonisationsschiff: "Kolonisationsschiff",
+  steinewerfer: "Steinewerfer", speerkaempfer: "Speerkämpfer", bogenschuetze: "Bogenschütze",
+};
+const sname = (t) => SCHIFF_NAMEN[t] || t;
+const ROHSTOFFE = [["gold", "Gold"], ["stein", "Stein"], ["holz", "Holz"]];
+function beuteText(b) {
+  if (!b) return "–";
+  const teile = ROHSTOFFE.filter(([k]) => (b[k] ?? 0) > 0).map(([k, n]) => `${zahl(b[k])} ${n}`);
+  return teile.length ? teile.join(" · ") : "nichts";
+}
+function mengenText(m) {
+  if (!m || !Object.keys(m).length) return "–";
+  return Object.entries(m).map(([k, v]) => `${zahl(v)} ${sname(k)}`).join(", ");
+}
+
+async function hole(pfad, optionen) {
+  const antwort = await fetch(pfad, optionen);
+  if (!antwort.ok) {
+    let text = await antwort.text();
+    try { text = JSON.parse(text).detail || text; } catch (e) { /* Rohtext */ }
+    throw new Error(text);
+  }
+  return antwort.json();
+}
+const sende = (methode) => (pfad, koerper) => hole(pfad, {
+  method: methode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(koerper ?? {}),
+});
+const post = sende("POST"), put = sende("PUT");
+
+function melde(text, art = "") {
+  const el = document.createElement("div");
+  el.className = `meldung ${art}`;
+  el.textContent = text;
+  $("meldungen").appendChild(el);
+  setTimeout(() => el.remove(), art === "schlecht" ? 9000 : 5000);
+}
+/** Knopf waehrend einer Aktion sperren, Fehler als Meldung zeigen. */
+async function aktion(knopf, fn, erfolg) {
+  if (knopf) knopf.disabled = true;
+  try {
+    const r = await fn();
+    if (erfolg) melde(typeof erfolg === "function" ? erfolg(r) : erfolg, "gut");
+    return r;
+  } catch (e) {
+    melde(e.message, "schlecht");
+  } finally {
+    if (knopf) knopf.disabled = false;
+  }
+}
+
+// ======================================================================
+// Ungespeicherte Aenderungen: jedes Formular mit data-form meldet sich hier
+// ======================================================================
+const ungespeichert = new Set();
+function dirtySetzen(form, an) {
+  if (an) ungespeichert.add(form); else ungespeichert.delete(form);
+  document.querySelectorAll(`[data-dirty-anzeige="${form}"]`).forEach(el => el.hidden = !an);
+}
+document.addEventListener("input", (e) => {
+  const form = e.target.closest("[data-form]");
+  if (form) dirtySetzen(form.dataset.form, true);
+});
+document.addEventListener("change", (e) => {
+  const form = e.target.closest("[data-form]");
+  if (form) dirtySetzen(form.dataset.form, true);
+});
+window.addEventListener("beforeunload", (e) => {
+  if (ungespeichert.size) { e.preventDefault(); e.returnValue = ""; }
+});
+function ungespeichertIn(tab) {
+  const container = $(`tab-${tab}`);
+  return [...ungespeichert].filter(f => container && container.querySelector(`[data-form="${f}"]`));
+}
+
+// ======================================================================
+// Navigation: Hamburger + Tabs ueber den Hash
+// ======================================================================
+const TABS = { uebersicht: "Übersicht", karte: "Karte", flotte: "Flotten-Manager", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot" };
+const UNTERTITEL = {
+  uebersicht: "Alle Bots und Inseln auf einen Blick",
+  karte: "Die ganze Welt – Spieler, Allianzen und deine Flotten",
+  flotte: "Raids auf freie Inseln – je Insel steuerbar",
+  upgrade: "Bau-Warteschlangen, Priorisierung und Ausbau von Hand",
+  allianz: "Allianz-Protokoll: Notrufe, Beistand, Rohstoff-Anfragen",
+};
+let tab = null;
+
+function istSchmal() { return window.matchMedia("(max-width: 900px)").matches; }
+$("hamburger").onclick = () => {
+  if (istSchmal()) document.body.classList.toggle("nav-offen");
+  else {
+    document.body.classList.toggle("nav-zu");
+    try { localStorage.setItem("nav-zu", document.body.classList.contains("nav-zu") ? "1" : ""); } catch (e) { /* egal */ }
+  }
+};
+$("schleier").onclick = () => document.body.classList.remove("nav-offen");
+try { if (localStorage.getItem("nav-zu")) document.body.classList.add("nav-zu"); } catch (e) { /* egal */ }
+
+function zeigeTab(ziel) {
+  // Direktlink auf eine Insel: #flotte/447 oder #upgrade/447 klappt sie auf.
+  let [neu, insel] = String(ziel || "").split("/");
+  if (!TABS[neu]) neu = "uebersicht";
+  if (insel && offeneInseln[neu]) offeneInseln[neu].add(insel);
+  if (tab && neu !== tab) {
+    const offen = ungespeichertIn(tab);
+    if (offen.length && !confirm("Es gibt ungespeicherte Änderungen in diesem Bereich. Trotzdem wechseln? Die Änderungen gehen verloren.")) {
+      history.replaceState(null, "", `#${tab}`);
+      return;
+    }
+    // Verworfen: Formulare beim naechsten Besuch frisch aus dem Stand bauen.
+    offen.forEach(f => { dirtySetzen(f, false); formularVerwerfen(f); });
+  }
+  tab = neu;
+  document.querySelectorAll(".tab").forEach(el => el.classList.toggle("sichtbar", el.id === `tab-${tab}`));
+  document.querySelectorAll("nav#seite a").forEach(a => a.classList.toggle("aktiv", a.dataset.tab === tab));
+  $("titel").textContent = TABS[tab];
+  $("untertitel").textContent = UNTERTITEL[tab];
+  document.title = `${TABS[tab]} – Seekampf-Hub`;
+  document.body.classList.remove("nav-offen");
+  zeichneKopfRechts();
+  aktualisieren();
+  logsHolen();
+}
+window.addEventListener("hashchange", () => {
+  const [neu] = location.hash.slice(1).split("/");
+  if (neu !== tab || location.hash.includes("/")) zeigeTab(location.hash.slice(1));
+});
+
+// Thema
+$("thema").onclick = () => {
+  const dunkel = getComputedStyle(document.documentElement).colorScheme.includes("dark");
+  const neu = dunkel ? "light" : "dark";
+  document.documentElement.dataset.theme = neu;
+  try { localStorage.setItem("thema", neu); } catch (e) { /* egal */ }
+  neuZeichnenDiagramme();
+};
+try { const t = localStorage.getItem("thema"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* egal */ }
+
+// ======================================================================
+// Dienste (systemd)
+// ======================================================================
+let dienste = null;
+const DIENST_FUER_TAB = { flotte: "flotte", upgrade: "upgrade", allianz: "allianz" };
+const AKTION_TEXT = { start: "Starten", stop: "Stoppen", restart: "Neu starten" };
+
+function dienstMarke(d) {
+  if (!d) return `<span class="marke grau"><span class="punkt"></span>unbekannt</span>`;
+  if (!d.installiert) return `<span class="marke grau"><span class="punkt"></span>nicht installiert</span>`;
+  const z = d.zustand;
+  if (z === "active") return `<span class="marke gut"><span class="punkt"></span>läuft</span>`;
+  if (z === "activating" || z === "reloading") return `<span class="marke warn"><span class="punkt"></span>startet</span>`;
+  if (z === "failed") return `<span class="marke schlecht"><span class="punkt"></span>ausgefallen</span>`;
+  if (z === "deactivating") return `<span class="marke warn"><span class="punkt"></span>stoppt</span>`;
+  return `<span class="marke schlecht"><span class="punkt"></span>gestoppt</span>`;
+}
+function dienstKnoepfe(name, d) {
+  if (!d) return "";
+  return d.aktionen.map(a => {
+    const aus = (a === "start" && d.zustand === "active") || (a === "stop" && d.zustand !== "active");
+    return `<button class="klein" data-dienst="${name}" data-dienst-aktion="${a}" ${aus ? "disabled" : ""}>${AKTION_TEXT[a]}</button>`;
+  }).join("");
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-dienst-aktion]");
+  if (!b) return;
+  const name = b.dataset.dienst, a = b.dataset.dienstAktion;
+  const titel = dienste?.[name]?.titel || name;
+  if (a === "stop" && !confirm(`${titel} wirklich stoppen? Der Dienst bleibt aus, bis du ihn wieder startest.`)) return;
+  await aktion(b, () => post(`/api/dienste/${name}/${a}`), `${titel}: ${AKTION_TEXT[a]} ausgeführt`);
+  if (name === "hub") { melde("Seekampf-Hub startet neu – die Seite lädt gleich neu …"); setTimeout(() => location.reload(), 4000); }
+  dienstHolen();
+});
+async function dienstHolen() {
+  try { dienste = await hole("/api/dienste"); } catch (e) { return; }
+  for (const name of ["flotte", "upgrade", "allianz"]) {
+    const d = dienste[name], dot = $(`nav-dot-${name}`);
+    dot.className = "dot " + (d.zustand === "active" ? "gut" : d.zustand === "activating" ? "warn" : "schlecht");
+    dot.title = d.zustand;
+  }
+  zeichneKopfRechts();
+  if (tab === "uebersicht") zeichneUebersichtDienste();
+}
+function zeichneKopfRechts() {
+  const name = DIENST_FUER_TAB[tab];
+  const el = $("kopf-rechts");
+  if (!name || !dienste) { el.innerHTML = ""; return; }
+  const d = dienste[name];
+  let extra = "";
+  if (name === "flotte" && flotte) {
+    extra = flotte.laeuft
+      ? `<button class="stop" id="fl-anaus">Raiden stoppen</button>`
+      : `<button class="haupt" id="fl-anaus">Raiden starten</button>`;
+  }
+  el.innerHTML = `${extra}<span class="dienst">${dienstMarke(d)}<span class="knoepfe">${dienstKnoepfe(name, d)}</span></span>`;
+  const b = $("fl-anaus");
+  if (b) b.onclick = () => aktion(b, () => post("/api/flotte/control", { aktion: flotte.laeuft ? "stop" : "start" }))
+    .then(flotteHolen);
+}
+
+// ======================================================================
+// Diagramm: gestapelte Saeulen je Tag (Gold/Stein/Holz)
+// ======================================================================
+const diagramme = {};   // Container-ID -> Reihe (fuer Neuzeichnen bei Groesse/Thema)
+const tabellenAn = new Set();
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const e = Math.pow(10, Math.floor(Math.log10(v)));
+  for (const f of [1, 2, 2.5, 5, 10]) if (f * e >= v) return f * e;
+  return 10 * e;
+}
+function diagramm(id, reihe) {
+  const el = $(id);
+  if (!el) return;
+  diagramme[id] = reihe;
+  const erster = reihe.findIndex(d => d.gold + d.stein + d.holz + d.raids > 0);
+  if (erster > 0) reihe = reihe.slice(Math.min(erster, Math.max(0, reihe.length - 7)));
+  if (tabellenAn.has(id)) { el.innerHTML = diagrammTabelle(reihe); return; }
+  const breite = Math.max(280, el.clientWidth || 600);
+  const hoehe = 210, links = 46, rechts = 50, oben = 10, unten = 24;
+  const innenB = breite - links - rechts, innenH = hoehe - oben - unten;
+  const n = reihe.length;
+  const summe = (d) => d.gold + d.stein + d.holz;
+  const max = niceMax(Math.max(...reihe.map(summe), 1));
+  const schritt = innenB / n;
+  const saeule = Math.min(24, Math.max(3, schritt * 0.62));
+  const y = (v) => oben + innenH - (v / max) * innenH;
+  const farben = { gold: "var(--gold)", stein: "var(--stein)", holz: "var(--holz)" };
+  const flaeche = "var(--flaeche)";
+
+  let svg = `<svg viewBox="0 0 ${breite} ${hoehe}" height="${hoehe}" role="img" aria-label="Beute je Tag">`;
+  // Gitter + y-Achse
+  svg += `<g class="achse">`;
+  for (let i = 0; i <= 4; i++) {
+    const v = max * i / 4, yy = y(v);
+    svg += `<line class="gitter" x1="${links}" x2="${links + innenB}" y1="${yy}" y2="${yy}"/>`;
+    svg += `<text x="${links - 6}" y="${yy + 4}" text-anchor="end">${kompakt(v)}</text>`;
+  }
+  // x-Beschriftung: jeder ~5. Tag
+  const jede = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(innenB / 64))));
+  reihe.forEach((d, i) => {
+    if ((n - 1 - i) % jede) return;
+    const x = links + schritt * i + schritt / 2;
+    const [j, m, t] = d.datum.split("-");
+    svg += `<text x="${x}" y="${hoehe - 6}" text-anchor="middle">${t}.${m}.</text>`;
+  });
+  svg += `</g>`;
+  // Saeulen: Segmente von unten nach oben, 2px Flaechen-Luecke, oberstes mit 4px Rundung
+  reihe.forEach((d, i) => {
+    const x = links + schritt * i + (schritt - saeule) / 2;
+    let basis = 0;
+    const segmente = ["gold", "stein", "holz"].filter(k => d[k] > 0);
+    segmente.forEach((k, idx) => {
+      const y0 = y(basis), y1 = y(basis + d[k]);
+      basis += d[k];
+      let h = y0 - y1 - (idx > 0 ? 2 : 0);            // Luecke zum Segment darunter
+      if (h <= 0.5) return;
+      const oberstes = idx === segmente.length - 1;
+      const r = oberstes ? Math.min(4, h, saeule / 2) : 0;
+      const yt = y1;
+      svg += r
+        ? `<path fill="${farben[k]}" d="M${x},${yt + h} V${yt + r} Q${x},${yt} ${x + r},${yt} H${x + saeule - r} Q${x + saeule},${yt} ${x + saeule},${yt + r} V${yt + h} Z"/>`
+        : `<rect fill="${farben[k]}" x="${x}" y="${yt}" width="${saeule}" height="${h}"/>`;
+    });
+  });
+  // Direkte Beschriftung an der letzten Saeule, nur wo das Segment hoch genug ist
+  const letzte = reihe[n - 1];
+  if (letzte) {
+    let basis = 0;
+    const xl = links + schritt * (n - 1) + (schritt + saeule) / 2 + 6;
+    for (const [k, name] of ROHSTOFFE) {
+      const h = (letzte[k] / max) * innenH;
+      if (h >= 14) svg += `<text x="${xl}" y="${y(basis + letzte[k] / 2) + 4}" font-size="11" fill="var(--gedaempft)">${name}</text>`;
+      basis += letzte[k];
+    }
+  }
+  svg += `<line x1="${links}" x2="${links + innenB}" y1="${y(0)}" y2="${y(0)}" stroke="var(--gedaempft)" stroke-width="1" opacity=".5"/>`;
+  // Trefferflaechen: ganze Spaltenbreite, volle Hoehe
+  reihe.forEach((d, i) => {
+    svg += `<rect class="treffer" data-i="${i}" x="${links + schritt * i}" y="${oben}" width="${schritt}" height="${innenH}"/>`;
+  });
+  svg += `</svg>`;
+
+  const legende = `<div class="legende" style="margin-bottom:8px">${ROHSTOFFE.map(([k, name]) =>
+    `<span><i class="swatch" style="background:var(--${k})"></i>${name}</span>`).join("")}
+    <span class="leise" style="margin-left:auto">Summe ${zahl(reihe.reduce((a, d) => a + summe(d), 0))} · ${zahl(reihe.reduce((a, d) => a + d.raids, 0))} Raids</span></div>`;
+  el.innerHTML = `${legende}<div class="diagramm">${svg}<div class="tooltip"></div></div>`;
+
+  const box = el.querySelector(".diagramm"), tip = el.querySelector(".tooltip");
+  box.querySelectorAll(".treffer").forEach(r => {
+    r.addEventListener("mouseenter", () => {
+      const d = reihe[+r.dataset.i];
+      const [j, m, t] = d.datum.split("-");
+      tip.innerHTML = `<div style="margin-bottom:4px"><b>${t}.${m}.${j}</b></div>` +
+        ROHSTOFFE.map(([k, name]) => `<div class="zeile"><span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${name}</span><b>${zahl(d[k])}</b></div>`).join("") +
+        `<div class="zeile" style="border-top:1px solid var(--rand);margin-top:4px;padding-top:4px"><span>Summe</span><b>${zahl(summe(d))}</b></div>` +
+        `<div class="zeile"><span>Raids</span><b>${zahl(d.raids)}</b></div>`;
+      tip.style.display = "block";
+      const rb = r.getBoundingClientRect(), bb = box.getBoundingClientRect();
+      let left = rb.left - bb.left + rb.width / 2 + 10;
+      if (left + tip.offsetWidth > bb.width) left = rb.left - bb.left - tip.offsetWidth - 10 + rb.width / 2;
+      tip.style.left = `${Math.max(0, left)}px`;
+      tip.style.top = `10px`;
+    });
+    r.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  });
+}
+function diagrammTabelle(reihe) {
+  const zeilen = [...reihe].reverse().map(d => {
+    const [j, m, t] = d.datum.split("-");
+    return `<tr><td>${t}.${m}.${j}</td>${ROHSTOFFE.map(([k]) => `<td class="zahl">${zahl(d[k])}</td>`).join("")}
+      <td class="zahl">${zahl(d.gold + d.stein + d.holz)}</td><td class="zahl">${zahl(d.raids)}</td></tr>`;
+  }).join("");
+  return `<div class="tabelle-rahmen" style="max-height:320px;overflow:auto"><table><thead><tr><th>Tag</th>
+    ${ROHSTOFFE.map(([, n]) => `<th class="zahl">${n}</th>`).join("")}<th class="zahl">Summe</th><th class="zahl">Raids</th></tr></thead>
+    <tbody>${zeilen}</tbody></table></div>`;
+}
+function neuZeichnenDiagramme() {
+  for (const [id, reihe] of Object.entries(diagramme)) diagramm(id, reihe);
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-tabelle-fuer]");
+  if (!b) return;
+  const id = b.dataset.tabelleFuer;
+  if (tabellenAn.has(id)) tabellenAn.delete(id); else tabellenAn.add(id);
+  b.textContent = tabellenAn.has(id) ? "Diagramm" : "Tabelle";
+  if (diagramme[id]) diagramm(id, diagramme[id]);
+});
+let groesseTimer = null;
+window.addEventListener("resize", () => { clearTimeout(groesseTimer); groesseTimer = setTimeout(neuZeichnenDiagramme, 150); });
+
+// ======================================================================
+// Akkordeon-Helfer: offene Inseln bleiben beim Neuzeichnen offen
+// ======================================================================
+const offeneInseln = { flotte: new Set(), upgrade: new Set() };
+try {
+  for (const k of Object.keys(offeneInseln)) (JSON.parse(localStorage.getItem(`offen-${k}`) || "[]")).forEach(x => offeneInseln[k].add(String(x)));
+} catch (e) { /* egal */ }
+function akkordeonKlick(bereich, container) {
+  container.addEventListener("click", (e) => {
+    const kopf = e.target.closest(".insel-kopf");
+    if (!kopf || e.target.closest(".schalter, button, a, input, select, label")) return;
+    const karte = kopf.parentElement, id = karte.dataset.insel;
+    karte.classList.toggle("offen");
+    if (karte.classList.contains("offen")) offeneInseln[bereich].add(id); else offeneInseln[bereich].delete(id);
+    try { localStorage.setItem(`offen-${bereich}`, JSON.stringify([...offeneInseln[bereich]])); } catch (err) { /* egal */ }
+    if (bereich === "flotte" && karte.classList.contains("offen") && verlauf) {
+      const reihe = verlauf.inseln[id];
+      if (reihe) diagramm(`fl-diagramm-${id}`, reihe);
+    }
+  });
+}
+/** Karte je Insel anlegen, falls noch nicht da; liefert das Element. */
+function inselKarte(container, id, rumpfHtml) {
+  let karte = container.querySelector(`.insel-karte[data-insel="${id}"]`);
+  if (!karte) {
+    karte = document.createElement("div");
+    karte.className = "insel-karte";
+    karte.dataset.insel = id;
+    karte.innerHTML = `<div class="insel-kopf"></div><div class="insel-rumpf">${rumpfHtml}</div>`;
+    container.appendChild(karte);
+  }
+  return karte;
+}
+
+// ======================================================================
+// Flotten-Manager
+// ======================================================================
+let flotte = null, verlauf = null, flotteFehler = null;
+
+const FELDER = [
+  { gruppe: "Suchbereich" },
+  { key: "scan_radius_sektoren", label: "Radius (Sektoren)", typ: "number", schritt: 1, hinweis: "0 = nur eigener Sektor, 1 = 3×3, 2 = 5×5" },
+  { key: "scan_intervall_stunden", label: "Neu-Scan alle (h)", typ: "number", schritt: 1 },
+  { gruppe: "Flotte" },
+  { key: "flotte_kriegsschiffe", label: "Kriegsschiffe je Flotte", typ: "number", schritt: 1, hinweis: "Typ egal: es fährt, was im Hafen liegt" },
+  { key: "flotte_handelsschiffe", label: "Handelsschiffe je Flotte", typ: "number", schritt: 1, hinweis: "Beute je Schiff: klein 75, groß 460" },
+  { key: "grosse_handelsschiffe", label: "Große Handelsschiffe mitschicken", typ: "checkbox", hinweis: "aus = es fahren nur kleine Handelsschiffe" },
+  { key: "flotte_einheiten", label: "Steinewerfer je Flotte", typ: "number", schritt: 1 },
+  { key: "max_flotten", label: "Max. Flotten je Insel", typ: "number", schritt: 1, hinweis: "0 = so viele, wie Schiffe da sind" },
+  { gruppe: "Angriff" },
+  { key: "rohstoff_modus", label: "Beute-Priorisierung", typ: "select",
+    optionen: [["knappster", "knappster Rohstoff"], ["gleichmaessig", "gleichmäßig"], ["gold", "immer Gold"], ["stein", "immer Stein"], ["holz", "immer Holz"]],
+    hinweis: "rechnet ein, was schon unterwegs ist" },
+  { key: "ausgleich_schwelle", label: "Ausgleichsschwelle", typ: "number", schritt: 0.01, hinweis: "Anteil der Lagerkapazität; darunter gleichmäßig" },
+  { key: "razzia_ziel", label: "Razzia-Ziel", typ: "text", hinweis: "haupthaus ist auf freien Inseln Stufe 0 → kein Schaden" },
+  { gruppe: "Sicherheit" },
+  { key: "lager_voll_schwelle", label: "Lager-voll-Schwelle", typ: "number", schritt: 0.01, hinweis: "Pause, wenn alle drei Rohstoffe darüber liegen" },
+  { key: "niederlagen_bis_blacklist", label: "Niederlagen bis Blacklist", typ: "number", schritt: 1 },
+  { key: "blacklist_tage", label: "Blacklist-Dauer (Tage)", typ: "number", schritt: 1 },
+  { key: "rueckruf_bei_bedrohung", label: "Flotten bei Bedrohung zurückrufen", typ: "checkbox" },
+  { gruppe: "Postfach" },
+  { key: "berichte_archivieren", label: "Eigene Kampfberichte ausblenden", typ: "checkbox", hinweis: "nur Berichte selbst losgeschickter Flotten; nicht umkehrbar" },
+  { gruppe: "Takt & Telegram" },
+  { key: "tick_sekunden", label: "Takt (Sekunden)", typ: "number", schritt: 1 },
+  { key: "telegram_report", label: "Telegram-Morgenreport", typ: "checkbox" },
+  { key: "report_stunde", label: "Report um (Uhr)", typ: "number", schritt: 1 },
+];
+
+/** Kennzahlen-Kacheln (ohne umgebenden Container). */
+function kachelnHtml(s) {
+  const k = [
+    { wert: zahl(s.raids), label: "Raids gesamt" },
+    { wert: zahl(s.inseln_besucht), label: "Inseln besucht" },
+    { wert: zahl(s.gold), label: "Gold", farbe: "var(--gold)" },
+    { wert: zahl(s.stein), label: "Stein", farbe: "var(--stein)" },
+    { wert: zahl(s.holz), label: "Holz", farbe: "var(--holz)" },
+    { wert: laufzeit(s.laufzeit_s), label: "Laufzeit" },
+    { wert: zahl(s.loot_pro_stunde), label: "Loot / Stunde", icon: "⚡", klasse: "signal" },
+  ];
+  return k.map(x => `<div class="kachel ${x.klasse || ""}" ${x.farbe ? `style="--kachel-farbe:${x.farbe}"` : ""}>
+      <div class="beschriftung">${x.farbe ? `<i class="swatch" style="background:${x.farbe}"></i>` : ""}${x.icon ? `<span>${x.icon}</span>` : ""}${x.label}</div>
+      <div class="wert">${x.wert}</div></div>`).join("");
+}
+/** Kuerzel + Farbverlauf je Insel, stabil ueber die ID. */
+const AVATAR_FARBEN = [["#2ec5d3", "#3b82f6"], ["#8b5cf6", "#ec4899"], ["#f59e0b", "#ef4444"], ["#10b981", "#0ea5e9"], ["#6366f1", "#22d3ee"]];
+function avatar(name, id) {
+  const worte = String(name || "?").trim().split(/\s+/);
+  const kurz = worte.length > 1 ? (worte[0][0] + worte[worte.length - 1].slice(0, 2)) : worte[0][0];
+  const [a1, a2] = AVATAR_FARBEN[Math.abs(Number(id) || 0) % AVATAR_FARBEN.length];
+  return `<span class="avatar" style="--a1:${a1};--a2:${a2}">${esc(kurz.toUpperCase())}</span>`;
+}
+function flottenBestand(i) {
+  const s = i.schiffe || {}, t = i.truppen || {};
+  const krieg = (s.kleines_kriegsschiff || 0) + (s.grosses_kriegsschiff || 0);
+  const handel = (s.kleines_handelsschiff || 0) + (s.grosses_handelsschiff || 0);
+  return { krieg, handel, werfer: t.steinewerfer || 0 };
+}
+function flotteInselStatus(i) {
+  if (!i.gehoert_uns) return `<span class="marke grau"><span class="punkt"></span>nicht mehr im Konto</span>`;
+  if (!i.aktiv) return `<span class="marke grau"><span class="punkt"></span>aus</span>`;
+  if (!flotte.laeuft) return `<span class="marke schlecht"><span class="punkt"></span>gestoppt</span>`;
+  if (i.bedrohung) return `<span class="marke warn"><span class="punkt"></span>Bedrohung im Anflug</span>`;
+  if (i.pause_grund) return `<span class="marke warn"><span class="punkt"></span>${esc(i.pause_grund)}</span>`;
+  return `<span class="marke gut"><span class="punkt"></span>raidet</span>`;
+}
+function flottenTabelle(liste) {
+  if (!liste.length) return `<div class="leise klein-text">keine Flotte unterwegs</div>`;
+  const zeilen = liste.map(f => {
+    const phase = f.zurueckgerufen && !f.angekommen ? `<span class="marke warn"><span class="punkt"></span>zurückgerufen</span>`
+      : f.angekommen ? `<span class="marke gut"><span class="punkt"></span>Rückweg</span>`
+      : `<span class="marke"><span class="punkt"></span>Hinweg</span>`;
+    const art = f.mission && f.mission !== "attack" ? ` <span class="leise">(${esc(f.mission)})</span>` : "";
+    const prio = f.prioritaet ? ` <span class="leise">(${esc(f.prioritaet)})</span>` : "";
+    return `<tr>
+      <td class="mono">${esc(f.koordinaten)}${prio}${art}</td>
+      <td class="verstecken-schmal">${esc(f.ziel_name || "–")}</td>
+      <td>${phase}</td>
+      <td>${f.angekommen ? beuteText(f.loot) : "<span class='leise'>–</span>"}</td>
+      <td class="zahl">${f.angekommen ? `<span class="leise">${uhrzeit(f.arrive_at)}</span>` : `<b>${countdown(f.arrive_at, "angekommen")}</b>`}</td>
+      <td class="zahl">${f.return_at ? `<b>${countdown(f.return_at, "daheim")}</b> <span class="leise">${uhrzeit(f.return_at)}</span>` : "–"}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="tabelle-rahmen"><table><thead><tr><th>Ziel</th><th class="verstecken-schmal">Insel</th><th>Phase</th>
+    <th>Beute</th><th class="zahl">Ankunft</th><th class="zahl">Rückkehr</th></tr></thead><tbody>${zeilen}</tbody></table></div>`;
+}
+function zieleTabelle(i, unterwegs) {
+  if (!i.ziele.length) return `<div class="leise klein-text">${i.letzter_scan ? "keine freien Inseln im Umkreis" : "noch nicht gescannt"}</div>`;
+  const t = jetzt();
+  const maxBeute = Math.max(1, ...i.ziele.map(z => z.beute_gesamt.gold + z.beute_gesamt.stein + z.beute_gesamt.holz));
+  const zeilen = i.ziele.map(z => {
+    const summe = z.beute_gesamt.gold + z.beute_gesamt.stein + z.beute_gesamt.holz;
+    const gesperrt = z.blacklist_bis && (z.blacklist_bis === "dauerhaft" || z.blacklist_bis > t);
+    let status;
+    if (gesperrt) status = `<span class="marke schlecht" title="${esc(z.blacklist_grund || "")}"><span class="punkt"></span>gesperrt ${z.blacklist_bis === "dauerhaft" ? "dauerhaft" : countdown(z.blacklist_bis, "frei")}</span>`;
+    else if (unterwegs.has(z.koordinaten)) status = `<span class="marke"><span class="punkt"></span>angefahren</span>`;
+    else if (z.koordinaten === i.naechstes_ziel) status = `<span class="marke gut"><span class="punkt"></span>als Nächstes</span>`;
+    else status = `<span class="leise">bereit</span>`;
+    return `<tr>
+      <td>${z.niederlagen_gesamt ? `<span class="marke schlecht" title="${z.niederlagen_gesamt} Niederlagen">${z.niederlagen_gesamt}×</span>` : ""}</td>
+      <td class="mono">${esc(z.koordinaten)}</td>
+      <td class="verstecken-schmal">${esc(z.name)}</td>
+      <td class="zahl">${dauer(z.fahrzeit_s)}</td>
+      <td class="zahl">${zahl(z.raids)}</td>
+      <td class="verstecken-schmal">${beuteText(z.letzte_beute)}</td>
+      <td class="zahl">${zahl(summe)}<div class="balken"><i style="width:${Math.round(100 * summe / maxBeute)}%"></i></div></td>
+      <td>${status}</td>
+      <td><button class="klein" data-sperre="${i.id}|${esc(z.koordinaten)}">${gesperrt ? "frei" : "sperren"}</button></td>
+    </tr>`;
+  }).join("");
+  return `<div class="tabelle-rahmen" style="max-height:420px;overflow:auto"><table><thead><tr><th></th><th>Koordinaten</th>
+    <th class="verstecken-schmal">Name</th><th class="zahl">Fahrzeit</th><th class="zahl">Raids</th>
+    <th class="verstecken-schmal">Letzte Beute</th><th class="zahl">Beute gesamt</th><th>Status</th><th></th></tr></thead>
+    <tbody>${zeilen}</tbody></table></div>`;
+}
+
+function zeichneFlotte() {
+  const box = $("fl-fehler");
+  const fehler = flotteFehler || flotte?.fehler;
+  box.hidden = !fehler;
+  box.textContent = fehler ? `Fehler: ${fehler}` : "";
+  if (!flotte) return;
+  $("fl-kacheln").innerHTML = kachelnHtml(flotte.stats);
+
+  const container = $("fl-inseln");
+  const unterwegs = new Set(flotte.flotten.map(f => f.koordinaten));
+  for (const i of flotte.inseln) {
+    const id = String(i.id);
+    const karte = inselKarte(container, id, `
+      <div class="unterteil kacheln klein" data-teil="stats"></div>
+      <div class="unterteil"><div class="kopfzeile"><h2>Beute je Tag</h2>
+        <div class="rechts"><button class="klein" data-tabelle-fuer="fl-diagramm-${id}">Tabelle</button></div></div>
+        <div id="fl-diagramm-${id}"></div></div>
+      <div class="unterteil"><h2>Im Hafen</h2><div data-teil="hafen" class="klein-text"></div></div>
+      <div class="unterteil"><h2>Flotten unterwegs</h2><div data-teil="flotten"></div></div>
+      <div class="unterteil"><div class="kopfzeile"><h2>Zielrotation</h2>
+        <div class="rechts"><span class="leise klein-text" data-teil="scaninfo"></span>
+          <button class="klein" data-scan="${id}">Jetzt scannen</button></div></div>
+        <div data-teil="ziele"></div></div>`);
+    karte.classList.toggle("offen", offeneInseln.flotte.has(id));
+    const fl = flotte.flotten.filter(f => f.insel_id === i.id);
+    const b = flottenBestand(i);
+    karte.querySelector(".insel-kopf").innerHTML = `
+      <span class="pfeil">▶</span>
+      ${avatar(i.name, i.id)}
+      <span class="namenblock"><span class="titel">${esc(i.name)}</span><span class="koord mono">${esc(i.koordinaten)}</span></span>
+      ${flotteInselStatus(i)}
+      <span class="info">
+        <span>Kriegsschiffe <b class="mono">${b.krieg}</b></span>
+        <span>Handelsschiffe <b class="mono">${b.handel}</b></span>
+        <span>Steinewerfer <b class="mono">${b.werfer}</b></span>
+        <span><b class="mono">${fl.length}</b> unterwegs</span>
+        <span class="verstecken-schmal">${zahl(i.stats.raids)} Raids · ${zahl(i.stats.loot_pro_stunde)}/h</span>
+      </span>
+      <span class="schalter-platz"><label class="schalter" title="Von dieser Insel raiden">
+        <input type="checkbox" data-fl-aktiv="${id}" ${i.aktiv ? "checked" : ""} ${i.gehoert_uns ? "" : "disabled"}>
+        <span class="spur"></span><span class="verstecken-schmal">Raiden</span></label></span>`;
+    if (!karte.classList.contains("offen")) continue;
+    karte.querySelector('[data-teil="stats"]').innerHTML = kachelnHtml(i.stats);
+    const hafen = Object.entries({ ...(i.schiffe || {}), ...(i.truppen || {}) }).filter(([, n]) => n > 0);
+    karte.querySelector('[data-teil="hafen"]').innerHTML = hafen.length
+      ? hafen.map(([k, n]) => `<span style="margin-right:14px">${zahl(n)}× ${esc(sname(k))}</span>`).join("")
+        + `<div class="leise" style="margin-top:4px">reicht für ${i.freie_flotten} weitere Flotte(n) nach den Einstellungen</div>`
+      : `<span class="leise">nichts daheim</span>`;
+    karte.querySelector('[data-teil="flotten"]').innerHTML = flottenTabelle(fl);
+    karte.querySelector('[data-teil="scaninfo"]').textContent = i.letzter_scan ? `letzter Scan ${vor(i.letzter_scan)}` : "noch kein Scan";
+    karte.querySelector('[data-teil="ziele"]').innerHTML = zieleTabelle(i, unterwegs);
+    if (verlauf && verlauf.inseln[id] && !diagramme[`fl-diagramm-${id}`]) diagramm(`fl-diagramm-${id}`, verlauf.inseln[id]);
+    else if (verlauf && !verlauf.inseln[id]) $(`fl-diagramm-${id}`).innerHTML = `<div class="leise klein-text">noch keine Beute von dieser Insel</div>`;
+  }
+  zeichneFlotteFormular(flotte.settings);
+}
+akkordeonKlick("flotte", $("fl-inseln"));
+$("fl-inseln").addEventListener("change", async (e) => {
+  const cb = e.target.closest("[data-fl-aktiv]");
+  if (!cb) return;
+  const i = flotte.inseln.find(x => String(x.id) === cb.dataset.flAktiv);
+  if (!cb.checked && !confirm(`Raiden von ${i.name} ausschalten? Laufende Flotten fahren zu Ende, neue werden nicht mehr losgeschickt.`)) { cb.checked = true; return; }
+  await aktion(cb, () => post(`/api/flotte/inseln/${cb.dataset.flAktiv}/aktiv`, { aktiv: cb.checked }),
+    `${i.name}: Raiden ${cb.checked ? "eingeschaltet" : "ausgeschaltet"}`);
+  flotteHolen();
+});
+$("fl-inseln").addEventListener("click", async (e) => {
+  const sperre = e.target.closest("[data-sperre]");
+  if (sperre) {
+    const [iid, koord] = sperre.dataset.sperre.split("|");
+    await aktion(sperre, () => post(`/api/flotte/inseln/${iid}/ziele/${koord}/sperre`));
+    return flotteHolen();
+  }
+  const scan = e.target.closest("[data-scan]");
+  if (scan) {
+    scan.textContent = "scannt …";
+    await aktion(scan, () => post(`/api/flotte/inseln/${scan.dataset.scan}/scan`),
+      (r) => `${r.gefunden} freie Inseln gefunden (${r.neu.length} neu)`);
+    scan.textContent = "Jetzt scannen";
+    flotteHolen();
+  }
+});
+$("fl-blacklist").onclick = (e) => aktion(e.target, () => post("/api/flotte/blacklist/clear"), "Blacklist geleert").then(flotteHolen);
+$("fl-stats-reset").onclick = (e) => {
+  if (confirm("Gesamt- und Inselstatistik wirklich auf null setzen? Der Beute-Verlauf bleibt erhalten."))
+    aktion(e.target, () => post("/api/flotte/stats/reset"), "Statistik zurückgesetzt").then(flotteHolen);
+};
+
+function zeichneFlotteFormular(s) {
+  const el = $("fl-formular");
+  if (el.dataset.gebaut && ungespeichert.has("fl-settings")) return;   // nie beim Tippen ueberschreiben
+  if (el.dataset.gebaut === JSON.stringify(s)) return;
+  el.dataset.gebaut = JSON.stringify(s);
+  el.innerHTML = FELDER.map(f => {
+    if (f.gruppe) return `<div class="gruppe">${f.gruppe}</div>`;
+    const hinweis = f.hinweis ? `<span class="hinweis">${f.hinweis}</span>` : "";
+    if (f.typ === "checkbox") return `<div class="feld check"><input type="checkbox" id="s_${f.key}" ${s[f.key] ? "checked" : ""}>
+        <label for="s_${f.key}">${f.label}</label></div>`;
+    if (f.typ === "select") return `<div class="feld"><label for="s_${f.key}">${f.label}</label><select id="s_${f.key}">${
+        f.optionen.map(([w, t]) => `<option value="${w}" ${s[f.key] === w ? "selected" : ""}>${t}</option>`).join("")}</select>${hinweis}</div>`;
+    return `<div class="feld"><label for="s_${f.key}">${f.label}</label>
+      <input type="${f.typ}" step="${f.schritt ?? "any"}" id="s_${f.key}" value="${esc(s[f.key])}">${hinweis}</div>`;
+  }).join("");
+}
+$("fl-speichern").onclick = async (e) => {
+  const nutzlast = {};
+  for (const f of FELDER) {
+    if (f.gruppe) continue;
+    const el = $(`s_${f.key}`);
+    nutzlast[f.key] = f.typ === "checkbox" ? el.checked : el.value;
+  }
+  const r = await aktion(e.target, () => post("/api/flotte/settings", nutzlast));
+  if (!r) return;
+  dirtySetzen("fl-settings", false);
+  const n = Object.keys(r.geaendert).length;
+  $("fl-settings-info").textContent = n ? `${n} Änderung(en) übernommen` : "nichts geändert";
+  setTimeout(() => ($("fl-settings-info").textContent = ""), 4000);
+  $("fl-formular").dataset.gebaut = "";
+  flotteHolen();
+};
+
+async function flotteHolen() {
+  try {
+    flotte = await hole("/api/flotte/status");
+    flotteFehler = null;
+    zeitVersatz = flotte.serverzeit - Date.now() / 1000;
+  } catch (e) {
+    flotteFehler = `Flotten-Manager nicht erreichbar: ${e.message}`;
+  }
+  if (tab === "flotte") { zeichneFlotte(); zeichneKopfRechts(); }
+  if (tab === "uebersicht") zeichneUebersichtInseln();
+  if (tab === "karte") { zeichneKarte(); inselInfo(); }
+}
+async function verlaufHolen() {
+  try { verlauf = await hole("/api/flotte/verlauf?tage=30"); } catch (e) { return; }
+  for (const id of Object.keys(diagramme)) delete diagramme[id];
+  if (tab === "flotte") {
+    diagramm("fl-diagramm", verlauf.gesamt);
+    for (const id of Object.keys(verlauf.inseln)) if (offeneInseln.flotte.has(id)) diagramm(`fl-diagramm-${id}`, verlauf.inseln[id]);
+  }
+  if (tab === "uebersicht") diagramm("ue-diagramm", verlauf.gesamt);
+}
+
+// ======================================================================
+// Upgrade-Bot
+// ======================================================================
+let upgrade = null;
+const wartendeBefehle = new Map();   // Befehl-ID -> Beschreibung
+
+function zeichneUpgrade() {
+  if (!upgrade) return;
+  const st = upgrade.status;
+  const box = $("up-fehler");
+  const alt = st ? jetzt() - st.zeit : null;
+  const fehler = !st ? "Noch kein Status vom Upgrade-Bot – läuft er schon mit der neuen Version?"
+    : st.fehler ? st.fehler
+    : alt > (st.poll_s || 300) + 120 ? `Letzter Durchlauf ${vor(st.zeit)} – der Bot scheint zu hängen.` : null;
+  box.hidden = !fehler;
+  box.textContent = fehler ? `Hinweis: ${fehler}` : "";
+  if (!st) return;
+  $("up-takt").innerHTML = `letzter Durchlauf ${uhrzeit(st.letzter_tick)} · nächster in ${countdown(st.naechster_tick, "gleich")}`;
+
+  const container = $("up-inseln");
+  for (const i of Object.values(st.inseln).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
+    const id = String(i.id);
+    const steuer = { aktiv: true, modus: "auto", bis_stufe: null, gesperrt: [], ...(upgrade.steuerung.inseln?.[id] || {}) };
+    const karte = inselKarte(container, id, `
+      <div class="zwei-spalten">
+        <div class="unterteil"><h2>Lager</h2><div data-teil="lager"></div></div>
+        <div class="unterteil"><h2>Warteschlange</h2><div data-teil="schlange"></div></div>
+      </div>
+      <div class="unterteil"><h2>Als Nächstes</h2><div data-teil="plan"></div></div>
+      <div class="unterteil"><div class="kopfzeile"><h2>Priorisierung &amp; Sperren</h2>
+        <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="up-form-${id}" hidden>● ungespeichert</span>
+          <button class="klein" data-up-speichern="${id}">Speichern</button></div></div>
+        <div data-form="up-form-${id}" data-teil="form"></div></div>
+      <div class="unterteil"><h2>Ausbau von Hand</h2><div data-teil="auftrag"></div></div>
+      <div class="unterteil"><h2>Gebäude</h2><div data-teil="gebaeude"></div></div>`);
+    karte.classList.toggle("offen", offeneInseln.upgrade.has(id));
+    const schlange = i.warteschlange || [];
+    const aktiv = schlange.find(o => o.status === "aktiv");
+    const modusText = steuer.modus === "auto" ? "automatisch"
+      : `nur ${gname(steuer.modus)}${steuer.bis_stufe ? ` bis ${steuer.bis_stufe}` : ""}`;
+    const modusMarke = steuer.modus === "auto" ? `<span class="marke grau">${modusText}</span>`
+      : i.priorisierung_aktiv ? `<span class="marke">${esc(modusText)}</span>`
+      : `<span class="marke grau" title="${esc(i.priorisierung_hinweis || "")}">${esc(modusText)} · erreicht</span>`;
+    karte.querySelector(".insel-kopf").innerHTML = `
+      <span class="pfeil">▶</span>
+      ${avatar(i.name, i.id)}
+      <span class="namenblock"><span class="titel">${esc(i.name)}</span><span class="koord mono">${esc(i.koordinaten)}</span></span>
+      ${i.fehler ? `<span class="marke schlecht"><span class="punkt"></span>Fehler</span>`
+        : steuer.aktiv ? `<span class="marke gut"><span class="punkt"></span>an</span>` : `<span class="marke grau"><span class="punkt"></span>aus</span>`}
+      ${modusMarke}
+      <span class="info">
+        ${aktiv ? `<span>baut <b>${esc(gname(aktiv.gebaeude))} → ${aktiv.ziel_stufe}</b> · ${countdown(aktiv.finish_at)}</span>` : `<span>nichts im Bau</span>`}
+        <span>${schlange.length}/${st.max_warteschlange} in der Schlange</span>
+      </span>
+      <span class="schalter-platz"><label class="schalter" title="Upgrade-Bot auf dieser Insel">
+        <input type="checkbox" data-up-aktiv="${id}" ${steuer.aktiv ? "checked" : ""}>
+        <span class="spur"></span><span class="verstecken-schmal">Bot</span></label></span>`;
+    if (!karte.classList.contains("offen")) continue;
+    if (i.fehler) { karte.querySelector('[data-teil="lager"]').innerHTML = `<div class="fehler">${esc(i.fehler)}</div>`; continue; }
+
+    // Lager
+    const r = i.rohstoffe || {}, kap = r.kapazitaet || 1, prod = r.produktion_pro_h || {};
+    karte.querySelector('[data-teil="lager"]').innerHTML = `<div class="res">${ROHSTOFFE.map(([k, n]) => `
+      <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+      <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
+      <span class="mono">${zahl(r[k])} <span class="leise">+${zahl(prod[k])}/h</span></span>`).join("")}</div>
+      <div class="leise klein-text" style="margin-top:6px">Kapazität ${zahl(kap)} je Rohstoff</div>`;
+    // Warteschlange
+    karte.querySelector('[data-teil="schlange"]').innerHTML = schlange.length
+      ? `<ul class="schlange">${schlange.map(o => `<li>
+          <span class="marke ${o.status === "aktiv" ? "" : "grau"}">${o.status === "aktiv" ? "im Bau" : "wartet"}</span>
+          <span><b>${esc(gname(o.gebaeude))}</b> → Stufe ${o.ziel_stufe}</span>
+          <span class="rest">${o.status === "aktiv" ? `fertig in <b>${countdown(o.finish_at)}</b> <span class="leise">(${uhrzeit(o.finish_at)})</span>`
+            : `<span class="leise">startet ${uhrzeit(o.start_at)}</span>`}</span></li>`).join("")}</ul>`
+      : `<div class="leise klein-text">Warteschlange leer</div>`;
+    // Plan
+    const p = i.plan;
+    let planHtml;
+    if (!steuer.aktiv) planHtml = `<span class="leise">Bot ist auf dieser Insel ausgeschaltet – laufende Aufträge werden fertig gebaut.</span>`;
+    else if (!p) planHtml = `<span class="leise">aktuell ist kein Ausbau in Sicht</span>`;
+    else {
+      const fehlt = Object.entries(p.fehlt || {}).map(([k, v]) => `${zahl(v)} ${k[0].toUpperCase() + k.slice(1)}`).join(", ");
+      const wann = p.in_s === null ? (p.unerreichbar === "lager" ? "passt nicht ins Lager – Lagerhaus nötig" : "ohne Produktion nicht erreichbar")
+        : p.in_s <= 0 ? "sofort" : `in ${dauer(p.in_s)} (ca. ${uhrzeit(jetzt() + p.in_s)})`;
+      planHtml = `<b>${esc(gname(p.gebaeude))} → Stufe ${p.ziel_stufe}</b> · ${wann}${fehlt ? ` <span class="leise">· es fehlen ${fehlt}</span>` : ""}`;
+    }
+    karte.querySelector('[data-teil="plan"]').innerHTML = `<div class="hinweisbox">${planHtml}
+      ${i.hinweis ? `<div class="leise klein-text" style="margin-top:6px">${esc(i.hinweis)}</div>` : ""}</div>`;
+    // Formular: nur bauen, wenn nicht gerade bearbeitet
+    zeichneUpgradeFormular(karte, id, steuer, i);
+    // Auftrag von Hand
+    const auftragEl = karte.querySelector('[data-teil="auftrag"]');
+    if (!auftragEl.dataset.gebaut || !auftragEl.contains(document.activeElement)) {
+      const baubar = (i.gebaeude || []).filter(g => upgrade.gebaeude.includes(g.typ) && g.verfuegbar && g.naechste_stufe);
+      const gewaehlt = auftragEl.querySelector("select")?.value;
+      auftragEl.dataset.gebaut = "1";
+      auftragEl.innerHTML = baubar.length ? `<div class="formular-leiste" style="margin-top:0">
+          <select class="eingabe" data-up-auftrag-wahl="${id}" style="width:auto">
+          ${baubar.map(g => `<option value="${g.typ}" ${g.typ === gewaehlt ? "selected" : ""}>${esc(gname(g.typ))} → ${g.naechste_stufe} (${ROHSTOFFE.map(([k]) => zahl(g.kosten?.[k])).join(" / ")})</option>`).join("")}
+          </select>
+          <button class="klein" data-up-auftrag="${id}">In die Warteschlange</button>
+          <span class="leise klein-text">läuft auch, wenn der Bot hier aus ist; die Kosten zieht das Spiel sofort ab</span></div>`
+        : `<span class="leise klein-text">nichts ausbaubar</span>`;
+    }
+    // Gebaeude-Uebersicht
+    karte.querySelector('[data-teil="gebaeude"]').innerHTML = `<div class="tabelle-rahmen"><table><thead><tr>
+        <th>Gebäude</th><th class="zahl">Stufe</th><th class="zahl verstecken-schmal">Nächste</th><th class="verstecken-schmal">Kosten (G / S / H)</th><th class="zahl verstecken-schmal">Bauzeit</th></tr></thead><tbody>
+      ${(i.gebaeude || []).filter(g => upgrade.gebaeude.includes(g.typ)).map(g => `<tr>
+        <td>${esc(gname(g.typ))}${steuer.gesperrt.includes(g.typ) ? ` <span class="marke grau">gesperrt</span>` : ""}</td>
+        <td class="zahl">${g.stufe}</td>
+        <td class="zahl verstecken-schmal">${g.naechste_stufe ?? (g.verfuegbar ? "max" : `ab HH ${g.haupthaus_ab}`)}</td>
+        <td class="verstecken-schmal mono">${g.kosten ? ROHSTOFFE.map(([k]) => zahl(g.kosten[k])).join(" / ") : "–"}</td>
+        <td class="zahl verstecken-schmal">${g.bauzeit_s ? dauer(g.bauzeit_s) : "–"}</td></tr>`).join("")}
+      </tbody></table></div>`;
+  }
+  // Befehle
+  $("up-befehle").innerHTML = (st.befehle || []).length ? (st.befehle || []).slice(0, 8).map(b =>
+    `<div><span class="marke ${b.ok ? "gut" : "schlecht"}" style="margin-right:6px">${b.ok ? "ok" : "Fehler"}</span>${uhrzeit(b.zeit)} · ${esc(b.text)}</div>`).join("") : "noch keine";
+  befehleAuswerten(st.befehle || []);
+}
+function zeichneUpgradeFormular(karte, id, steuer, i) {
+  const el = karte.querySelector('[data-teil="form"]');
+  const form = `up-form-${id}`;
+  const stand = JSON.stringify(steuer);
+  if (ungespeichert.has(form) || el.dataset.gebaut === stand) return;
+  el.dataset.gebaut = stand;
+  const verfuegbar = new Set((i.gebaeude || []).filter(g => g.verfuegbar).map(g => g.typ));
+  el.innerHTML = `<div class="formular">
+      <div class="feld"><label>Priorisierung</label>
+        <select data-feld="modus">
+          <option value="auto" ${steuer.modus === "auto" ? "selected" : ""}>Automatisch (normale Reihenfolge)</option>
+          ${upgrade.gebaeude.map(g => `<option value="${g}" ${steuer.modus === g ? "selected" : ""}>Nur ${gname(g)}${verfuegbar.has(g) ? "" : " (noch nicht verfügbar)"}</option>`).join("")}
+        </select>
+        <span class="hinweis">baut dann nur dieses Gebäude und wartet, bis es bezahlbar ist</span></div>
+      <div class="feld"><label>Bis Stufe</label>
+        <input type="number" min="1" max="20" step="1" data-feld="bis_stufe" value="${steuer.bis_stufe ?? ""}" placeholder="ohne Grenze">
+        <span class="hinweis">danach baut der Bot wieder automatisch</span></div>
+    </div>
+    <div class="feld" style="margin-top:12px"><span class="label">Nie bauen</span>
+      <div class="chips">${upgrade.gebaeude.map(g => `<label><input type="checkbox" data-sperre-geb="${g}" ${steuer.gesperrt.includes(g) ? "checked" : ""}>${gname(g)}</label>`).join("")}</div>
+      <span class="hinweis">gilt für die automatische Reihenfolge; Ausbauten von Hand gehen trotzdem</span></div>`;
+}
+function formularVerwerfen(form) {
+  if (form === "fl-settings") $("fl-formular").dataset.gebaut = "";
+  else if (form === "al-strategie") $("al-strategie").dataset.gebaut = "";
+  else if (form === "al-anfrage") ["gold", "stein", "holz"].forEach(k => $(`al-anfrage-${k}`).value = "");
+  else if (form.startsWith("up-form-")) {
+    const el = document.querySelector(`[data-form="${form}"]`);
+    if (el) el.dataset.gebaut = "";
+  }
+}
+akkordeonKlick("upgrade", $("up-inseln"));
+$("up-inseln").addEventListener("change", async (e) => {
+  const cb = e.target.closest("[data-up-aktiv]");
+  if (!cb) return;
+  const name = upgrade.status.inseln[cb.dataset.upAktiv]?.name;
+  await aktion(cb, () => put(`/api/upgrade/inseln/${cb.dataset.upAktiv}`, { aktiv: cb.checked }),
+    `${name}: Upgrade-Bot ${cb.checked ? "eingeschaltet" : "ausgeschaltet"} – greift in wenigen Sekunden`);
+  upgradeHolen();
+});
+$("up-inseln").addEventListener("click", async (e) => {
+  const sp = e.target.closest("[data-up-speichern]");
+  if (sp) {
+    const id = sp.dataset.upSpeichern, el = document.querySelector(`[data-form="up-form-${id}"]`);
+    const nutzlast = {
+      modus: el.querySelector('[data-feld="modus"]').value,
+      bis_stufe: el.querySelector('[data-feld="bis_stufe"]').value || null,
+      gesperrt: [...el.querySelectorAll("[data-sperre-geb]:checked")].map(x => x.dataset.sperreGeb),
+    };
+    if (nutzlast.modus !== "auto" && nutzlast.gesperrt.includes(nutzlast.modus)) {
+      melde(`${gname(nutzlast.modus)} ist gleichzeitig priorisiert und gesperrt – bitte eins von beiden ändern.`, "schlecht");
+      return;
+    }
+    const r = await aktion(sp, () => put(`/api/upgrade/inseln/${id}`, nutzlast), "Gespeichert – greift in wenigen Sekunden");
+    if (r) { dirtySetzen(`up-form-${id}`, false); el.dataset.gebaut = ""; upgradeHolen(); }
+    return;
+  }
+  const au = e.target.closest("[data-up-auftrag]");
+  if (au) {
+    const id = au.dataset.upAuftrag;
+    const geb = document.querySelector(`[data-up-auftrag-wahl="${id}"]`).value;
+    const name = upgrade.status.inseln[id]?.name;
+    if (!confirm(`${gname(geb)} auf ${name} jetzt in die Warteschlange stellen?`)) return;
+    const r = await aktion(au, () => post("/api/upgrade/befehl", { typ: "auftrag", insel_id: id, gebaeude: geb }));
+    if (r) { wartendeBefehle.set(r.id, `${gname(geb)} auf ${name}`); melde("Auftrag an den Bot übergeben …"); }
+  }
+});
+$("up-pruefen").onclick = async (e) => {
+  const r = await aktion(e.target, () => post("/api/upgrade/befehl", { typ: "pruefen" }), "Durchlauf angestoßen");
+  if (r) setTimeout(upgradeHolen, 6000);
+};
+function befehleAuswerten(ergebnisse) {
+  for (const b of ergebnisse) {
+    if (!wartendeBefehle.has(b.id)) continue;
+    wartendeBefehle.delete(b.id);
+    melde(b.text, b.ok ? "gut" : "schlecht");
+  }
+}
+async function upgradeHolen() {
+  try {
+    upgrade = await hole("/api/upgrade");
+    zeitVersatz = upgrade.serverzeit - Date.now() / 1000;
+  } catch (e) { return; }
+  if (tab === "upgrade") zeichneUpgrade();
+  if (tab === "uebersicht") zeichneUebersichtInseln();
+}
+
+// ======================================================================
+// Allianz-Bot
+// ======================================================================
+let allianz = null;
+const FAEHIGKEITEN = [
+  ["notruf", "Notruf", "Bei einem Angriff auf eine eigene Insel [NOTRUF] posten und Hilfe annehmen."],
+  ["beistand", "Beistand", "Anderen Mitgliedern Speerkämpfer leihen, wenn sie angegriffen werden."],
+  ["leihe_rueckgabe", "Leihe-Rückgabe", "Geliehene Truppen annehmen und nach dem Kampf zurückgeben. Aus = nur Geschenke; andere Bots leihen dir dann nichts mehr."],
+  ["anfrage", "Rohstoff-Anfrage", "Bei knappem Lager automatisch Rohstoffe anfragen. Aus = auch keine Anfragen von Hand."],
+];
+const STRATEGIE_FELDER = [
+  { key: "MIN_SPEERKAEMPFER", label: "Mindestens Speerkämpfer", typ: "number", schritt: 1, hinweis: "Notruf füllt bei Angriff mindestens bis hierhin auf" },
+  { key: "HILFE_MAX_ANTEIL", label: "Höchstens verleihen", typ: "prozent", hinweis: "Anteil der eigenen Speerkämpfer je Insel" },
+  { key: "ANFRAGE_SCHWELLE", label: "Anfragen unter", typ: "prozent", hinweis: "Anteil der Lagerkapazität" },
+  { key: "ANFRAGE_ZIEL", label: "Auffüllen bis", typ: "prozent", hinweis: "Anteil der Lagerkapazität" },
+  { key: "RUECKRUF_ERLAUBT", label: "Raid-Flotten zurückrufen erlaubt", typ: "checkbox", hinweis: "wenn für Beistand oder Rückgabe Kriegsschiffe fehlen" },
+];
+
+function zeichneAllianz() {
+  if (!allianz) return;
+  const st = allianz.status;
+  const box = $("al-fehler");
+  const alt = st ? jetzt() - st.zeit : null;
+  const fehler = !st ? "Noch kein Status vom Allianz-Bot – läuft er schon mit der neuen Version?"
+    : alt > 180 ? `Letztes Lebenszeichen ${vor(st.zeit)} – der Bot scheint zu hängen.`
+    : st.fehler ? `Letzter Fehler: ${st.fehler}` : null;
+  box.hidden = !fehler;
+  box.textContent = fehler || "";
+  if (!st) return;
+
+  // Faehigkeiten
+  const f = st.faehigkeiten;
+  $("al-faehigkeiten").innerHTML = FAEHIGKEITEN.map(([k, name, text]) => {
+    const will = f.gewuenscht.includes(k), gebunden = f.gebunden.includes(k), gemeldet = (f.gemeldet || []).includes(k);
+    let zustand;
+    if (will) zustand = gemeldet ? `<span class="marke gut"><span class="punkt"></span>aktiv</span>` : `<span class="marke warn"><span class="punkt"></span>wird gemeldet …</span>`;
+    else if (gebunden) zustand = `<span class="marke warn"><span class="punkt"></span>endet nach laufendem Vorgang</span>`;
+    else zustand = gemeldet ? `<span class="marke warn"><span class="punkt"></span>wird abgemeldet …</span>` : `<span class="marke grau"><span class="punkt"></span>aus</span>`;
+    return `<div class="faehigkeit">
+      <label class="schalter"><input type="checkbox" data-faehigkeit="${k}" ${will ? "checked" : ""}><span class="spur"></span></label>
+      <div style="flex:1;min-width:0"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>${name}</b>${zustand}</div>
+        <div class="leise klein-text">${text}</div></div></div>`;
+  }).join("");
+
+  // Anfrage-Formular: Inseln
+  const sel = $("al-anfrage-insel");
+  const wahl = sel.value;
+  const optionen = st.inseln.map(i => `<option value="${esc(i.koordinaten)}">${esc(i.name)} (${esc(i.koordinaten)}) · ${ROHSTOFFE.map(([k]) => kompakt(i.rohstoffe[k])).join(" / ")} von ${kompakt(i.rohstoffe.kapazitaet)}</option>`).join("");
+  if (sel.dataset.stand !== optionen) { sel.innerHTML = optionen; sel.dataset.stand = optionen; if (wahl) sel.value = wahl; }
+  const anfrageAn = f.gewuenscht.includes("anfrage");
+  $("al-anfrage-senden").disabled = !anfrageAn;
+  $("al-anfrage-info").textContent = anfrageAn ? "Der Bot postet [ANFRAGE] ins Allianz-Forum und sagt Angebote automatisch zu."
+    : "Rohstoff-Anfrage ist oben abgeschaltet – so darf der Bot nichts anfragen.";
+
+  // Vorgaenge
+  zeichneVorgaenge(st);
+  zeichneStrategie(st);
+
+  // Mitglieder
+  const mit = st.mitglieder;
+  $("al-mitglieder-info").textContent = `${mit.filter(m => m.aktiv).length} von ${mit.length} mit aktivem Bot`;
+  $("al-mitglieder").innerHTML = [...mit].sort((a, b) => (b.aktiv - a.aktiv) || a.name.localeCompare(b.name)).map(m => `<tr>
+    <td>${esc(m.name)}${m.ich ? ` <span class="marke">du</span>` : ""}</td>
+    <td>${m.praesenz ? `${m.aktiv ? `<span class="marke gut"><span class="punkt"></span>${esc(m.praesenz.bot || "Bot")}</span>` : `<span class="marke grau">${esc(m.praesenz.bot || "Bot")} · inaktiv</span>`}` : `<span class="leise">–</span>`}</td>
+    <td class="klein-text">${m.praesenz ? (m.praesenz.faehigkeiten.length ? m.praesenz.faehigkeiten.map(esc).join(", ") : "keine") : ""}</td>
+    <td class="zahl leise klein-text">${m.praesenz ? vor(m.praesenz.zeit) : ""}</td></tr>`).join("");
+
+  befehleAuswerten(st.befehle || []);
+}
+function zeichneVorgaenge(st) {
+  const teile = [];
+  const karte = (titel, inhalt, art = "") => `<div class="vorgang ${art}"><div style="margin-bottom:4px"><b>${titel}</b></div>${inhalt}</div>`;
+  for (const n of st.notrufe) {
+    const angebote = Object.values(n.angebote || {});
+    teile.push(karte(`Notruf ${esc(n.vorgang)} – ${esc(n.insel_name)} (${esc(n.insel)})`, `
+      <div class="klein-text">Angreifer ${esc((n.angreifer || []).join(", ") || "?")} · Ankunft ${n.ankunft ? `${uhrzeit(n.ankunft)} (${countdown(n.ankunft, "angekommen")})` : "?"} ·
+        Stärke ${zahl(n.staerke)} · Bedarf ${zahl(n.bedarf)} Speerkämpfer${n.entwarnt ? ` · entwarnt ${uhrzeit(n.entwarnt)}` : ""}</div>
+      ${angebote.length ? `<div class="klein-text leise" style="margin-top:4px">${angebote.map(a => `${esc(a.helfer_name)}: ${esc(a.status)} ${mengenText(a.zusage || a.einheiten)}`).join(" · ")}</div>` : ""}`, "notruf"));
+  }
+  for (const a of st.anfragen) {
+    const angebote = Object.values(a.angebote || {});
+    teile.push(karte(`Rohstoff-Anfrage ${esc(a.vorgang)} – ${esc(a.insel_name)} (${esc(a.insel)})`, `
+      <div class="klein-text">Angefragt: ${ROHSTOFFE.filter(([k]) => a.rohstoffe[k]).map(([k, n]) => `${zahl(a.rohstoffe[k])} ${n}`).join(", ") || "–"}${a.manuell ? " (von Hand)" : ""} ·
+        läuft bis ${uhrzeit(a.bis, true)}</div>
+      ${angebote.length ? `<div class="klein-text leise" style="margin-top:4px">${angebote.map(x => `${esc(st.mitglieder.find(m => m.id === x.helfer_id)?.name || x.helfer_id)}: ${esc(x.status)} ${beuteText(x.geliefert || x.zusage)}`).join(" · ")}</div>` : `<div class="klein-text leise">noch keine Angebote</div>`}
+      <div style="margin-top:8px"><button class="klein" data-anfrage-beenden="${a.insel_id}">Anfrage beenden</button></div>`));
+  }
+  const schulden = st.schulden.filter(s => s.status === "offen");
+  if (schulden.length) teile.push(karte("Geliehen – muss zurück", schulden.map(s =>
+    `<div class="klein-text">${esc(s.helfer_name)}: ${mengenText(s.leihe)} (erhalten ${uhrzeit(s.erhalten, true)}, Vorgang ${esc(s.vorgang)})</div>`).join(""), "schuld"));
+  const verliehen = st.verliehen.filter(l => l.status === "offen");
+  if (verliehen.length) teile.push(karte("Verliehen – kommt zurück", verliehen.map(l =>
+    `<div class="klein-text">${esc(l.empfaenger_name || l.empfaenger_id)}: ${mengenText(l.einheiten || l.leihe)} (gesendet ${uhrzeit(l.gesendet, true)})</div>`).join("")));
+  const hilfe = st.hilfe.filter(h => h.angebot && ["offen", "wartet"].includes(h.angebot.status));
+  if (hilfe.length) teile.push(karte("Hilfe für andere", hilfe.map(h =>
+    `<div class="klein-text">${esc(h.eigentuemer_name)} (${esc(h.insel)}): Angebot ${esc(h.angebot.status)}</div>`).join("")));
+  if (!teile.length) teile.push(`<div class="leise klein-text">Gerade läuft nichts. ${st.anfragen_alt.length ? `Letzte Anfrage: ${esc(st.anfragen_alt[st.anfragen_alt.length - 1].insel_name)}, beendet ${uhrzeit(st.anfragen_alt[st.anfragen_alt.length - 1].ende, true)}.` : ""}</div>`);
+  $("al-vorgaenge").innerHTML = teile.join("");
+}
+function zeichneStrategie(st) {
+  const el = $("al-strategie");
+  const stand = JSON.stringify(st.strategie);
+  if (ungespeichert.has("al-strategie") || el.dataset.gebaut === stand) return;
+  el.dataset.gebaut = stand;
+  el.innerHTML = STRATEGIE_FELDER.map(f => {
+    const wert = st.strategie[f.key], std = st.strategie_standard[f.key];
+    const standard = f.typ === "prozent" ? `${Math.round(std * 100)} %` : f.typ === "checkbox" ? (std ? "an" : "aus") : std;
+    const hinweis = `<span class="hinweis">${f.hinweis} · Standard ${standard}</span>`;
+    if (f.typ === "checkbox") return `<div class="feld"><div class="feld check"><input type="checkbox" id="st_${f.key}" ${wert ? "checked" : ""}>
+      <label for="st_${f.key}">${f.label}</label></div>${hinweis}</div>`;
+    if (f.typ === "prozent") return `<div class="feld"><label for="st_${f.key}">${f.label} (%)</label>
+      <input type="number" min="0" max="100" step="1" id="st_${f.key}" value="${Math.round(wert * 100)}">${hinweis}</div>`;
+    return `<div class="feld"><label for="st_${f.key}">${f.label}</label>
+      <input type="number" min="0" step="${f.schritt}" id="st_${f.key}" value="${wert}">${hinweis}</div>`;
+  }).join("");
+}
+$("al-faehigkeiten").addEventListener("change", async (e) => {
+  const cb = e.target.closest("[data-faehigkeit]");
+  if (!cb) return;
+  const name = FAEHIGKEITEN.find(x => x[0] === cb.dataset.faehigkeit)[1];
+  if (!cb.checked && !confirm(`${name} abschalten? Laufende Vorgänge werden noch zu Ende geführt, danach meldet der Bot die Fähigkeit im Forum ab.`)) { cb.checked = true; return; }
+  await aktion(cb, () => put("/api/allianz/faehigkeiten", { [cb.dataset.faehigkeit]: cb.checked }),
+    `${name} ${cb.checked ? "eingeschaltet" : "abgeschaltet"}`);
+  allianzHolen();
+});
+$("al-strategie-speichern").onclick = async (e) => {
+  const nutzlast = {};
+  for (const f of STRATEGIE_FELDER) {
+    const el = $(`st_${f.key}`);
+    nutzlast[f.key] = f.typ === "checkbox" ? el.checked : f.typ === "prozent" ? Number(el.value) / 100 : Number(el.value);
+  }
+  const r = await aktion(e.target, () => put("/api/allianz/strategie", nutzlast), "Strategie gespeichert – gilt ab dem nächsten Takt");
+  if (r) { dirtySetzen("al-strategie", false); $("al-strategie").dataset.gebaut = ""; allianzHolen(); }
+};
+$("al-anfrage-senden").onclick = async (e) => {
+  const rohstoffe = {};
+  for (const [k] of ROHSTOFFE) rohstoffe[k] = Number($(`al-anfrage-${k}`).value || 0);
+  if (!Object.values(rohstoffe).some(n => n > 0)) { melde("Bitte mindestens eine Menge eintragen.", "schlecht"); return; }
+  const sel = $("al-anfrage-insel");
+  const ziel = sel.options[sel.selectedIndex]?.text.split(" · ")[0];
+  const text = ROHSTOFFE.filter(([k]) => rohstoffe[k] > 0).map(([k, n]) => `${zahl(rohstoffe[k])} ${n}`).join(", ");
+  if (!confirm(`Im Allianz-Forum ${text} für ${ziel} anfragen?`)) return;
+  const r = await aktion(e.target, () => post("/api/allianz/befehl", { typ: "anfrage", insel: sel.value, rohstoffe }));
+  if (!r) return;
+  wartendeBefehle.set(r.id, "Anfrage");
+  melde("Anfrage an den Bot übergeben …");
+  dirtySetzen("al-anfrage", false);
+  ROHSTOFFE.forEach(([k]) => $(`al-anfrage-${k}`).value = "");
+  setTimeout(allianzHolen, 3000);
+};
+$("al-vorgaenge").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-anfrage-beenden]");
+  if (!b) return;
+  if (!confirm("Anfrage beenden? Der Bot postet [ERLEDIGT]; bereits zugesagte Lieferungen kommen trotzdem an.")) return;
+  const r = await aktion(b, () => post("/api/allianz/befehl", { typ: "anfrage_beenden", insel_id: Number(b.dataset.anfrageBeenden) }));
+  if (r) { wartendeBefehle.set(r.id, "Anfrage beenden"); melde("Wird beendet …"); setTimeout(allianzHolen, 3000); }
+});
+async function allianzHolen() {
+  try {
+    allianz = await hole("/api/allianz");
+    zeitVersatz = allianz.serverzeit - Date.now() / 1000;
+  } catch (e) { return; }
+  if (tab === "allianz") zeichneAllianz();
+  if (tab === "uebersicht") zeichneUebersichtInseln();
+}
+
+// ======================================================================
+// Uebersicht
+// ======================================================================
+function zeichneUebersichtDienste() {
+  if (!dienste) return;
+  const extra = {
+    flotte: () => flotte ? `${flotte.flotten.length} Flotten unterwegs` : "",
+    upgrade: () => upgrade?.status ? `letzter Durchlauf ${uhrzeit(upgrade.status.letzter_tick)}` : "",
+    allianz: () => allianz?.status ? `${allianz.status.faehigkeiten.wirksam.length} Fähigkeiten gemeldet` : "",
+    hub: () => "diese Seite",
+  };
+  $("ue-dienste").innerHTML = Object.entries(dienste).map(([name, d]) => `
+    <section class="karte dienst-karte" style="margin:0">
+      <div class="oben">
+        ${name !== "hub" ? `<a href="#${name}">${esc(d.titel)} →</a>` : `<b>${esc(d.titel)}</b>`}
+        ${dienstMarke(d)}</div>
+      <div class="leise klein-text">${d.seit && d.zustand === "active" ? `läuft seit ${uhrzeit(d.seit, true)}` : esc(d.ergebnis || "")}
+        ${d.neustarts ? ` · ${d.neustarts} Neustarts` : ""}${extra[name]() ? ` · ${extra[name]()}` : ""}</div>
+      <div class="dienst"><span class="knoepfe">${dienstKnoepfe(name, d)}</span></div>
+    </section>`).join("");
+}
+const HELD_ICONS = {
+  loot: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  flotte: '<path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/>',
+  bau: '<path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/>',
+  allianz: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><circle cx="17" cy="9" r="2.6"/>',
+};
+function heldKachel(icon, farbe, label, wert, unter) {
+  return `<div class="kachel" style="--kachel-farbe:${farbe}">
+    <div class="beschriftung"><span class="icon"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${HELD_ICONS[icon]}</svg></span>${label}</div>
+    <div class="wert">${wert}</div><div class="unter">${unter}</div></div>`;
+}
+function zeichneUebersichtHeld() {
+  const inselnUp = Object.values(upgrade?.status?.inseln || {});
+  const imBau = inselnUp.filter(i => (i.warteschlange || []).some(o => o.status === "aktiv")).length;
+  const auftraege = inselnUp.reduce((n, i) => n + (i.warteschlange || []).length, 0);
+  const raidend = (flotte?.inseln || []).filter(i => i.aktiv).length;
+  const st = allianz?.status;
+  const vorgaenge = st ? st.notrufe.length + st.anfragen.length + st.schulden.filter(x => x.status === "offen").length : null;
+  $("ue-held").innerHTML = [
+    heldKachel("loot", "var(--akzent)", "Loot pro Stunde", flotte ? zahl(flotte.stats.loot_pro_stunde) : "–",
+      flotte ? `${zahl(flotte.stats.raids)} Raids insgesamt` : "Flotten-Manager nicht erreichbar"),
+    heldKachel("flotte", "var(--stein)", "Flotten unterwegs", flotte ? zahl(flotte.flotten.length) : "–",
+      flotte ? `${raidend} von ${flotte.inseln.length} Inseln raiden` : ""),
+    heldKachel("bau", "var(--gold)", "Bauaufträge", upgrade?.status ? zahl(auftraege) : "–",
+      upgrade?.status ? `auf ${imBau} Inseln wird gebaut` : ""),
+    heldKachel("allianz", st && st.notrufe.length ? "var(--schlecht)" : "var(--gut)", "Allianz-Vorgänge", vorgaenge ?? "–",
+      st ? (st.notrufe.length ? `${st.notrufe.length} Notruf aktiv` : `${st.anfragen.length} Anfragen offen`) : ""),
+  ].join("");
+}
+function zeichneUebersichtInseln() {
+  if (tab !== "uebersicht") return;
+  zeichneUebersichtHeld();
+  const inseln = new Map();
+  const eintrag = (id, name, koord) => {
+    if (!inseln.has(id)) inseln.set(id, { id, name, koord });
+    return inseln.get(id);
+  };
+  // Reihenfolge wie im Spiel: die Flotten-Liste kommt in dieser Reihenfolge
+  for (const i of flotte?.inseln || []) Object.assign(eintrag(String(i.id), i.name, i.koordinaten), { fl: i });
+  for (const i of Object.values(upgrade?.status?.inseln || {}).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)))
+    Object.assign(eintrag(String(i.id), i.name, i.koordinaten), { up: i });
+  for (const i of allianz?.status?.inseln || []) Object.assign(eintrag(String(i.id), i.name, i.koordinaten), { al: i });
+  if (!inseln.size) return;
+  const notrufe = new Set((allianz?.status?.notrufe || []).map(n => String(n.insel_id)));
+  const anfragen = new Set((allianz?.status?.anfragen || []).map(n => String(n.insel_id)));
+  $("ue-inseln").innerHTML = [...inseln.values()].map(x => {
+    const r = x.up?.rohstoffe || x.fl?.rohstoffe || x.al?.rohstoffe || {};
+    const kap = r.kapazitaet || 1, prod = r.produktion_pro_h || {};
+    const bau = x.up?.warteschlange?.find(o => o.status === "aktiv");
+    const steuerUp = { aktiv: true, ...(upgrade?.steuerung?.inseln?.[x.id] || {}) };
+    const bedroht = x.fl?.bedrohung || x.al?.bedrohung;
+    const fl = (flotte?.flotten || []).filter(f => String(f.insel_id) === x.id).length;
+    const chips = [
+      x.fl ? (x.fl.aktiv ? `<span class="marke gut"><span class="punkt"></span>raidet</span>` : `<span class="marke grau">Raiden aus</span>`) : "",
+      x.up ? (steuerUp.aktiv ? `<span class="marke">Upgrade an</span>` : `<span class="marke grau">Upgrade aus</span>`) : "",
+      notrufe.has(x.id) ? `<span class="marke schlecht">Notruf</span>` : "",
+      anfragen.has(x.id) ? `<span class="marke warn">Anfrage offen</span>` : "",
+      bedroht ? `<span class="marke schlecht"><span class="punkt"></span>Bedrohung</span>` : "",
+    ].join("");
+    return `<div class="insel-kachel">
+      <div class="oben">${avatar(x.name, x.id)}
+        <span class="namenblock"><b>${esc(x.name)}</b><span class="leise mono klein-text">${esc(x.koord)}</span></span></div>
+      <div class="chips-zeile">${chips}</div>
+      <div class="res">${ROHSTOFFE.map(([k, n]) => `
+        <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+        <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
+        <span class="mono klein-text">${kompakt(r[k])}${prod[k] ? ` <span class="leise">+${kompakt(prod[k])}/h</span>` : ""}</span>`).join("")}</div>
+      <div class="fakten">
+        <div><span class="etikett">Baut gerade</span><b>${bau ? `${esc(gname(bau.gebaeude))} → ${bau.ziel_stufe}` : "–"}</b>${bau ? `<div class="leise klein-text">${countdown(bau.finish_at)}</div>` : ""}</div>
+        <div><span class="etikett">Flotten</span><b>${fl} unterwegs</b><div class="leise klein-text">Lager ${kompakt(kap)}</div></div>
+      </div>
+    </div>`;
+  }).join("");
+  $("ue-inseln-info").textContent = `${inseln.size} Inseln`;
+  zeichneUebersichtDienste();
+}
+
+// ======================================================================
+// Logs
+// ======================================================================
+async function logsHolen() {
+  const bot = DIENST_FUER_TAB[tab];
+  if (!bot) return;
+  const el = document.querySelector(`[data-log="${bot}"]`);
+  try {
+    const d = await hole(`/api/log/${bot}?zeilen=300`);
+    const amEnde = el.scrollTop + el.clientHeight >= el.scrollHeight - 20;
+    el.textContent = (d.zeilen || []).join("\n") || "(noch nichts geloggt)";
+    document.querySelector(`[data-log-datei="${bot}"]`).textContent = d.datei || "";
+    if (amEnde || !el.dataset.gescrollt) { el.scrollTop = el.scrollHeight; el.dataset.gescrollt = "1"; }
+  } catch (e) { el.textContent = `Log nicht lesbar: ${e.message}`; }
+}
+
+// ======================================================================
+// Ozeankarte
+// ======================================================================
+const ka = {
+  daten: null, inseln: [], nachKoord: new Map(), allianzen: new Map(),
+  modus: "spieler", spieler: null, auswahl: null,
+  ebenen: { flotten: true, angriffe: true, frei: false, ziele: false, aenderungen: false, gitter: true },
+  angriffe: [], ringSchiff: "kleines_kriegsschiff",
+  // Ansicht: Pixel je Feld und die Feldkoordinate in der linken oberen Ecke
+  massstab: 10, ox: 0, oy: 0, bereit: false, farben: {}, zeiger: new Map(), letzteBewegung: 0,
+};
+const KNOTEN = { spaehschiff: 20, kleines_kriegsschiff: 12, kleines_handelsschiff: 10, grosses_kriegsschiff: 8,
+                 grosses_handelsschiff: 7, kolonisationsschiff: 3 };
+const MISSION = { attack: "Angriff", colonize: "Kolonisation", handel: "Handel", transport: "Handel", support: "Unterstützung", spy: "Spionage" };
+const RINGE_MIN = [10, 30, 60];
+/** Allianz-Kuerzel in eckigen Klammern - ausser es hat schon welche ("[.]"). */
+const tagText = (tag) => /^\[.*\]$/.test(tag || "") ? tag : `[${tag || "?"}]`;
+// Weltkoordinate -> Feld (Mittelpunkt); wie geo.feld im Flotten-Manager
+function feld(x, y, z) { return [x * 5 + (z - 1) % 5 + 0.5, y * 5 + Math.floor((z - 1) / 5) + 0.5]; }
+function koordFeld(text) {
+  const t = String(text || "").split(":").map(Number);
+  return t.length === 3 && t.every(n => !isNaN(n)) ? feld(t[0], t[1], t[2]) : null;
+}
+function fahrzeitS(a, b, knoten) {
+  const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+  return Math.max(d / knoten * 600, 120);
+}
+function farbenLesen() {
+  const cs = getComputedStyle(document.documentElement);
+  for (const n of ["meer", "meer-welt", "meer-gitter", "meer-gitter-stark", "insel-neutral", "insel-frei", "insel-hervor",
+                   "insel-rand", "al1", "al2", "al3", "al4", "al5", "al6", "al7", "al8", "al9", "al10", "al11", "al12", "gildenlos", "glow", "feind", "karte-text", "warn", "akzent", "gedaempft"])
+    ka.farben[n] = cs.getPropertyValue(`--${n}`).trim();
+}
+
+// ---------------------------------------------------------------- Daten
+async function karteHolen() {
+  let d;
+  try { d = await hole("/api/karte"); } catch (e) { $("ka-stand").textContent = `Karte nicht ladbar: ${e.message}`; return; }
+  zeitVersatz = d.serverzeit - Date.now() / 1000;
+  ka.daten = d;
+  ka.inseln = d.inseln.map(i => ({ ...i, f: feld(i.x, i.y, i.z) }));
+  ka.nachKoord = new Map(ka.inseln.map(i => [i.k, i]));
+  // Jede Allianz eine eigene Farbe (12 Stueck). Zuordnung nach Allianz-ID,
+  // damit sich keine Farbe aendert, wenn sich die Inselzahlen verschieben.
+  ka.allianzen = new Map([...d.allianzen].sort((a, b) => a.id - b.id).map((a, i) => [a.id, {
+    ...a, farbe: `al${(i % 12) + 1}` }]));
+  if (ka.spieler === null) ka.spieler = d.ich?.name || "";
+  spielerListeFuellen();
+  karteSeiteZeichnen();
+  scanInfo(d.scan);
+  if (!ka.bereit && ka.inseln.length) { einpassen(); ka.bereit = true; }
+  zeichneKarte();
+}
+function spielerListeFuellen() {
+  const sel = $("ka-spieler");
+  const html = `<option value="">– niemand –</option>` + ka.daten.spieler.map(s =>
+    `<option value="${esc(s.name)}">${esc(s.name)}${s.name === ka.daten.ich?.name ? " (du)" : ""} · ${s.inseln} Inseln</option>`).join("");
+  if (sel.dataset.stand !== html) { sel.innerHTML = html; sel.dataset.stand = html; }
+  sel.value = ka.spieler;
+  $("ka-suchliste").innerHTML = ka.daten.spieler.map(s => `<option value="${esc(s.name)}">`).join("");
+}
+function scanInfo(scan) {
+  const d = ka.daten;
+  $("ka-scan").disabled = !!scan?.laeuft;
+  $("ka-scan").textContent = scan?.laeuft ? `scannt … ${Math.round((scan.fortschritt || 0) * 100)} %` : "Karte jetzt scannen";
+  $("ka-scan-info").textContent = scan?.fehler ? `Letzter Scan fehlgeschlagen: ${scan.fehler}`
+    : d?.zeit ? `Stand ${uhrzeit(d.zeit, true)} · nächster Scan um 1:00 Uhr` : "noch kein Scan";
+  $("ka-stand").textContent = d?.zeit ? `${zahl(d.inseln.length)} Inseln · ${d.spieler.length} Spieler · ${d.allianzen.length} Allianzen · Stand ${uhrzeit(d.zeit, true)}` : "noch kein Scan";
+}
+async function angriffeHolen() {
+  try { ka.angriffe = (await hole("/api/karte/angriffe")).angriffe || []; } catch (e) { /* Karte bleibt nutzbar */ }
+}
+$("ka-scan").onclick = async (e) => {
+  const r = await aktion(e.target, () => post("/api/karte/scan"), "Scan gestartet – dauert etwa eine Minute");
+  if (!r) return;
+  const warten = setInterval(async () => {
+    let s; try { s = await hole("/api/karte/status"); } catch (err) { return; }
+    scanInfo(s);
+    if (!s.laeuft) { clearInterval(warten); karteHolen(); melde(s.fehler ? `Scan fehlgeschlagen: ${s.fehler}` : "Karte aktualisiert", s.fehler ? "schlecht" : "gut"); }
+  }, 2000);
+};
+
+// ------------------------------------------------------------ Ansicht
+const canvas = $("ka-canvas"), ctx = canvas.getContext("2d");
+function groesse() {
+  const r = $("ka-rahmen").getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, r.width * dpr); canvas.height = Math.max(1, r.height * dpr);
+  return { b: r.width, h: r.height, dpr };
+}
+function zuBild(fx, fy) { return [(fx - ka.ox) * ka.massstab, (fy - ka.oy) * ka.massstab]; }
+function zuFeld(px, py) { return [px / ka.massstab + ka.ox, py / ka.massstab + ka.oy]; }
+function bereichZeigen(x0, y0, x1, y1) {
+  const { b, h } = groesse();
+  ka.massstab = Math.min(b / (x1 - x0), h / (y1 - y0));
+  ka.ox = (x0 + x1) / 2 - b / 2 / ka.massstab;
+  ka.oy = (y0 + y1) / 2 - h / 2 / ka.massstab;
+  zeichneKarte();
+}
+function einpassen() {
+  if (!ka.inseln.length) return welt();
+  const xs = ka.inseln.map(i => i.x), ys = ka.inseln.map(i => i.y);
+  bereichZeigen((Math.min(...xs) - 1) * 5, (Math.min(...ys) - 1) * 5, (Math.max(...xs) + 2) * 5, (Math.max(...ys) + 2) * 5);
+}
+function welt() { const w = ka.daten?.welt || { min: 1, max: 100 }; bereichZeigen(w.min * 5 - 5, w.min * 5 - 5, (w.max + 1) * 5 + 5, (w.max + 1) * 5 + 5); }
+function zoomen(faktor, px, py) {
+  const { b, h } = { b: canvas.clientWidth, h: canvas.clientHeight };
+  px ??= b / 2; py ??= h / 2;
+  const [fx, fy] = zuFeld(px, py);
+  ka.massstab = Math.min(80, Math.max(1.2, ka.massstab * faktor));
+  ka.ox = fx - px / ka.massstab; ka.oy = fy - py / ka.massstab;
+  zeichneKarte();
+}
+function zentrieren(fx, fy, massstab) {
+  if (massstab) ka.massstab = massstab;
+  ka.ox = fx - canvas.clientWidth / 2 / ka.massstab;
+  ka.oy = fy - canvas.clientHeight / 2 / ka.massstab;
+  zeichneKarte();
+}
+$("ka-plus").onclick = () => zoomen(1.5);
+$("ka-minus").onclick = () => zoomen(1 / 1.5);
+$("ka-einpassen").onclick = einpassen;
+$("ka-welt").onclick = welt;
+
+// ---------------------------------------------------------- Einfaerben
+function inselFarbe(i) {
+  const f = ka.farben;
+  if (!i.b) return null;                                      // frei/Ruine: nur Umriss
+  if (ka.modus === "spieler") return i.b === ka.spieler ? f["insel-hervor"] : f["insel-neutral"];
+  const a = ka.allianzen.get(i.a);
+  return a ? f[a.farbe] : f.gildenlos;
+}
+function hervorgehoben(i) {
+  return ka.modus === "spieler" && !!ka.spieler && i.b === ka.spieler;
+}
+
+// --------------------------------------------------------- Flottenlage
+function eigeneInselFeld(id) {
+  const i = (flotte?.inseln || []).find(x => x.id === id);
+  return i ? koordFeld(i.koordinaten) : null;
+}
+/** Wo steht die Flotte gerade? Hinweg start->ziel, Rueckweg ziel->start.
+    Zurueckgerufen vor Ankunft: Wende in der Mitte zwischen Abfahrt und Rueckkehr. */
+function flottenLage(f, t) {
+  const start = eigeneInselFeld(f.insel_id), ziel = koordFeld(f.koordinaten);
+  if (!start || !ziel || !f.arrive_at) return null;
+  const dep = f.depart_at || f.arrive_at - fahrzeitS(start, ziel, 10), arr = f.arrive_at, ret = f.return_at;
+  const lerp = (a, b, q) => [a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q];
+  const q01 = (v) => Math.max(0, Math.min(1, v));
+  if (f.zurueckgerufen && !f.angekommen && ret) {
+    const wende = (dep + ret) / 2, punktWende = lerp(start, ziel, q01((wende - dep) / (arr - dep)));
+    if (t < wende) return { start, ziel, pos: lerp(start, ziel, q01((t - dep) / (arr - dep))), rueck: false };
+    return { start, ziel: punktWende, pos: lerp(punktWende, start, q01((t - wende) / (ret - wende))), rueck: true, gewendet: true };
+  }
+  if (t < arr) return { start, ziel, pos: lerp(start, ziel, q01((t - dep) / (arr - dep))), rueck: false };
+  if (ret) return { start, ziel, pos: lerp(ziel, start, q01((t - arr) / (ret - arr))), rueck: true };
+  return { start, ziel, pos: ziel, rueck: false };
+}
+function missionForm(ctx2, x, y, r, mission) {
+  ctx2.beginPath();
+  if (mission === "colonize") { ctx2.moveTo(x, y - r * 1.3); ctx2.lineTo(x + r * 1.3, y); ctx2.lineTo(x, y + r * 1.3); ctx2.lineTo(x - r * 1.3, y); ctx2.closePath(); }
+  else if (mission === "handel" || mission === "transport") ctx2.rect(x - r, y - r, r * 2, r * 2);
+  else ctx2.arc(x, y, r, 0, Math.PI * 2);
+}
+
+// ------------------------------------------------------------- Zeichnen
+let zeichnenGeplant = false;
+function zeichneKarte() {
+  if (zeichnenGeplant) return;
+  zeichnenGeplant = true;
+  requestAnimationFrame(() => { zeichnenGeplant = false; zeichneJetzt(); });
+}
+function zeichneJetzt() {
+  if (tab !== "karte") return;
+  const { b, h, dpr } = groesse();
+  const f = ka.farben, m = ka.massstab, t = jetzt();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = f.meer; ctx.fillRect(0, 0, b, h);
+  const w = ka.daten?.welt || { min: 1, max: 100 };
+  const [wx0, wy0] = zuBild(w.min * 5, w.min * 5), [wx1, wy1] = zuBild((w.max + 1) * 5, (w.max + 1) * 5);
+  ctx.fillStyle = f["meer-welt"]; ctx.fillRect(wx0, wy0, wx1 - wx0, wy1 - wy0);
+
+  // Sektorgitter (alle 5 Felder), staerker alle 10 Sektoren
+  if (ka.ebenen.gitter && m * 5 >= 6) {
+    const [fx0, fy0] = zuFeld(0, 0), [fx1, fy1] = zuFeld(b, h);
+    const s0x = Math.max(w.min, Math.floor(fx0 / 5)), s1x = Math.min(w.max + 1, Math.ceil(fx1 / 5));
+    const s0y = Math.max(w.min, Math.floor(fy0 / 5)), s1y = Math.min(w.max + 1, Math.ceil(fy1 / 5));
+    ctx.lineWidth = 1;
+    for (let s = s0x; s <= s1x; s++) {
+      ctx.strokeStyle = s % 10 === 0 ? f["meer-gitter-stark"] : f["meer-gitter"];
+      const x = Math.round(zuBild(s * 5, 0)[0]) + .5;
+      ctx.beginPath(); ctx.moveTo(x, Math.max(0, wy0)); ctx.lineTo(x, Math.min(h, wy1)); ctx.stroke();
+    }
+    for (let s = s0y; s <= s1y; s++) {
+      ctx.strokeStyle = s % 10 === 0 ? f["meer-gitter-stark"] : f["meer-gitter"];
+      const y = Math.round(zuBild(0, s * 5)[1]) + .5;
+      ctx.beginPath(); ctx.moveTo(Math.max(0, wx0), y); ctx.lineTo(Math.min(b, wx1), y); ctx.stroke();
+    }
+    if (m * 5 >= 60) {
+      ctx.fillStyle = f.gedaempft; ctx.font = "11px Inter, system-ui, sans-serif"; ctx.textBaseline = "top";
+      for (let sx = s0x; sx < s1x; sx++) for (let sy = s0y; sy < s1y; sy++) {
+        const [x, y] = zuBild(sx * 5, sy * 5);
+        ctx.globalAlpha = .7; ctx.fillText(`${sx}:${sy}`, x + 4, y + 3); ctx.globalAlpha = 1;
+      }
+    }
+  }
+
+  // Raid-Radius und Ziele (K4)
+  if (ka.ebenen.ziele && flotte) {
+    const r = Number(flotte.settings?.scan_radius_sektoren ?? 1);
+    ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = f.akzent;
+    for (const i of flotte.inseln.filter(x => x.aktiv)) {
+      const [sx, sy] = i.koordinaten.split(":").map(Number);
+      const [x0, y0] = zuBild((sx - r) * 5, (sy - r) * 5), [x1, y1] = zuBild((sx + r + 1) * 5, (sy + r + 1) * 5);
+      ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    }
+    ctx.setLineDash([]);
+  }
+
+  // Fahrzeit-Ringe (K6) um die ausgewaehlte eigene Insel
+  const auswahl = ka.auswahl && ka.nachKoord.get(ka.auswahl);
+  if (auswahl && auswahl.b === ka.daten?.ich?.name) {
+    const [cx, cy] = zuBild(...auswahl.f), knoten = KNOTEN[ka.ringSchiff];
+    ctx.lineWidth = 1.5; ctx.font = "600 11px Inter, system-ui, sans-serif"; ctx.textBaseline = "bottom";
+    for (const min of RINGE_MIN) {
+      const rad = knoten * min / 10 * m;
+      ctx.strokeStyle = f.akzent; ctx.globalAlpha = .55; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.fillStyle = f["karte-text"]; ctx.fillText(`${min} min`, cx + 4, cy - rad - 2);
+    }
+  }
+
+  // Inseln
+  const r = inselRadius();
+  const labels = m >= 26;
+  for (const i of ka.inseln) {
+    const [x, y] = zuBild(...i.f);
+    if (x < -20 || y < -20 || x > b + 20 || y > h + 20) continue;
+    const farbe = inselFarbe(i), hervor = hervorgehoben(i);
+    const al = ka.modus === "allianz" && i.a ? ka.allianzen.get(i.a) : null;
+    const leuchtet = !!al || hervor;
+    ctx.beginPath(); ctx.arc(x, y, hervor ? r * 1.2 : (farbe ? r : r * .8), 0, Math.PI * 2);
+    if (farbe) {
+      // Leuchtende Punkte wie auf map.seekampf.brckr.de; im hellen Thema dezenter
+      if (leuchtet) { ctx.shadowColor = farbe; ctx.shadowBlur = Math.max(5, r * 1.5) * Number(f.glow || 1); }
+      ctx.fillStyle = farbe; ctx.globalAlpha = ka.modus === "spieler" && !hervor ? .55 : 1;
+      ctx.fill(); ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+    } else {
+      // Frei/Ruine: dunkler, kaum sichtbarer Punkt - mit Ebene "Freie Inseln" als heller Ring
+      ctx.fillStyle = f["insel-frei"]; ctx.globalAlpha = ka.ebenen.frei ? .25 : .14; ctx.fill();
+      ctx.lineWidth = ka.ebenen.frei ? 2 : 1; ctx.strokeStyle = f["insel-frei"];
+      ctx.globalAlpha = ka.ebenen.frei ? 1 : .3; ctx.setLineDash(i.r ? [2, 2] : []); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+    if (hervor) { ctx.beginPath(); ctx.arc(x, y, r * 1.25 + 3.5, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = f["insel-hervor"]; ctx.globalAlpha = .45; ctx.stroke(); ctx.globalAlpha = 1; }
+    if (i.k === ka.auswahl) { ctx.beginPath(); ctx.arc(x, y, r * 1.25 + 7, 0, Math.PI * 2); ctx.lineWidth = 2.5; ctx.strokeStyle = f["karte-text"]; ctx.stroke(); }
+    if (labels) {
+      ctx.font = "500 11px Inter, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = f["karte-text"];
+      // Allianz-Modus: nur das Kuerzel (passt immer); sonst der Besitzer.
+      // Auf die Feldbreite kuerzen, damit Nachbarn sich nicht ueberschreiben.
+      let text = ka.modus === "allianz"
+        ? (i.a ? (ka.allianzen.get(i.a)?.tag || "?") : (i.b ? "–" : (i.r ? "Ruine" : "frei")))
+        : (i.b || (i.r ? "Ruine" : "frei"));
+      while (text.length > 3 && ctx.measureText(text).width > m * 0.94) text = text.slice(0, -2) + "…";
+      ctx.globalAlpha = hervor || ka.modus === "allianz" ? 1 : .75; ctx.fillText(text, x, y + r + 3); ctx.globalAlpha = 1; ctx.textAlign = "start";
+    }
+  }
+
+  // Raid-Ziele markieren
+  if (ka.ebenen.ziele && flotte) {
+    ctx.strokeStyle = f.akzent; ctx.lineWidth = 1.5;
+    for (const i of flotte.inseln.filter(x => x.aktiv)) for (const z of i.ziele) {
+      const p = koordFeld(z.koordinaten); if (!p) continue;
+      const [x, y] = zuBild(...p), s = r + 3;
+      ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.stroke();
+    }
+  }
+
+  // Aenderungen (K9)
+  if (ka.ebenen.aenderungen && ka.daten) {
+    ctx.strokeStyle = f.warn; ctx.lineWidth = 2;
+    for (const a of ka.daten.aenderungen) {
+      const p = koordFeld(a.k); if (!p) continue;
+      const [x, y] = zuBild(...p), s = r + 6;
+      ctx.beginPath(); ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath(); ctx.stroke();
+    }
+  }
+
+  // Meine Flotten (Strecke + wandernder Punkt)
+  ka.flottenPunkte = [];
+  if (ka.ebenen.flotten && flotte) {
+    for (const fl of flotte.flotten) {
+      const lage = flottenLage(fl, t); if (!lage) continue;
+      const [ax, ay] = zuBild(...lage.start), [zx, zy] = zuBild(...lage.ziel), [px, py] = zuBild(...lage.pos);
+      ctx.strokeStyle = f["karte-text"]; ctx.globalAlpha = .35; ctx.lineWidth = 1.5; ctx.setLineDash(lage.rueck ? [4, 4] : []);
+      ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(zx, zy); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      missionForm(ctx, px, py, 4.5, fl.mission);
+      ctx.fillStyle = f["karte-text"]; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = f.meer; ctx.stroke();
+      ka.flottenPunkte.push({ x: px, y: py, fl, lage });
+    }
+  }
+
+  // Angriffe auf mich (K5)
+  ka.angriffsPunkte = [];
+  if (ka.ebenen.angriffe) {
+    for (const a of ka.angriffe) {
+      const ziel = eigeneInselFeld(a.ziel_insel_id) || koordFeld(a.ziel_koordinaten); if (!ziel) continue;
+      const [zx, zy] = zuBild(...ziel);
+      const herkunft = koordFeld(a.herkunft_koordinaten);
+      let sx, sy;
+      if (herkunft) [sx, sy] = zuBild(...herkunft);
+      else {
+        const richt = { Norden: [0, -1], Sueden: [0, 1], "Süden": [0, 1], Osten: [1, 0], Westen: [-1, 0] }[a.richtung] || [0, -1];
+        sx = zx + richt[0] * 70; sy = zy + richt[1] * 70;
+      }
+      ctx.strokeStyle = f.feind; ctx.lineWidth = 2.5; ctx.setLineDash([7, 4]);
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(zx, zy); ctx.stroke(); ctx.setLineDash([]);
+      const wink = Math.atan2(zy - sy, zx - sx);
+      ctx.fillStyle = f.feind; ctx.beginPath();
+      ctx.moveTo(zx - Math.cos(wink) * (r + 4), zy - Math.sin(wink) * (r + 4));
+      ctx.lineTo(zx - Math.cos(wink - .45) * (r + 16), zy - Math.sin(wink - .45) * (r + 16));
+      ctx.lineTo(zx - Math.cos(wink + .45) * (r + 16), zy - Math.sin(wink + .45) * (r + 16)); ctx.closePath(); ctx.fill();
+      const eta = ts(a.arrive_at);
+      ctx.font = "700 12px Inter, system-ui, sans-serif"; ctx.fillStyle = f.feind; ctx.textBaseline = "bottom";
+      ctx.fillText(`⚠ ${a.absender || "Angriff"}${eta ? " · " + dauer(eta - t) : ""}`, sx + 6, sy - 4);
+      ka.angriffsPunkte.push({ x: sx, y: sy, a });
+    }
+  }
+
+  // Animation nur, solange sich etwas bewegt
+  if ((ka.ebenen.flotten && flotte?.flotten.length) || (ka.ebenen.angriffe && ka.angriffe.length)) {
+    clearTimeout(ka.animTimer);
+    ka.animTimer = setTimeout(zeichneKarte, 250);
+  }
+}
+
+// ------------------------------------------------------------ Seitenleiste
+function karteSeiteZeichnen() {
+  const d = ka.daten; if (!d) return;
+  $("ka-spieler-wahl").hidden = ka.modus !== "spieler";
+  document.querySelectorAll("[data-modus]").forEach(b => b.classList.toggle("an", b.dataset.modus === ka.modus));
+  // Legende (K8)
+  let html;
+  const frei = ka.inseln.filter(i => !i.b).length;
+  if (ka.modus === "spieler") {
+    const s = d.spieler.find(x => x.name === ka.spieler);
+    $("ka-legende-titel").textContent = "Legende";
+    html = `<div class="legende-liste">
+      ${s ? `<div class="info-zeile" style="border:0"><span class="res-key"><i class="kreis" style="background:var(--insel-hervor)"></i>${esc(s.name)}</span><span>${s.inseln} Inseln · ${zahl(s.punkte)} P.</span></div>` : ""}
+      <div class="info-zeile"><span class="res-key"><i class="kreis" style="background:var(--insel-neutral)"></i>andere Spieler</span><span>${ka.inseln.length - frei - (s?.inseln || 0)}</span></div>
+      <div class="info-zeile"><span class="res-key"><i class="kreis" style="background:transparent;border:2px solid var(--insel-frei)"></i>frei / Ruine</span><span>${frei}</span></div>
+      <div class="info-zeile"><span class="res-key"><i class="symbol-form" style="border-radius:50%;background:var(--karte-text)"></i>Angriff · <i class="symbol-form" style="background:var(--karte-text)"></i>Handel · <i class="symbol-form" style="transform:rotate(45deg) scale(.85);background:var(--karte-text)"></i>Kolonisation</span><span></span></div>
+      <div class="info-zeile"><span class="res-key"><i class="symbol-form" style="background:var(--feind);border-radius:2px"></i>Angriff auf dich</span><span></span></div>
+    </div>`;
+  } else {
+    $("ka-legende-titel").textContent = "Allianzen";
+    const liste = [...ka.allianzen.values()].sort((x, y) => y.inseln - x.inseln);
+    html = `<div class="legende-liste">${liste.map(a => `<div class="info-zeile" style="border-top:0;align-items:center">
+        <span class="res-key" style="color:var(--text)"><i class="kreis leuchtend" style="background:var(--${a.farbe});--c:var(--${a.farbe})"></i><span><b>${esc(tagText(a.tag))}</b> ${esc(a.name)}${a.id === d.ich?.allianz?.id ? " · deine" : ""}</span></span>
+        <span class="leise klein-text" style="white-space:nowrap">${a.inseln} Inseln · ${a.spieler} Sp.</span></div>`).join("")}
+      <div class="info-zeile"><span class="res-key"><i class="kreis" style="background:var(--gildenlos)"></i>Gildenlos</span><span>${ka.inseln.filter(i => i.b && !i.a).length}</span></div>
+      <div class="info-zeile"><span class="res-key"><i class="kreis" style="background:transparent;border:2px solid var(--insel-frei)"></i>frei / Ruine</span><span>${ka.inseln.filter(i => !i.b).length}</span></div>
+      <div class="leise klein-text" style="margin-top:6px">Nah herangezoomt steht das Kürzel an jeder Insel.</div>
+    </div>`;
+  }
+  $("ka-legende").innerHTML = html;
+  // Aenderungen (K9)
+  const karte = $("ka-aenderungen-karte");
+  karte.hidden = !ka.ebenen.aenderungen;
+  if (ka.ebenen.aenderungen) {
+    $("ka-aenderungen-info").textContent = d.vorher_zeit ? `seit ${uhrzeit(d.vorher_zeit, true)}` : "noch kein Vergleich";
+    $("ka-aenderungen").innerHTML = d.aenderungen.length ? d.aenderungen.map(a =>
+      `<button class="aenderung" data-springe="${esc(a.k)}"><span class="mono">${esc(a.k)}</span> · ${esc(a.text)}</button>`).join("")
+      : `<div class="leise klein-text">${d.vorher_zeit ? "keine Änderungen" : "Erst nach dem zweiten Scan gibt es etwas zu vergleichen."}</div>`;
+  }
+  inselInfo();
+}
+function inselInfo() {
+  const i = ka.auswahl && ka.nachKoord.get(ka.auswahl);
+  if (!i) { $("ka-info").innerHTML = `<span class="leise klein-text">Klick auf eine Insel für Details.</span>`; return; }
+  const a = ka.allianzen.get(i.a), ich = ka.daten.ich?.name, eigen = i.b === ich;
+  const zeilen = [
+    ["Koordinaten", `<span class="mono">${esc(i.k)}</span>`],
+    ["Besitzer", i.b ? `<button class="klein" data-waehle-spieler="${esc(i.b)}">${esc(i.b)}</button>` : (i.r ? "Ruine" : "frei")],
+    ["Allianz", a ? `<button class="klein" data-waehle-allianz="${a.id}">${esc(tagText(a.tag))} ${esc(a.name)}</button>` : "–"],
+    ["Punkte", zahl(i.p)],
+  ];
+  // Fahrzeit von den eigenen Inseln mit dem gewaehlten Schiffstyp
+  const eigene = (flotte?.inseln || []).filter(x => x.koordinaten !== i.k);
+  const knoten = KNOTEN[ka.ringSchiff];
+  const fahrt = eigene.map(x => `<div class="info-zeile"><span>ab ${esc(x.name)}</span><span>${dauer(fahrzeitS(koordFeld(x.koordinaten), i.f, knoten))}</span></div>`).join("");
+  const eigeneId = (flotte?.inseln || []).find(x => x.koordinaten === i.k)?.id;
+  $("ka-info").innerHTML = `
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">${avatar(i.n, eigeneId || i.x * 1000 + i.y)}
+      <div class="namenblock" style="display:flex;flex-direction:column;line-height:1.25"><b>${esc(i.n || "Insel")}</b>
+      <span class="leise klein-text">${eigen ? "deine Insel" : i.b ? "bewohnt" : i.r ? "Ruine" : "unbewohnt"}</span></div></div>
+    ${zeilen.map(([k, v]) => `<div class="info-zeile"><span>${k}</span><span>${v}</span></div>`).join("")}
+    ${eigeneId ? `<div class="formular-leiste" style="margin-top:10px"><a href="#flotte/${eigeneId}"><button class="klein">Flotten-Manager</button></a>
+      <a href="#upgrade/${eigeneId}"><button class="klein">Upgrade-Bot</button></a></div>` : ""}
+    <div class="feld" style="margin-top:12px"><label for="ka-ring-schiff">${eigen ? "Fahrzeit-Ringe für" : "Fahrzeit mit"}</label>
+      <select id="ka-ring-schiff" class="eingabe">${Object.entries(KNOTEN).map(([k, v]) => `<option value="${k}" ${k === ka.ringSchiff ? "selected" : ""}>${esc(sname(k))} (${v} Knoten)</option>`).join("")}</select></div>
+    ${fahrt ? `<div style="margin-top:8px">${fahrt}</div>` : ""}`;
+  $("ka-ring-schiff").onchange = (e) => { ka.ringSchiff = e.target.value; inselInfo(); zeichneKarte(); };
+}
+function waehleInsel(koord, springen) {
+  ka.auswahl = koord;
+  const i = ka.nachKoord.get(koord);
+  if (i && springen) zentrieren(...i.f, Math.max(ka.massstab, 22));
+  inselInfo(); zeichneKarte();
+}
+
+// ------------------------------------------------------------ Bedienung
+document.querySelectorAll("[data-modus]").forEach(b => b.onclick = () => { ka.modus = b.dataset.modus; karteSeiteZeichnen(); zeichneKarte(); });
+$("ka-spieler").onchange = (e) => { ka.spieler = e.target.value; karteSeiteZeichnen(); zeichneKarte(); };
+document.querySelectorAll("[data-ebene]").forEach(cb => cb.onchange = () => {
+  ka.ebenen[cb.dataset.ebene] = cb.checked;
+  try { localStorage.setItem("karte-ebenen", JSON.stringify(ka.ebenen)); } catch (e) { /* egal */ }
+  karteSeiteZeichnen(); zeichneKarte();
+});
+try {
+  Object.assign(ka.ebenen, JSON.parse(localStorage.getItem("karte-ebenen") || "{}"));
+  document.querySelectorAll("[data-ebene]").forEach(cb => cb.checked = !!ka.ebenen[cb.dataset.ebene]);
+} catch (e) { /* egal */ }
+$("tab-karte").addEventListener("click", (e) => {
+  const sp = e.target.closest("[data-waehle-spieler]");
+  if (sp) { ka.modus = "spieler"; ka.spieler = sp.dataset.waehleSpieler; spielerListeFuellen(); karteSeiteZeichnen(); zeichneKarte(); return; }
+  if (e.target.closest("[data-waehle-allianz]")) { ka.modus = "allianz"; karteSeiteZeichnen(); zeichneKarte(); return; }
+  const sprung = e.target.closest("[data-springe]");
+  if (sprung) waehleInsel(sprung.dataset.springe, true);
+});
+$("ka-suche-form").onsubmit = (e) => {
+  e.preventDefault();
+  const q = $("ka-suche").value.trim();
+  if (!q) return;
+  const t = q.split(":").map(Number);
+  if (t.length === 3 && t.every(n => !isNaN(n))) {
+    const k = t.join(":");
+    if (ka.nachKoord.has(k)) return waehleInsel(k, true);
+    return zentrieren(...feld(t[0], t[1], t[2]), 30);
+  }
+  if (t.length === 2 && t.every(n => !isNaN(n))) return zentrieren(t[0] * 5 + 2.5, t[1] * 5 + 2.5, 24);
+  const s = ka.daten?.spieler.find(x => x.name.toLowerCase() === q.toLowerCase())
+         || ka.daten?.spieler.find(x => x.name.toLowerCase().includes(q.toLowerCase()));
+  if (!s) return melde(`Nichts gefunden zu „${q}“`, "schlecht");
+  ka.modus = "spieler"; ka.spieler = s.name; spielerListeFuellen(); karteSeiteZeichnen();
+  const ihre = ka.inseln.filter(i => i.b === s.name);
+  const xs = ihre.map(i => i.f[0]), ys = ihre.map(i => i.f[1]);
+  bereichZeigen(Math.min(...xs) - 8, Math.min(...ys) - 8, Math.max(...xs) + 8, Math.max(...ys) + 8);
+};
+
+// Ziehen, Zoomen (Mausrad, zwei Finger), Klick, Tooltip
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  zoomen(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+}, { passive: false });
+canvas.addEventListener("pointerdown", (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  ka.zeiger.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+  canvas.classList.add("zieht");
+});
+canvas.addEventListener("pointermove", (e) => {
+  const r = canvas.getBoundingClientRect();
+  const p = ka.zeiger.get(e.pointerId);
+  if (p) {
+    if (ka.zeiger.size === 2) {
+      const [a, b2] = [...ka.zeiger.values()];
+      const vorher = Math.hypot(a.x - b2.x, a.y - b2.y);
+      p.x = e.clientX; p.y = e.clientY;
+      const nachher = Math.hypot(a.x - b2.x, a.y - b2.y);
+      if (vorher > 0) zoomen(nachher / vorher, (a.x + b2.x) / 2 - r.left, (a.y + b2.y) / 2 - r.top);
+    } else {
+      ka.ox -= (e.clientX - p.x) / ka.massstab; ka.oy -= (e.clientY - p.y) / ka.massstab;
+      p.x = e.clientX; p.y = e.clientY; zeichneKarte();
+    }
+    $("ka-tip").style.display = "none";
+    return;
+  }
+  tooltipAn(e.clientX - r.left, e.clientY - r.top);
+});
+function zeigerEnde(e) {
+  const p = ka.zeiger.get(e.pointerId);
+  ka.zeiger.delete(e.pointerId);
+  if (!ka.zeiger.size) canvas.classList.remove("zieht");
+  if (p && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) < 5 && e.type === "pointerup") {
+    const r = canvas.getBoundingClientRect();
+    const i = inselBei(e.clientX - r.left, e.clientY - r.top);
+    waehleInsel(i ? i.k : null, false);
+  }
+}
+canvas.addEventListener("pointerup", zeigerEnde);
+canvas.addEventListener("pointercancel", zeigerEnde);
+canvas.addEventListener("pointerleave", () => { $("ka-tip").style.display = "none"; });
+canvas.addEventListener("dblclick", (e) => { const r = canvas.getBoundingClientRect(); zoomen(2, e.clientX - r.left, e.clientY - r.top); });
+
+function inselRadius() { return Math.max(3, Math.min(0.32 * ka.massstab, 12)); }
+function inselBei(px, py) {
+  const r = inselRadius() + 5;
+  let best = null, bd = r;
+  for (const i of ka.inseln) {
+    const [x, y] = zuBild(...i.f), d = Math.hypot(x - px, y - py);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+function tooltipAn(px, py) {
+  const tip = $("ka-tip"), t = jetzt();
+  let html = null;
+  const fp = (ka.flottenPunkte || []).find(p => Math.hypot(p.x - px, p.y - py) < 9);
+  const ap = (ka.angriffsPunkte || []).find(p => Math.hypot(p.x - px, p.y - py) < 14);
+  if (fp) {  // K7
+    const fl = fp.fl;
+    html = `<b>${esc(MISSION[fl.mission] || fl.mission || "Flotte")}</b> → <span class="mono">${esc(fl.koordinaten)}</span> ${esc(fl.ziel_name || "")}
+      <div class="leise">${fp.lage.rueck ? (fp.lage.gewendet ? "zurückgerufen, auf dem Heimweg" : "auf dem Rückweg") : "auf dem Hinweg"}</div>
+      <div class="info-zeile"><span>Ankunft</span><span>${fl.angekommen ? uhrzeit(fl.arrive_at) : `${uhrzeit(fl.arrive_at)} (${dauer(fl.arrive_at - t)})`}</span></div>
+      ${fl.return_at ? `<div class="info-zeile"><span>Rückkehr</span><span>${uhrzeit(fl.return_at)} (${dauer(fl.return_at - t)})</span></div>` : ""}
+      <div class="info-zeile"><span>Schiffe</span><span>${mengenText(fl.ships)}</span></div>
+      ${Object.keys(fl.units || {}).length ? `<div class="info-zeile"><span>Einheiten</span><span>${mengenText(fl.units)}</span></div>` : ""}
+      ${fl.angekommen ? `<div class="info-zeile"><span>Beute</span><span>${beuteText(fl.loot)}</span></div>` : ""}`;
+  } else if (ap) {
+    const a = ap.a, eta = ts(a.arrive_at);
+    html = `<b style="color:var(--feind)">Angriff von ${esc(a.absender || "?")}</b>
+      <div class="info-zeile"><span>Ziel</span><span>${esc((flotte?.inseln || []).find(x => x.id === a.ziel_insel_id)?.name || a.ziel_koordinaten || "?")}</span></div>
+      ${eta ? `<div class="info-zeile"><span>Ankunft</span><span>${uhrzeit(eta)} (${dauer(eta - t)})</span></div>` : ""}
+      ${a.mission ? `<div class="info-zeile"><span>Mission</span><span>${esc(MISSION[a.mission] || a.mission)}</span></div>` : ""}`;
+  } else {
+    const i = inselBei(px, py);
+    if (i) {
+      const a = ka.allianzen.get(i.a);
+      html = `<b>${esc(i.n || "Insel")}</b> <span class="mono leise">${esc(i.k)}</span>
+        <div>${i.b ? esc(i.b) : (i.r ? "Ruine" : "frei")}${a ? ` · ${esc(tagText(a.tag))}` : ""} · ${zahl(i.p)} P.</div>`;
+    }
+  }
+  if (!html) { tip.style.display = "none"; return; }
+  tip.innerHTML = html; tip.style.display = "block";
+  const rb = $("ka-rahmen").getBoundingClientRect();
+  let x = px + 14, y = py + 14;
+  if (x + tip.offsetWidth > rb.width) x = px - tip.offsetWidth - 14;
+  if (y + tip.offsetHeight > rb.height) y = py - tip.offsetHeight - 14;
+  tip.style.left = `${Math.max(4, x)}px`; tip.style.top = `${Math.max(4, y)}px`;
+}
+window.addEventListener("resize", () => { if (tab === "karte") zeichneKarte(); });
+new MutationObserver(() => { farbenLesen(); zeichneKarte(); }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { farbenLesen(); zeichneKarte(); });
+farbenLesen();
+
+// ======================================================================
+// Takt
+// ======================================================================
+function aktualisieren() {
+  if (tab === "karte") { farbenLesen(); flotteHolen(); angriffeHolen(); karteHolen(); zeichneKarte(); }
+  if (tab === "flotte") { flotteHolen(); if (!verlauf) verlaufHolen(); else { diagramm("fl-diagramm", verlauf.gesamt); } }
+  if (tab === "upgrade") upgradeHolen();
+  if (tab === "allianz") allianzHolen();
+  if (tab === "uebersicht") {
+    flotteHolen(); upgradeHolen(); allianzHolen();
+    if (!verlauf) verlaufHolen(); else diagramm("ue-diagramm", verlauf.gesamt);
+    zeichneUebersichtDienste();
+  }
+}
+function sekundentakt() {
+  const t = jetzt();
+  document.querySelectorAll("[data-bis]").forEach(el => {
+    const rest = Number(el.dataset.bis) - t;
+    el.textContent = rest > 0 ? dauer(rest) : el.dataset.fertig;
+  });
+  $("uhr").textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+dienstHolen();
+zeigeTab(location.hash.slice(1) || "uebersicht");
+setInterval(() => {
+  if (tab === "flotte") flotteHolen();
+  if (tab === "upgrade") upgradeHolen();
+  if (tab === "allianz") allianzHolen();
+  if (tab === "uebersicht") { flotteHolen(); upgradeHolen(); allianzHolen(); }
+  if (tab === "karte") flotteHolen();
+}, 3000);
+setInterval(() => { if (tab === "karte") angriffeHolen(); }, 20000);
+setInterval(() => { if (tab === "karte") karteHolen(); }, 300000);
+setInterval(dienstHolen, 5000);
+setInterval(logsHolen, 5000);
+setInterval(verlaufHolen, 60000);
+setInterval(sekundentakt, 1000);
+</script>
+</body>
+</html>

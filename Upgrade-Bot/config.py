@@ -89,5 +89,11 @@ LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 # Pro Kalendertag eine eigene Datei: logs/bot-YYYY-MM-DD.log
 LOG_FILE_PREFIX = "bot"
 LOG_RETENTION_DAYS = 60
-# Zusaetzlich nach stdout (bei systemd sichtbar via journalctl -u seekampf-ressourcen-bot)
+# Zusaetzlich nach stdout (bei systemd sichtbar via journalctl -u seekampf-upgrade-bot)
 LOG_TO_STDOUT = True
+
+# Seekampf-Hub (Weboberflaeche): wie oft nach Befehlen und geaenderter Steuerung
+# geschaut wird, und der Mindestabstand zwischen zwei dadurch ausgeloesten
+# Durchlaeufen.
+HUB_ABFRAGE_S = 2
+HUB_MIN_ABSTAND_S = 5

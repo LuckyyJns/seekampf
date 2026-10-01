@@ -1,4 +1,4 @@
-"""Telegram-Benachrichtigung fuer den Morgenreport.
+"""Telegram-Benachrichtigung fuer den Allianz-Bot.
 
 Uebernommen aus dem Upgrade-Bot, auf das Noetige gekuerzt: HTML statt
 Markdown (an Unterstrichen und Klammern scheitert Telegrams Markdown-Parser
@@ -13,7 +13,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-log = logging.getLogger("seekampf_flotten_manager")
+log = logging.getLogger("seekampf_allianz_bot")
 
 
 class TelegramNotifier:

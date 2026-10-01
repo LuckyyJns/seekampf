@@ -1,0 +1,10 @@
+[project]
+name = "seekampf-allianz-bot"
+version = "0.1.0"
+description = "Teilnahme am Allianz-Protokoll V1 (Beistand, Leihe-Rueckgabe, Rohstoff-Anfragen) fuer Seekampf.de"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "tzdata>=2024.1",
+]

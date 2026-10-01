@@ -1,0 +1,375 @@
+{
+  "protokoll": 1,
+  "nebenversion": 0,
+  "hinweis": "Konformitätsfälle für den Parser (agenten.md, Abschnitte 3 bis 6, Schritte 2, 3 und 5). erwartet=null heißt: Nachricht ignorieren. Zeitpunkte sind Server-Zeitstempel.",
+  "faelle": [
+    {
+      "id": "notruf_minimal_mensch",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99120,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 12:34:5\nankunft: 18:40",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "12:34:5", "ankunft": "2026-09-24T18:40:00+02:00", "vorgang": "815-f99120"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "notruf_voll_bot",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99121,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF/1]\nvorgang: 815-7\ninsel: 12:34:5\nankunft: 2026-09-24T18:40+02:00\nangreifer: Kraken\nstaerke: 2400\nbedarf: speerkaempfer=200 bogenschuetze=50\n\nMauer ist unten.",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"vorgang": "815-7", "insel": "12:34:5", "ankunft": "2026-09-24T18:40:00+02:00", "angreifer": "Kraken", "staerke": 2400, "bedarf": {"speerkaempfer": 200, "bogenschuetze": 50}}, "freitext": "Mauer ist unten."},
+      "grund": null
+    },
+    {
+      "id": "kurzform_ueber_mitternacht",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99122,
+      "zeitpunkt": "2026-09-24T23:50:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 12:34:5\nankunft: 00:30",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "12:34:5", "ankunft": "2026-09-25T00:30:00+02:00", "vorgang": "815-f99122"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "zeit_utc_wird_berlin",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99123,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 12:34:5\nankunft: 2026-09-24T16:40Z",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "12:34:5", "ankunft": "2026-09-24T18:40:00+02:00", "vorgang": "815-f99123"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "zeit_ohne_offset_mit_leerzeichen",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99124,
+      "zeitpunkt": "2026-12-01T09:00:00+01:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 12:34:5\nankunft: 2026-12-01 10:15",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "12:34:5", "ankunft": "2026-12-01T10:15:00+01:00", "vorgang": "815-f99124"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "kleinbuchstaben_und_umlaute",
+      "kanal": "forum:teilnehmer", "absender_id": 815, "nachricht_id": 99125,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[präsenz]\nVersion: 1\nnebenversion: 0\nFähigkeiten: beistand, leihe_rueckgabe",
+      "erwartet": {"typ": "PRAESENZ", "version": 1, "felder": {"version": 1, "nebenversion": 0, "faehigkeiten": ["beistand", "leihe_rueckgabe"]}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "crlf_fuehrende_leerzeilen_leerraum",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99126,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "\r\n\r\n  [NOTRUF]\r\ninsel :  1:2:3 \r\n",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "1:2:3", "vorgang": "815-f99126"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "text_hinter_kopf_wird_ignoriert",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99127,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF] Hilfe!\ninsel: 1:2:3",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "1:2:3", "vorgang": "815-f99127"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "freitext_ohne_leerzeile",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99128,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 1:2:3\nBitte schnell, Mauer: kaputt\nangreifer: Kraken",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "1:2:3", "vorgang": "815-f99128"}, "freitext": "Bitte schnell, Mauer: kaputt\nangreifer: Kraken"},
+      "grund": null
+    },
+    {
+      "id": "unbekanntes_feld_ignoriert",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99129,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\nwetter: sonnig\ninsel: 1:2:3",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "1:2:3", "vorgang": "815-f99129"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "doppeltes_feld_erstes_gilt",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99130,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 1:2:3\ninsel: 4:5:6",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "1:2:3", "vorgang": "815-f99130"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "ungueltiges_kannfeld_entfaellt",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99131,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 1:2:3\nstaerke: 2.400\nankunft: bald\nbedarf: katapult=3",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"insel": "1:2:3", "vorgang": "815-f99131"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "leerer_wert_zaehlt_als_fehlend",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99132,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel:\nankunft: 18:40",
+      "erwartet": null,
+      "grund": "pflichtfeld_fehlt"
+    },
+    {
+      "id": "koordinate_unvollstaendig",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99133,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\ninsel: 12:34",
+      "erwartet": null,
+      "grund": "ungueltiger_wert"
+    },
+    {
+      "id": "unbekannter_typ",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99134,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[ZIEL]\ninsel: 1:2:3",
+      "erwartet": null,
+      "grund": "unbekannter_typ"
+    },
+    {
+      "id": "andere_hauptversion",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99135,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF/2]\ninsel: 1:2:3",
+      "erwartet": null,
+      "grund": "andere_version"
+    },
+    {
+      "id": "normaler_forenbeitrag",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99136,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "Hallo zusammen, wer hat heute Abend Zeit?",
+      "erwartet": null,
+      "grund": "kein_kopf"
+    },
+    {
+      "id": "falscher_thread",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99137,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[ANFRAGE]\ninsel: 1:2:3\nrohstoffe: stein=100",
+      "erwartet": null,
+      "grund": "falscher_kanal"
+    },
+    {
+      "id": "notruf_fuer_fremden_vorgang",
+      "kanal": "forum:notrufe", "absender_id": 900, "nachricht_id": 99138,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[NOTRUF]\nvorgang: 815-7\ninsel: 1:2:3",
+      "erwartet": null,
+      "grund": "falscher_absender"
+    },
+    {
+      "id": "weck_pn_notruf",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5001,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": "[NOTRUF] 815-7",
+      "text": "[NOTRUF]\nvorgang: 815-7\ninsel: 12:34:5\nankunft: 2026-09-24T18:40+02:00",
+      "erwartet": {"typ": "NOTRUF", "version": 1, "felder": {"vorgang": "815-7", "insel": "12:34:5", "ankunft": "2026-09-24T18:40:00+02:00"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "weck_pn_ohne_vorgang",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5002,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": "[NOTRUF]",
+      "text": "[NOTRUF]\ninsel: 12:34:5",
+      "erwartet": null,
+      "grund": "pflichtfeld_fehlt"
+    },
+    {
+      "id": "angebot_einheiten",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5003,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=150 bogenschuetze=40\nleihe: bogenschuetze\nankunft: 2026-09-24T18:10+02:00\ngueltig_bis: 2026-09-24T17:32+02:00",
+      "erwartet": {"typ": "ANGEBOT", "version": 1, "felder": {"vorgang": "815-f99120", "von": "20:30:1", "einheiten": {"speerkaempfer": 150, "bogenschuetze": 40}, "leihe": ["bogenschuetze"], "ankunft": "2026-09-24T18:10:00+02:00", "gueltig_bis": "2026-09-24T17:32:00+02:00"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "angebot_gueltig_bis_standard",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5004,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=150\nleihe: keine\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": {"typ": "ANGEBOT", "version": 1, "felder": {"vorgang": "815-f99120", "von": "20:30:1", "einheiten": {"speerkaempfer": 150}, "leihe": [], "ankunft": "2026-09-24T18:10:00+02:00", "gueltig_bis": "2026-09-24T17:32:00+02:00"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "angebot_rohstoffe_ohne_leihe",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5005,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99200",
+      "text": "[ANGEBOT]\nvorgang: 815-f99200\nvon: 20:30:1\nrohstoffe: stein=3000\nankunft: 2026-09-24T19:00+02:00\ngueltig_bis: 2026-09-24T17:40+02:00",
+      "erwartet": {"typ": "ANGEBOT", "version": 1, "felder": {"vorgang": "815-f99200", "von": "20:30:1", "rohstoffe": {"stein": 3000}, "ankunft": "2026-09-24T19:00:00+02:00", "gueltig_bis": "2026-09-24T17:40:00+02:00"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "angebot_ohne_leihe_feld",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5006,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=150\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": null,
+      "grund": "pflichtfeld_fehlt"
+    },
+    {
+      "id": "angebot_leihe_nicht_angeboten",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5007,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=150\nleihe: bogenschuetze\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": null,
+      "grund": "ungueltiger_wert"
+    },
+    {
+      "id": "angebot_einheiten_und_rohstoffe",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5008,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=150\nleihe: keine\nrohstoffe: stein=100\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": null,
+      "grund": "ungueltiger_wert"
+    },
+    {
+      "id": "angebot_an_sich_selbst",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5009,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 12:34:5\neinheiten: speerkaempfer=150\nleihe: keine\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": null,
+      "grund": "falscher_absender"
+    },
+    {
+      "id": "angebot_doppelte_einheit",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5010,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": "[ANGEBOT] 815-f99120",
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=1, speerkaempfer=2\nleihe: keine\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": null,
+      "grund": "ungueltiger_wert"
+    },
+    {
+      "id": "angebot_im_forum",
+      "kanal": "forum:notrufe", "absender_id": 900, "nachricht_id": 99139,
+      "zeitpunkt": "2026-09-24T17:12:00+02:00", "betreff": null,
+      "text": "[ANGEBOT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: speerkaempfer=150\nleihe: keine\nankunft: 2026-09-24T18:10+02:00",
+      "erwartet": null,
+      "grund": "falscher_kanal"
+    },
+    {
+      "id": "zusage_mensch_kopf_im_betreff",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5011,
+      "zeitpunkt": "2026-09-24T17:20:00+02:00", "betreff": "[ZUSAGE]",
+      "text": "vorgang: 815-f99120",
+      "erwartet": {"typ": "ZUSAGE", "version": 1, "felder": {"vorgang": "815-f99120"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "zusage_teilmenge",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5012,
+      "zeitpunkt": "2026-09-24T17:20:00+02:00", "betreff": "[ZUSAGE] 815-f99120",
+      "text": "[ZUSAGE]\nvorgang: 815-f99120\neinheiten: bogenschuetze=40\n\nDanke!",
+      "erwartet": {"typ": "ZUSAGE", "version": 1, "felder": {"vorgang": "815-f99120", "einheiten": {"bogenschuetze": 40}}, "freitext": "Danke!"},
+      "grund": null
+    },
+    {
+      "id": "zusage_von_fremdem",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5013,
+      "zeitpunkt": "2026-09-24T17:20:00+02:00", "betreff": "[ZUSAGE] 815-f99120",
+      "text": "[ZUSAGE]\nvorgang: 815-f99120",
+      "erwartet": null,
+      "grund": "falscher_absender"
+    },
+    {
+      "id": "antwort_mit_re_betreff",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5014,
+      "zeitpunkt": "2026-09-24T17:20:00+02:00", "betreff": "Re: [ANGEBOT] 815-f99120",
+      "text": "danke, nehme ich",
+      "erwartet": null,
+      "grund": "kein_kopf"
+    },
+    {
+      "id": "absage",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5015,
+      "zeitpunkt": "2026-09-24T17:40:00+02:00", "betreff": "[ABSAGE] 815-f99120",
+      "text": "[ABSAGE]\nvorgang: 815-f99120\ngrund: abgelaufen",
+      "erwartet": {"typ": "ABSAGE", "version": 1, "felder": {"vorgang": "815-f99120", "grund": "abgelaufen"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "absage_unbekannter_grund",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5016,
+      "zeitpunkt": "2026-09-24T17:40:00+02:00", "betreff": "[ABSAGE] 815-f99120",
+      "text": "[ABSAGE]\nvorgang: 815-f99120\ngrund: keine_lust",
+      "erwartet": {"typ": "ABSAGE", "version": 1, "felder": {"vorgang": "815-f99120"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "versandt",
+      "kanal": "pn", "absender_id": 900, "nachricht_id": 5017,
+      "zeitpunkt": "2026-09-24T17:22:00+02:00", "betreff": "[VERSANDT] 815-f99120",
+      "text": "[VERSANDT]\nvorgang: 815-f99120\nvon: 20:30:1\neinheiten: bogenschuetze=40\nleihe: bogenschuetze\nankunft: 2026-09-24T18:12+02:00",
+      "erwartet": {"typ": "VERSANDT", "version": 1, "felder": {"vorgang": "815-f99120", "von": "20:30:1", "einheiten": {"bogenschuetze": 40}, "leihe": ["bogenschuetze"], "ankunft": "2026-09-24T18:12:00+02:00"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "rueckgabe_nichts_uebrig",
+      "kanal": "pn", "absender_id": 815, "nachricht_id": 5018,
+      "zeitpunkt": "2026-09-25T02:00:00+02:00", "betreff": "[RUECKGABE] 815-f99120",
+      "text": "[RÜCKGABE]\nvorgang: 815-f99120\neinheiten: keine",
+      "erwartet": {"typ": "RUECKGABE", "version": 1, "felder": {"vorgang": "815-f99120", "einheiten": {}}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "entwarnung",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99140,
+      "zeitpunkt": "2026-09-24T19:30:00+02:00", "betreff": null,
+      "text": "[ENTWARNUNG]\nvorgang: 815-f99120\nergebnis: gehalten",
+      "erwartet": {"typ": "ENTWARNUNG", "version": 1, "felder": {"vorgang": "815-f99120", "ergebnis": "gehalten"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "entwarnung_ohne_vorgang",
+      "kanal": "forum:notrufe", "absender_id": 815, "nachricht_id": 99141,
+      "zeitpunkt": "2026-09-24T19:30:00+02:00", "betreff": null,
+      "text": "[ENTWARNUNG]\n\nAlles ruhig.",
+      "erwartet": null,
+      "grund": "pflichtfeld_fehlt"
+    },
+    {
+      "id": "anfrage_mensch",
+      "kanal": "forum:rohstoffe", "absender_id": 815, "nachricht_id": 99200,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[ANFRAGE]\ninsel: 12:34:5\nrohstoffe: stein=5000, holz=3000\nbis: 2026-09-25T12:00+02:00",
+      "erwartet": {"typ": "ANFRAGE", "version": 1, "felder": {"insel": "12:34:5", "rohstoffe": {"stein": 5000, "holz": 3000}, "bis": "2026-09-25T12:00:00+02:00", "vorgang": "815-f99200"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "anfrage_unbekannter_rohstoff",
+      "kanal": "forum:rohstoffe", "absender_id": 815, "nachricht_id": 99201,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[ANFRAGE]\ninsel: 12:34:5\nrohstoffe: eisen=500",
+      "erwartet": null,
+      "grund": "ungueltiger_wert"
+    },
+    {
+      "id": "erledigt",
+      "kanal": "forum:rohstoffe", "absender_id": 815, "nachricht_id": 99202,
+      "zeitpunkt": "2026-09-24T20:00:00+02:00", "betreff": null,
+      "text": "[ERLEDIGT]\nvorgang: 815-f99200",
+      "erwartet": {"typ": "ERLEDIGT", "version": 1, "felder": {"vorgang": "815-f99200"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "praesenz_minimal",
+      "kanal": "forum:teilnehmer", "absender_id": 900, "nachricht_id": 99300,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[PRAESENZ]\nversion: 1\nnebenversion: 0\nfaehigkeiten: keine\nbot: Klabautermann",
+      "erwartet": {"typ": "PRAESENZ", "version": 1, "felder": {"version": 1, "nebenversion": 0, "faehigkeiten": [], "bot": "Klabautermann"}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "praesenz_unbekannte_faehigkeit_bleibt",
+      "kanal": "forum:teilnehmer", "absender_id": 900, "nachricht_id": 99301,
+      "zeitpunkt": "2026-09-24T17:05:00+02:00", "betreff": null,
+      "text": "[PRAESENZ]\nversion: 1\nnebenversion: 3\nfaehigkeiten: beistand ziele_teilen",
+      "erwartet": {"typ": "PRAESENZ", "version": 1, "felder": {"version": 1, "nebenversion": 3, "faehigkeiten": ["beistand", "ziele_teilen"]}, "freitext": ""},
+      "grund": null
+    },
+    {
+      "id": "kopfbeitrag_ist_keine_nachricht",
+      "kanal": "forum:teilnehmer", "absender_id": 815, "nachricht_id": 99299,
+      "zeitpunkt": "2026-09-20T12:00:00+02:00", "betreff": null,
+      "text": "Allianz-Protokoll: Teilnehmer\n\nHier meldet sich jeder Bot mit [PRAESENZ].",
+      "erwartet": null,
+      "grund": "kein_kopf"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+# Erlaubt dem Seekampf-Hub, die Seekampf-Dienste ohne Passwort zu steuern - und
+# NUR diese Befehle. Bewusst ohne Platzhalter: ein * wuerde in sudoers auch
+# Leerzeichen treffen und damit weitere Argumente durchlassen.
+#
+# Einrichten:  sudo install -m 0440 seekampf-hub.sudoers /etc/sudoers.d/seekampf-hub
+#              sudo visudo -c
+Cmnd_Alias SEEKAMPF_DIENSTE = \
+    /usr/bin/systemctl start seekampf-flotten-manager.service, \
+    /usr/bin/systemctl stop seekampf-flotten-manager.service, \
+    /usr/bin/systemctl restart seekampf-flotten-manager.service, \
+    /usr/bin/systemctl start seekampf-upgrade-bot.service, \
+    /usr/bin/systemctl stop seekampf-upgrade-bot.service, \
+    /usr/bin/systemctl restart seekampf-upgrade-bot.service, \
+    /usr/bin/systemctl start seekampf-allianz-bot.service, \
+    /usr/bin/systemctl stop seekampf-allianz-bot.service, \
+    /usr/bin/systemctl restart seekampf-allianz-bot.service, \
+    /usr/bin/systemctl restart seekampf-hub.service
+jannishoy ALL=(root) NOPASSWD: SEEKAMPF_DIENSTE

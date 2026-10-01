@@ -1,11 +1,24 @@
 # Flotten-Manager
 
-Schickt vollautomatisch Raid-Flotten auf die freien Inseln rund um die eigene
-Insel und steuert sich ueber eine Weboberflaeche im Heimnetz.
+Schickt vollautomatisch Raid-Flotten auf die freien Inseln rund um jede
+eingeschaltete eigene Insel. Bedient wird er ueber den Seekampf-Hub
+(`~/Seekampf/Seekampf-Hub`, http://<ip-des-pi>:8080); der Manager selbst stellt
+nur eine JSON-Schnittstelle auf `127.0.0.1:8081` bereit.
 
-```
-http://<ip-des-pi>:8080
-```
+## Mehrere Inseln
+
+Jede eigene Insel hat einen An/Aus-Schalter, eine eigene Zielliste mit
+Rotation, eine eigene Statistik und einen eigenen Beute-Verlauf je Tag. Aus
+heisst: keine neuen Flotten; was unterwegs ist, faehrt zu Ende. Neue Inseln
+starten ausgeschaltet. Zwei eigene Inseln greifen nie gleichzeitig dasselbe
+Ziel an, und ein Ziel mit neuem Besitzer fliegt aus allen Ziellisten.
+Bedrohung und "Lager voll" gelten je Insel; beim Rueckruf werden nur die
+Flotten der bedrohten Insel geholt. Die Einstellungen gelten fuer alle Inseln,
+`max_flotten` je Insel.
+
+Beim Umstieg (erster Start dieser Version) bekam die Heimatinsel die
+bisherige Zielliste und Statistik; der Beute-Verlauf wurde aus den Logs
+nachgetragen.
 
 ## Was er tut
 
@@ -14,8 +27,11 @@ http://<ip-des-pi>:8080
    Inseln mit Besitzernamen bleiben aussen vor, auch die "Unbemannt NNN", die
    trotz ihres Namens dem Spieler *Niemend* gehoeren.
 2. **Losschicken** – so viele Flotten gleichzeitig, wie Schiffe und Steinewerfer
-   hergeben (Standard je Flotte: 1 kleines Kriegsschiff, 1 kleines
-   Handelsschiff, 1 Steinewerfer). Die Ziele kommen stur reihum aus der
+   hergeben (Standard je Flotte: 1 Kriegsschiff, 1 Handelsschiff,
+   1 Steinewerfer). Welcher Schiffstyp mitfährt, ist egal – der Manager nimmt,
+   was im Hafen liegt, große Handelsschiffe zuerst (mehr Beute je Fahrt),
+   Kriegsschiffe nach Geschwindigkeit. Spähschiff und Kolonisationsschiff
+   bleiben daheim. Die Ziele kommen stur reihum aus der
    Rotation.
 3. **Gegenpruefen** – unmittelbar vor der Abfahrt wird ueber
    `GET /map/island/{x}/{y}/{z}` noch einmal geprueft, ob die Insel wirklich
@@ -25,12 +41,14 @@ http://<ip-des-pi>:8080
    eine Flotte daheim ist, faehrt sie im selben Takt zum naechsten Ziel weiter.
 5. **Auswerten** – aus dem Kampfbericht kommen Sieg/Niederlage und die echte
    Beute in die Statistik.
+6. **Aufraeumen** – ist der Bericht verbucht, wird er im Postfach
+   ausgeblendet, damit dort nur bleibt, was wirklich Aufmerksamkeit braucht.
 
 ## Bedienung
 
-Die Seite zeigt oben die Kennzahlen (Raids gesamt, Inseln besucht, Gold, Stein,
-Holz, Laufzeit, Loot/Stunde), darunter die fahrenden Flotten mit Countdown, die
-Zielrotation, alle Einstellungen und das Log. Start/Stop sitzt oben rechts.
+Im Seekampf-Hub: oben die Kennzahlen und das Beute-Diagramm aller Inseln,
+darunter je Insel aufklappbar Schiffe im Hafen, fahrende Flotten, Statistik,
+Diagramm und Zielrotation; dann Einstellungen und Log.
 
 Alle Einstellungen greifen sofort, ohne Neustart. Die wichtigsten:
 
@@ -38,12 +56,36 @@ Alle Einstellungen greifen sofort, ohne Neustart. Die wichtigsten:
 | --- | --- |
 | `scan_radius_sektoren` | 0 = eigener Sektor, 1 = 3×3 Sektoren, 2 = 5×5 … |
 | `scan_intervall_stunden` | wie oft neu nach freien Inseln gesucht wird (24 = taeglich) |
-| `flotte_*` | Zusammensetzung je Flotte; mehr Handelsschiffe = mehr Beute (75 je Schiff) |
+| `flotte_*` | Anzahl je Flotte (Typ egal); mehr Handelsschiffe = mehr Beute (klein 75, groß 460) |
 | `max_flotten` | 0 = so viele gleichzeitig, wie Schiffe da sind |
 | `rohstoff_modus` | `knappster` pluendert gezielt den Rohstoff, von dem am wenigsten da ist |
 | `lager_voll_schwelle` | ab diesem Fuellstand aller drei Rohstoffe wird pausiert |
 | `niederlagen_bis_blacklist` / `blacklist_tage` | wann ein Ziel gesperrt wird und wie lange |
 | `rueckruf_bei_bedrohung` | holt fahrende Flotten zurueck, wenn ein Angriff im Anflug ist |
+| `berichte_archivieren` | blendet die Kampfberichte der eigenen Raids aus dem Postfach aus |
+
+### Postfach aufraeumen
+
+Bei zwoelf Raids am Tag ist der Kampfbericht-Ordner nach einer Woche
+unbrauchbar. Steht `berichte_archivieren` an (Standard), blendet der Manager
+jeden Bericht aus, **den er selbst ausgeloest hat** – aber erst, nachdem die
+Beute verbucht ist. Faellt das Ausblenden aus, bleibt der Bericht stehen; die
+Statistik stimmt trotzdem.
+
+Unberuehrt bleiben:
+
+* Berichte zu von Hand gestarteten Angriffen,
+* Berichte zu Flotten, die der Manager nicht zuordnen kann – das passiert nur,
+  wenn `data/state.json` verloren geht, waehrend eine Flotte faehrt; ein
+  normaler Neustart genuegt nicht, die Datei merkt sich die Herkunft,
+* eingehende Angriffe auf eigene Inseln (`rolle != angreifer`),
+* Spionageberichte und alles ausserhalb des Kampfordners.
+
+Technisch ist das `POST /messages/{id}/archive`. Die Nachricht verschwindet aus
+`GET /messages?folder=combat`, bleibt aber einzeln unter `GET /messages/{id}`
+lesbar, und die oeffentliche Inselseite zeigt die letzten zehn Berichte zu einer
+Insel ohnehin weiter an. **Einen unarchive-Endpunkt gibt es nicht** – ueber die
+API ist das Ausblenden nicht umkehrbar.
 
 ### Beute-Priorisierung
 
@@ -98,20 +140,19 @@ sudo systemctl start seekampf-flotten-manager-alert
 ```
 
 Der Flotten-Manager benutzt einen **eigenen API-Schluessel**, nicht den des
-Ressourcen-Bots - so laesst sich einer von beiden zurueckziehen, ohne den
+Upgrade-Bots - so laesst sich einer von beiden zurueckziehen, ohne den
 anderen lahmzulegen.
 
 ## Dateien
 
 | Datei | Aufgabe |
 | --- | --- |
-| `web.py` | Einstiegspunkt: uvicorn + Bot-Thread, alle HTTP-Endpunkte |
+| `web.py` | Einstiegspunkt: uvicorn + Bot-Thread, JSON-Schnittstelle fuer den Seekampf-Hub |
 | `manager.py` | der Takt: Flotten abgleichen, Berichte auswerten, losschicken |
 | `scanner.py` | Bereich abklappern, Zielliste pflegen |
 | `geo.py` | Feldkoordinaten, Entfernung, Fahrzeit |
-| `state.py` | `data/state.json`: Einstellungen, Ziele, Flotten, Statistik |
+| `state.py` | `data/state.json`: Einstellungen, Inseln (Ziele, Statistik), Flotten, Beute-Verlauf |
 | `api_client.py` | die genutzten Seekampf-Endpunkte |
 | `report.py` / `notify.py` | Telegram-Morgenreport |
 | `alert.py` | Telegram-Alarm, den systemd bei Ausfall des Dienstes startet |
-| `static/index.html` | die Weboberflaeche (ein File, kein Build) |
 | `logs/flotte-JJJJ-MM-TT.log` | eine Logdatei pro Tag, 60 Tage Aufbewahrung |

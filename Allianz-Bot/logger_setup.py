@@ -1,10 +1,9 @@
 """Logging-Setup: eine Log-Datei pro Kalendertag.
 
-Wie beim Upgrade-Bot: der Manager schreibt nach
-logs/flotte-YYYY-MM-DD.log und wechselt die Datei selbstaendig um Mitternacht
+Wie bei den anderen Bots: der Allianz-Bot schreibt nach
+logs/allianz-YYYY-MM-DD.log und wechselt die Datei selbstaendig um Mitternacht
 (Zeitzone aus config.TIMEZONE_NAME). Alte Dateien werden nach
-config.LOG_RETENTION_DAYS Tagen geloescht. Die Weboberflaeche liest die Datei
-des laufenden Tages fuer die Log-Ansicht zurueck.
+config.LOG_RETENTION_DAYS Tagen geloescht.
 """
 import glob
 import logging
@@ -65,7 +64,7 @@ class DailyFileHandler(logging.FileHandler):
 def get_logger() -> logging.Logger:
     os.makedirs(config.LOG_DIR, exist_ok=True)
 
-    logger = logging.getLogger("seekampf_flotten_manager")
+    logger = logging.getLogger("seekampf_allianz_bot")
     if logger.handlers:
         return logger
 
@@ -76,7 +75,7 @@ def get_logger() -> logging.Logger:
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     # Zeitstempel immer in der konfigurierten Zeitzone, unabhaengig davon,
-    # wie der Rechner/Dienst eingestellt ist - report.py liest sie so zurueck.
+    # wie der Rechner/Dienst eingestellt ist.
     formatter.converter = lambda ts: datetime.fromtimestamp(ts, TZ).timetuple()
 
     file_handler = DailyFileHandler(retention_days=config.LOG_RETENTION_DAYS)
@@ -84,7 +83,7 @@ def get_logger() -> logging.Logger:
     logger.addHandler(file_handler)
 
     if config.LOG_TO_STDOUT:
-        # Landet bei systemd im journal (journalctl -u seekampf-flotten-manager -f).
+        # Landet bei systemd im journal (journalctl -u seekampf-allianz-bot -f).
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)

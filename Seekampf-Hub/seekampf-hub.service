@@ -1,0 +1,17 @@
+[Unit]
+Description=Seekampf-Hub (Weboberflaeche fuer alle Bots)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Seekampf-Hub
+ExecStart=/home/jannishoy/Seekampf/Seekampf-Hub/.venv/bin/python /home/jannishoy/Seekampf/Seekampf-Hub/hub.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -33,7 +33,7 @@ class Store:
                     return json.load(f)
             except (ValueError, OSError):
                 pass
-        return {"cost_points": {}, "time_points": {}, "storage_points": {}, "prod_deltas": {}, "last_snapshot": None}
+        return {"cost_points": {}, "time_points": {}, "storage_points": {}, "prod_deltas": {}, "last_snapshots": {}}
 
     def save(self) -> None:
         tmp = self.path + ".tmp"
@@ -44,7 +44,8 @@ class Store:
     # ------------------------------------------------------------------
     # Beobachtung: bei jedem Tick aufrufen, unabhaengig davon, ob gebaut wurde
     # ------------------------------------------------------------------
-    def observe(self, buildings: list[dict], resources: dict, storage_key: str | None) -> None:
+    def observe(self, buildings: list[dict], resources: dict, storage_key: str | None,
+                island_key: str) -> None:
         for b in buildings:
             key = b.get("typ")
             kosten = b.get("kosten")
@@ -55,11 +56,17 @@ class Store:
                 if bauzeit:
                     self._add_point(self.data["time_points"], key, next_level, {"s": bauzeit})
 
-        prev = self.data.get("last_snapshot")
+        # Der Vorher-Stand gilt je Insel: mit mehreren Inseln wuerde ein
+        # gemeinsamer Stand Insel A mit Insel B vergleichen statt mit sich selbst.
+        # Gelernt wird weiter in gemeinsame Tabellen - Kosten und Ertraege je
+        # Stufe sind auf allen Inseln gleich.
+        snapshots = self.data.setdefault("last_snapshots", {})
+        self.data.pop("last_snapshot", None)  # Altbestand aus der Ein-Insel-Zeit
+        prev = snapshots.get(island_key)
         if prev is not None:
             self._learn_from_transition(prev, buildings, resources, storage_key)
 
-        self.data["last_snapshot"] = {"buildings": buildings, "resources": resources}
+        snapshots[island_key] = {"buildings": buildings, "resources": resources}
         self.save()
 
     @staticmethod

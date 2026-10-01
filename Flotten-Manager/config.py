@@ -18,11 +18,11 @@ API_KEY = os.environ.get("SEEKAMPF_API_KEY", "")
 
 TIMEZONE_NAME = "Europe/Berlin"
 
-# Weboberflaeche: nur im LAN, ohne Login (so gewuenscht). 0.0.0.0 heisst
-# "von jedem Geraet im Heimnetz erreichbar" - nach draussen kommt nur, was
-# der Router durchreicht, und das tut er ohne Portfreigabe nicht.
-WEB_HOST = os.environ.get("FLOTTEN_MANAGER_HOST", "0.0.0.0")
-WEB_PORT = int(os.environ.get("FLOTTEN_MANAGER_PORT", "8080"))
+# Schnittstelle fuer den Seekampf-Hub (~/Seekampf/Seekampf-Hub), der die
+# Weboberflaeche im Heimnetz ausliefert und Anfragen hierher weiterreicht.
+# Deshalb nur lokal erreichbar.
+WEB_HOST = os.environ.get("FLOTTEN_MANAGER_HOST", "127.0.0.1")
+WEB_PORT = int(os.environ.get("FLOTTEN_MANAGER_PORT", "8081"))
 
 STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
 LOG_DIR = os.path.join(BASE_DIR, "logs")
@@ -48,8 +48,19 @@ SCHIFF_KNOTEN = {
 SCHIFF_LADEVOLUMEN = {
     "kleines_handelsschiff": 75, "grosses_handelsschiff": 460,
 }
+# Welche Typen als Kriegs- bzw. Handelsschiff zaehlen. Die Einstellungen geben
+# nur vor, WIE VIELE Schiffe je Klasse mitfahren - welcher Typ das konkret ist,
+# entscheidet der Bestand daheim. Frueher stand der Typ fest, dann blieb ein
+# kleines Kriegsschiff liegen, weil kein kleines Handelsschiff mehr da war,
+# obwohl ein grosses im Hafen lag.
+# Die Reihenfolge ist die Vorliebe: Handelsschiffe nach Ladevolumen (mehr Beute
+# je Fahrt wiegt die geringere Geschwindigkeit auf), Kriegsschiffe nach
+# Geschwindigkeit (sie tragen nichts, bremsen die Flotte aber).
+# Bewusst nicht dabei: Spaehschiff (kaempft nicht) und Kolonisationsschiff.
+KRIEGSSCHIFF_TYPEN = ("kleines_kriegsschiff", "grosses_kriegsschiff")
+HANDELSSCHIFF_TYPEN = ("grosses_handelsschiff", "kleines_handelsschiff")
 
-# Telegram-Morgenreport (Token/Chat-ID wie beim Ressourcen-Bot in die .env)
+# Telegram-Morgenreport (Token/Chat-ID wie beim Upgrade-Bot in die .env)
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID", "")
 
@@ -63,11 +74,13 @@ DEFAULT_SETTINGS = {
     # --- Flottenzusammensetzung (je losgeschickter Flotte) ---
     "flotte_kriegsschiffe": 1,
     "flotte_handelsschiffe": 1,
+    # False = grosse Handelsschiffe bleiben im Hafen, es fahren nur kleine.
+    "grosse_handelsschiffe": True,
     "flotte_einheiten": 1,
-    "flotte_kriegsschiff_typ": "kleines_kriegsschiff",
-    "flotte_handelsschiff_typ": "kleines_handelsschiff",
+    # Der Schiffstyp steht bewusst NICHT hier: es faehrt, was da ist
+    # (siehe KRIEGSSCHIFF_TYPEN / HANDELSSCHIFF_TYPEN).
     "flotte_einheit_typ": "steinewerfer",
-    # 0 = keine Obergrenze: es fahren so viele Flotten, wie Schiffe da sind.
+    # Je Insel. 0 = keine Obergrenze: es fahren so viele Flotten, wie Schiffe da sind.
     "max_flotten": 0,
 
     # --- Angriff ---
@@ -84,6 +97,12 @@ DEFAULT_SETTINGS = {
     "rueckruf_bei_bedrohung": True,
     "niederlagen_bis_blacklist": 2,
     "blacklist_tage": 3,
+
+    # --- Postfach ---
+    # Blendet den Kampfbericht einer selbst losgeschickten Flotte aus, sobald
+    # er verbucht ist. Berichte zu von Hand gestarteten Angriffen und alles
+    # andere im Postfach bleiben unberuehrt.
+    "berichte_archivieren": True,
 
     # --- Takt ---
     "tick_sekunden": 5,

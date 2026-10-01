@@ -1,0 +1,8 @@
+[Unit]
+Description=Telegram-Alarm, wenn der Seekampf Allianz-Bot ausfaellt
+
+[Service]
+Type=oneshot
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Allianz-Bot
+ExecStart=/home/jannishoy/Seekampf/Allianz-Bot/.venv/bin/python /home/jannishoy/Seekampf/Allianz-Bot/alert.py "systemd hat seekampf-allianz-bot.service als fehlgeschlagen markiert - keine Notrufe, keine Beistands-Angebote, keine Leihe-Rueckgaben mehr."

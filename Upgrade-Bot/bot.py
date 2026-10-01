@@ -1,5 +1,6 @@
 import os
 import time
+from collections import deque
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -8,6 +9,7 @@ import requests
 import config
 import gamedata
 import report
+import steuerung
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
 from notify import build_notifier
@@ -32,6 +34,12 @@ LOW_PRIORITY_SINCE: dict[str, float] = {}
 
 # Gesundheitszustand fuer die Ausfall-Alarme (siehe _track_health).
 HEALTH = {"failures": 0, "alerted": False}
+
+# Ergebnisse der letzten Befehle aus dem Seekampf-Hub, fuer status.json.
+BEFEHL_ERGEBNISSE: deque = deque(maxlen=20)
+
+# Zeitpunkt des naechsten planmaessigen Durchlaufs (fuer den Seekampf-Hub).
+NAECHSTER_TICK = {"ts": 0.0}
 
 
 def _load_low_priority(store) -> None:
@@ -243,6 +251,87 @@ def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key:
     return "; ".join(parts)
 
 
+# ----------------------------------------------------------------------
+# Steuerung aus dem Seekampf-Hub: Priorisierung auf ein einzelnes Gebaeude
+# ----------------------------------------------------------------------
+
+def _zielgebaeude(einstellung: dict, levels: dict, buildings_by_typ: dict) -> tuple[str | None, str | None]:
+    """Welches Gebaeude die Priorisierung gerade vorgibt - None heisst: die
+    normale Kaskade entscheidet. Der zweite Wert erklaert, warum eine gesetzte
+    Priorisierung nicht (mehr) greift."""
+    modus = einstellung.get("modus") or "auto"
+    if modus == "auto":
+        return None, None
+    b = buildings_by_typ.get(modus)
+    if b is None:
+        return None, f"Priorisierung {modus}: Gebaeude unbekannt - baut automatisch"
+    bis = einstellung.get("bis_stufe")
+    if bis and levels.get(modus, 0) >= int(bis):
+        return None, f"Ziel {modus} Stufe {int(bis)} erreicht - baut wieder automatisch"
+    if b.get("naechste_stufe") is None and b.get("verfuegbar", True):
+        return None, f"{modus} hat die Hoechststufe erreicht - baut wieder automatisch"
+    return modus, None
+
+
+def _waehlen(candidates: dict, current: dict, capacity: float, store, allow_low: bool, ziel: str | None):
+    """Mit Priorisierung nur das Zielgebaeude, und nur wenn bezahlbar - sonst
+    wird gewartet, statt etwas anderes zu bauen."""
+    if ziel is not None:
+        c = candidates.get(ziel)
+        return c if c is not None and affordable(c["cost"], current) else None
+    return choose_upgrade(candidates, current, capacity, store, allow_low)
+
+
+def _ziel_grund(ziel: str, candidates: dict, buildings_by_typ: dict, resources: dict, now: datetime) -> str:
+    """Warum das priorisierte Gebaeude gerade nicht gebaut wird."""
+    c = candidates.get(ziel)
+    if c is None:
+        b = buildings_by_typ.get(ziel) or {}
+        if not b.get("verfuegbar", True):
+            return f"Priorisierung {ziel}: noch nicht verfuegbar (Haupthaus Stufe {b.get('haupthaus_ab')} noetig)"
+        return f"Priorisierung {ziel}: derzeit nicht ausbaubar"
+    usable = _usable_resources(resources)
+    missing = missing_resources(c["cost"], usable)
+    eta, cause = _eta_seconds(c["cost"], resources, usable)
+    fehlt = ", ".join(f"{v:.0f} {r.capitalize()}" for r, v in missing.items())
+    if cause == "lager":
+        return f"Priorisierung {ziel} → {c['target_level']}: passt nicht ins Lager, Lagerhaus noetig"
+    if cause == "produktion":
+        return f"Priorisierung {ziel} → {c['target_level']}: es fehlen {fehlt}, ohne Produktion"
+    ready_at = (now + timedelta(seconds=eta or 0)).strftime("%H:%M")
+    return (f"Priorisierung {ziel} → {c['target_level']}: wartet auf Rohstoffe, es fehlen {fehlt}, "
+            f"bezahlbar in {_fmt_duration(eta or 0)} (ca. {ready_at})")
+
+
+def _plan(candidates: dict, resources: dict, capacity: float, store, key: str, queue_empty: bool,
+          active_orders: list, now: datetime, now_ts: float, ziel: str | None) -> dict | None:
+    """Was der Bot als Naechstes bauen wuerde und fruehestens wann - fuer den
+    Seekampf-Hub. Beruecksichtigt Rohstoffe und, bei voller Warteschlange, den
+    naechsten freien Platz."""
+    usable = _usable_resources(resources)
+    if ziel is not None:
+        chosen = candidates.get(ziel)
+        if chosen is None:
+            return None
+        seconds, cause = _eta_seconds(chosen["cost"], resources, usable)
+    else:
+        seconds, chosen, _ = _forecast(candidates, resources, capacity, store, key, queue_empty, now, now_ts)
+        cause = ""
+        if chosen is None:
+            return None
+    if seconds is not None and len(active_orders) >= config.MAX_QUEUE_SLOTS:
+        slot_seconds, _ = _next_slot_free(active_orders, now)
+        if slot_seconds is not None:
+            seconds = max(seconds, slot_seconds)
+    return {
+        "gebaeude": chosen["building"],
+        "ziel_stufe": chosen["target_level"],
+        "in_s": None if seconds is None else round(seconds),
+        "fehlt": {r: round(v) for r, v in missing_resources(chosen["cost"], usable).items()},
+        "unerreichbar": cause or None,
+    }
+
+
 def _log_status(logger, island_id, resources, active_orders, started, reason, now):
     prod = resources.get("produktion_pro_h") or {}
     capacity = float(resources.get("kapazitaet", 0) or 0)
@@ -268,28 +357,61 @@ def _log_status(logger, island_id, resources, active_orders, started, reason, no
     logger.info(" | ".join(fields))
 
 
-def process_island(client, island_id, store, logger):
+def _auftraege_ausfuehren(client, island_id, auftraege: list, logger) -> None:
+    """Ausbauten, die im Seekampf-Hub von Hand angestossen wurden. Sie laufen auch
+    auf ausgeschalteten Inseln und unabhaengig von Priorisierung und Sperren."""
+    for befehl in auftraege:
+        gebaeude = befehl.get("gebaeude")
+        try:
+            client.start_upgrade(island_id, gebaeude)
+        except ApiError as exc:
+            logger.error("Insel %s: Ausbau '%s' von Hand fehlgeschlagen: %s", island_id, gebaeude, exc)
+            _befehl_ergebnis(befehl, False, f"{gebaeude}: {exc.message}")
+            continue
+        logger.info("Insel %s: Ausbau '%s' von Hand gestartet (Seekampf-Hub)", island_id, gebaeude)
+        _befehl_ergebnis(befehl, True, f"{gebaeude} in die Warteschlange gestellt")
+
+
+def _befehl_ergebnis(befehl: dict, ok: bool, text: str) -> None:
+    BEFEHL_ERGEBNISSE.appendleft({
+        "id": befehl.get("id"), "typ": befehl.get("typ"), "insel_id": befehl.get("insel_id"),
+        "ok": ok, "text": text, "zeit": time.time(),
+    })
+
+
+def process_island(client, island_id, store, logger, einstellung: dict | None = None,
+                   auftraege: list | None = None):
+    einstellung = einstellung or dict(steuerung.STANDARD)
     key = str(island_id)
+    if auftraege:
+        _auftraege_ausfuehren(client, island_id, auftraege, logger)
     orders = client.get_construction_queue(island_id)
     resources = client.get_island_resources(island_id)
     buildings = client.get_island_buildings(island_id)
 
-    store.observe(buildings, resources, storage_key=_lager_key(buildings))
+    store.observe(buildings, resources, storage_key=_lager_key(buildings), island_key=key)
 
     active_orders = [
         o for o in orders if o.get("status", "").lower() not in config.FINISHED_CONSTRUCTION_STATUSES
     ]
     free_slots = config.MAX_QUEUE_SLOTS - len(active_orders)
+    gesperrt = set(einstellung.get("gesperrt") or [])
 
     acted = 0
     started: list[str] = []
     next_hint = None
+    ziel_hinweis = None
+    if not einstellung.get("aktiv", True):
+        next_hint = "Insel im Seekampf-Hub ausgeschaltet"
+        free_slots = 0  # nichts Neues starten, laufende Auftraege laufen weiter
     while free_slots > 0 and acted < config.MAX_UPGRADES_PER_TICK:
         now_dt = datetime.now(TZ)
         current = _usable_resources(resources)
         capacity = float(resources.get("kapazitaet", 0) or 0)
         levels = projected_levels(buildings, active_orders)
-        candidates = collect_candidates(buildings, levels)
+        candidates = {n: c for n, c in collect_candidates(buildings, levels).items() if n not in gesperrt}
+        by_typ = {b["typ"]: b for b in buildings}
+        ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
 
         now = time.time()
         queue_empty = len(active_orders) == 0
@@ -300,9 +422,14 @@ def process_island(client, island_id, store, logger):
             and now - LOW_PRIORITY_SINCE[key] >= config.LOW_PRIORITY_DELAY_SECONDS
         )
 
-        chosen = choose_upgrade(candidates, current, capacity, store, allow_low)
+        chosen = _waehlen(candidates, current, capacity, store, allow_low, ziel)
 
         if chosen is None:
+            if ziel is not None:
+                # Priorisierung: warten, bis das Zielgebaeude bezahlbar ist. Die
+                # Leerlauf-Uhr fuer Steinmauer/Wachturm bleibt dabei unberuehrt.
+                next_hint = _ziel_grund(ziel, candidates, by_typ, resources, now_dt)
+                break
             # Die Leerlauf-Uhr fuer Steinmauer/Wachturm laeuft, sobald die
             # Warteschlange leer ist und die Prioritaets-Kaskade nichts
             # Wichtigeres baut. Entscheidend ist, was die Regeln TATSAECHLICH
@@ -361,10 +488,39 @@ def process_island(client, island_id, store, logger):
             next_hint = f"Warteschlange voll ({len(active_orders)}/{config.MAX_QUEUE_SLOTS})"
     elif acted >= config.MAX_UPGRADES_PER_TICK and not next_hint:
         next_hint = f"Limit von {config.MAX_UPGRADES_PER_TICK} Ausbauten pro Durchlauf erreicht"
+    if ziel_hinweis:
+        next_hint = f"{ziel_hinweis}; {next_hint}" if next_hint else ziel_hinweis
 
     _log_status(logger, island_id, resources, active_orders, started, next_hint, now_dt)
 
-    return resources, orders, next_hint
+    # Fuer den Seekampf-Hub: was als Naechstes kaeme, mit dem Stand nach diesem Durchlauf.
+    levels = projected_levels(buildings, active_orders)
+    candidates = {n: c for n, c in collect_candidates(buildings, levels).items() if n not in gesperrt}
+    by_typ = {b["typ"]: b for b in buildings}
+    ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
+    plan = None
+    if einstellung.get("aktiv", True):
+        plan = _plan(candidates, resources, float(resources.get("kapazitaet", 0) or 0), store, key,
+                     len(active_orders) == 0, active_orders, now_dt, time.time(), ziel)
+    info = {
+        "rohstoffe": resources,
+        "warteschlange": [
+            {"gebaeude": o.get("building_typ"), "ziel_stufe": o.get("ziel_stufe"), "status": o.get("status"),
+             "start_at": o.get("start_at"), "finish_at": o.get("finish_at")}
+            for o in sorted(active_orders, key=lambda o: o.get("queue_position") or 0)
+        ],
+        "gebaeude": [
+            {k: b.get(k) for k in ("typ", "name", "stufe", "naechste_stufe", "verfuegbar",
+                                   "haupthaus_ab", "kosten", "bauzeit_s")}
+            for b in buildings
+        ],
+        "plan": plan,
+        "priorisierung_aktiv": ziel,
+        "priorisierung_hinweis": ziel_hinweis,
+        "hinweis": next_hint,
+        "gestartet": started,
+    }
+    return resources, orders, next_hint, info
 
 
 def _notifier():
@@ -396,7 +552,7 @@ def _track_health(ok: bool, logger) -> None:
     sobald es wieder laeuft. Pro Stoerung jeweils genau eine Nachricht."""
     if ok:
         if HEALTH["alerted"]:
-            _alert(logger, "Seekampf-Bot laeuft wieder",
+            _alert(logger, "Upgrade-Bot laeuft wieder",
                    f"Nach {HEALTH['failures']} fehlgeschlagenen Durchlaeufen war der letzte "
                    f"Durchlauf wieder erfolgreich.")
             HEALTH["alerted"] = False
@@ -406,9 +562,9 @@ def _track_health(ok: bool, logger) -> None:
     HEALTH["failures"] += 1
     if HEALTH["failures"] >= config.ALERT_AFTER_FAILED_TICKS and not HEALTH["alerted"]:
         minutes = HEALTH["failures"] * config.POLL_INTERVAL_SECONDS // 60
-        _alert(logger, "Seekampf-Bot: Störung",
+        _alert(logger, "Upgrade-Bot: Störung",
                f"{HEALTH['failures']} Durchlaeufe in Folge fehlgeschlagen (seit ca. {minutes} Minuten "
-               f"kein Ausbau moeglich). Details: journalctl -u seekampf-ressourcen-bot -n 50")
+               f"kein Ausbau moeglich). Details: journalctl -u seekampf-upgrade-bot -n 50")
         HEALTH["alerted"] = True
 
 
@@ -460,43 +616,87 @@ def _maybe_send_report(island_reports, store, logger):
         logger.error("Morgenreport konnte nicht gesendet werden.")
 
 
-def tick(client, store, logger) -> bool:
+def _status_schreiben(logger, inseln: dict, fehler: str | None) -> None:
+    try:
+        steuerung.status_schreiben({
+            "zeit": time.time(),
+            "letzter_tick": time.time(),
+            "naechster_tick": NAECHSTER_TICK["ts"],
+            "poll_s": config.POLL_INTERVAL_SECONDS,
+            "max_warteschlange": config.MAX_QUEUE_SLOTS,
+            "fehler": fehler,
+            "inseln": inseln,
+            "befehle": list(BEFEHL_ERGEBNISSE),
+        })
+    except OSError as exc:
+        logger.error("status.json nicht schreibbar: %s", exc)
+
+
+def tick(client, store, logger, befehle: list | None = None) -> bool:
     """Ein Durchlauf ueber alle Inseln. True, wenn mindestens eine Insel
     fehlerfrei bearbeitet werden konnte (siehe _track_health)."""
+    befehle = befehle or []
+    auftraege: dict[str, list] = {}
+    for befehl in befehle:
+        if befehl.get("typ") == "auftrag" and befehl.get("gebaeude"):
+            auftraege.setdefault(str(befehl.get("insel_id")), []).append(befehl)
+        elif befehl.get("typ") == "pruefen":
+            _befehl_ergebnis(befehl, True, "Durchlauf ausgeloest")
+
     try:
         islands = client.get_my_islands()
     except (ApiError, requests.exceptions.RequestException) as exc:
         logger.error("Konnte Inselliste nicht laden: %s", exc)
+        for liste in auftraege.values():
+            for befehl in liste:
+                _befehl_ergebnis(befehl, False, f"Inselliste nicht abrufbar: {exc}")
+        _status_schreiben(logger, {}, f"Inselliste nicht abrufbar: {exc}")
         return False
 
     if not islands:
         logger.error("Die API meldet keine einzige Insel fuer diesen Account.")
+        _status_schreiben(logger, {}, "Die API meldet keine Insel")
         return False
 
+    einstellungen = steuerung.lesen()
     island_reports = {}
-    for island in islands:
+    status_inseln = {}
+    for position, island in enumerate(islands):
         island_id, name = island["id"], island["name"]
+        einstellung = steuerung.insel(einstellungen, island_id)
+        eintrag = {"id": island_id, "name": name, "koordinaten": island.get("koordinaten", ""),
+                   "position": position, "einstellung": einstellung, "zeit": time.time(), "fehler": None}
         try:
-            resources, orders, hint = process_island(client, island_id, store, logger)
+            resources, orders, hint, info = process_island(
+                client, island_id, store, logger, einstellung, auftraege.pop(str(island_id), None))
             island_reports[island_id] = (name, resources, orders, hint)
+            eintrag.update(info)
         except (ApiError, requests.exceptions.RequestException) as exc:
             logger.error("API-Fehler auf Insel %s: %s", island_id, exc)
-        except Exception:
+            eintrag["fehler"] = str(exc)
+        except Exception as exc:
             logger.exception("Unerwarteter Fehler auf Insel %s", island_id)
+            eintrag["fehler"] = f"{type(exc).__name__}: {exc}"
+        status_inseln[str(island_id)] = eintrag
+
+    for liste in auftraege.values():
+        for befehl in liste:
+            _befehl_ergebnis(befehl, False, f"Insel {befehl.get('insel_id')} gehoert nicht zum Konto")
 
     _maybe_send_report(island_reports, store, logger)
+    _status_schreiben(logger, status_inseln, None if island_reports else "keine Insel fehlerfrei bearbeitet")
     return bool(island_reports)
 
 
 def main():
     logger = get_logger()
-    logger.info("Seekampf-Bot gestartet (Poll-Intervall: %ss, Planer: Prioritaets-Kaskade, "
+    logger.info("Upgrade-Bot gestartet (Poll-Intervall: %ss, Planer: Prioritaets-Kaskade, "
                 "Ertragsbewertung aus %s)", config.POLL_INTERVAL_SECONDS,
                 "den Regeltabellen" if gamedata.available() else "gelernten Beobachtungen")
 
     if not config.API_KEY:
         logger.error("SEEKAMPF_API_KEY ist nicht gesetzt (.env pruefen). Beende.")
-        _alert(logger, "Seekampf-Bot startet nicht",
+        _alert(logger, "Upgrade-Bot startet nicht",
                "SEEKAMPF_API_KEY fehlt oder ist leer - bitte .env auf dem Pi pruefen. "
                "Der Bot baut bis dahin nichts aus.")
         # Fehlercode statt stiller Rueckkehr: systemd sieht den Fehlstart, gibt
@@ -508,17 +708,33 @@ def main():
     store = Store(config.STORE_PATH)
     _load_low_priority(store)
     client = SeekampfClient()
+    steuerung.geaendert()  # Ausgangsstand merken
 
+    # Planmaessig alle POLL_INTERVAL_SECONDS; Befehle und geaenderte Steuerung
+    # aus dem Seekampf-Hub loesen sofort einen Durchlauf aus (hoechstens alle
+    # HUB_MIN_ABSTAND_S, damit schnelles Klicken die API nicht flutet).
+    letzter = 0.0
+    wartend: list = []
+    angestossen = False
     while True:
-        try:
-            ok = tick(client, store, logger)
-        except Exception:
-            # Letztes Sicherheitsnetz: der Dauerprozess soll nie durch einen
-            # einzelnen fehlerhaften Tick sterben.
-            logger.exception("Unerwarteter Fehler im Tick, laeuft beim naechsten Intervall weiter")
-            ok = False
-        _track_health(ok, logger)
-        time.sleep(config.POLL_INTERVAL_SECONDS)
+        wartend += steuerung.befehle_holen()
+        angestossen = angestossen or bool(wartend) or steuerung.geaendert()
+        jetzt = time.time()
+        faellig = jetzt >= NAECHSTER_TICK["ts"]
+        if faellig or (angestossen and jetzt - letzter >= config.HUB_MIN_ABSTAND_S):
+            befehle, wartend, angestossen = wartend, [], False
+            NAECHSTER_TICK["ts"] = jetzt + config.POLL_INTERVAL_SECONDS
+            try:
+                ok = tick(client, store, logger, befehle)
+            except Exception:
+                # Letztes Sicherheitsnetz: der Dauerprozess soll nie durch einen
+                # einzelnen fehlerhaften Tick sterben.
+                logger.exception("Unerwarteter Fehler im Tick, laeuft beim naechsten Intervall weiter")
+                ok = False
+            letzter = time.time()
+            if faellig:
+                _track_health(ok, logger)
+        time.sleep(config.HUB_ABFRAGE_S)
 
 
 if __name__ == "__main__":

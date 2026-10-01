@@ -1,5 +1,5 @@
 [Unit]
-Description=Seekampf Ressourcen-Bot
+Description=Seekampf Upgrade-Bot
 After=network-online.target
 Wants=network-online.target
 # Bei einer Absturzschleife nach 5 Starts in 10 Minuten aufgeben, statt endlos
@@ -7,13 +7,13 @@ Wants=network-online.target
 # den Telegram-Alarm aus.
 StartLimitIntervalSec=600
 StartLimitBurst=5
-OnFailure=seekampf-ressourcen-bot-alert.service
+OnFailure=seekampf-upgrade-bot-alert.service
 
 [Service]
 Type=simple
 User=jannishoy
-WorkingDirectory=/home/jannishoy/Seekampf/Ressourcen-Bot
-ExecStart=/home/jannishoy/Seekampf/Ressourcen-Bot/.venv/bin/python /home/jannishoy/Seekampf/Ressourcen-Bot/bot.py
+WorkingDirectory=/home/jannishoy/Seekampf/Upgrade-Bot
+ExecStart=/home/jannishoy/Seekampf/Upgrade-Bot/.venv/bin/python /home/jannishoy/Seekampf/Upgrade-Bot/bot.py
 Restart=always
 RestartSec=10
 

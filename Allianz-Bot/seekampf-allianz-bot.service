@@ -1,0 +1,20 @@
+[Unit]
+Description=Seekampf Allianz-Bot (Allianz-Protokoll V1)
+After=network-online.target
+Wants=network-online.target
+# Bei einer Absturzschleife nach 5 Starts in 10 Minuten aufgeben - erst dann
+# gilt der Dienst als "failed" und loest den Telegram-Alarm aus.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+OnFailure=seekampf-allianz-bot-alert.service
+
+[Service]
+Type=simple
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Allianz-Bot
+ExecStart=/home/jannishoy/Seekampf/Allianz-Bot/.venv/bin/python /home/jannishoy/Seekampf/Allianz-Bot/bot.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

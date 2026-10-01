@@ -83,7 +83,7 @@ def get_logger() -> logging.Logger:
     logger.addHandler(file_handler)
 
     if config.LOG_TO_STDOUT:
-        # Landet bei systemd im journal (journalctl -u seekampf-ressourcen-bot -f).
+        # Landet bei systemd im journal (journalctl -u seekampf-upgrade-bot -f).
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(formatter)
         logger.addHandler(stream_handler)

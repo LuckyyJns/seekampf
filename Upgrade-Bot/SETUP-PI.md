@@ -3,8 +3,8 @@
 ## 1. Repo auf den Pi holen
 
 ```bash
-git clone <REPO-URL> ~/Seekampf/Ressourcen-Bot
-cd ~/Seekampf/Ressourcen-Bot
+git clone <REPO-URL> ~/Seekampf/Upgrade-Bot
+cd ~/Seekampf/Upgrade-Bot
 ```
 
 ## 2. Python-Umgebung einrichten (uv, wie auf Windows)
@@ -23,7 +23,7 @@ wird dabei automatisch aktualisiert) - unabhaengig vom Windows-Lock.
 Von deinem Windows-PC aus, per SCP (PowerShell oder Git-Bash):
 
 ```bash
-scp ".env" pi@<PI-IP-ODER-HOSTNAME>:~/Seekampf/Ressourcen-Bot/.env
+scp ".env" pi@<PI-IP-ODER-HOSTNAME>:~/Seekampf/Upgrade-Bot/.env
 ```
 
 Ersetze `pi@<PI-IP>` durch deinen tatsächlichen Nutzernamen/Hostnamen auf dem Pi.
@@ -32,14 +32,14 @@ deshalb bewusst getrennt vom Git-Repo (`.gitignore` schließt sie aus).
 
 ## 4. Systemd-Service einrichten
 
-`seekampf-ressourcen-bot.service` geht davon aus, dass der Pi-Nutzer `pi` heißt und das Repo
-unter `/home/pi/Seekampf/Ressourcen-Bot` liegt. **Vor dem Kopieren prüfen/anpassen**, falls dein
+`seekampf-upgrade-bot.service` geht davon aus, dass der Pi-Nutzer `pi` heißt und das Repo
+unter `/home/pi/Seekampf/Upgrade-Bot` liegt. **Vor dem Kopieren prüfen/anpassen**, falls dein
 Nutzername oder Pfad abweicht (`User=`, `WorkingDirectory=`, `ExecStart=`).
 
 ```bash
-sudo cp seekampf-ressourcen-bot.service /etc/systemd/system/
+sudo cp seekampf-upgrade-bot.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now seekampf-ressourcen-bot.service
+sudo systemctl enable --now seekampf-upgrade-bot.service
 ```
 
 `Restart=always` sorgt dafür, dass systemd den Bot bei einem Absturz automatisch
@@ -49,9 +49,9 @@ beim Login greift).
 ## 5. Prüfen, ob es läuft
 
 ```bash
-systemctl status seekampf-ressourcen-bot.service
-journalctl -u seekampf-ressourcen-bot.service -f     # Live-Systemd-Log
-tail -f ~/Seekampf/Ressourcen-Bot/logs/bot-$(date +%F).log   # Bot-eigenes Log (eine Datei pro Tag)
+systemctl status seekampf-upgrade-bot.service
+journalctl -u seekampf-upgrade-bot.service -f     # Live-Systemd-Log
+tail -f ~/Seekampf/Upgrade-Bot/logs/bot-$(date +%F).log   # Bot-eigenes Log (eine Datei pro Tag)
 ```
 
 ## 6. Windows-Bot abschalten
@@ -66,8 +66,8 @@ Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\Seekampf
 ## Updates später
 
 ```bash
-cd ~/Seekampf/Ressourcen-Bot
+cd ~/Seekampf/Upgrade-Bot
 git pull
 uv sync
-sudo systemctl restart seekampf-ressourcen-bot.service
+sudo systemctl restart seekampf-upgrade-bot.service
 ```

@@ -7,15 +7,17 @@ und gestoppt werden koennen.
 
 | Ordner | Dienst | Aufgabe |
 | --- | --- | --- |
-| [`Ressourcen-Bot/`](Ressourcen-Bot/) | `seekampf-ressourcen-bot.service` | Haelt die Bau-Warteschlange gefuellt und verplant die Rohstoffe nach Ertrag pro Kosten. |
-| [`Flotten-Manager/`](Flotten-Manager/) | `seekampf-flotten-manager.service` | Raidet die freien Inseln im Umkreis ab und wird ueber eine Weboberflaeche gesteuert (http://<pi>:8080). |
+| [`Upgrade-Bot/`](Upgrade-Bot/) | `seekampf-upgrade-bot.service` | Haelt die Bau-Warteschlange gefuellt und verplant die Rohstoffe nach Ertrag pro Kosten. |
+| [`Flotten-Manager/`](Flotten-Manager/) | `seekampf-flotten-manager.service` | Raidet die freien Inseln im Umkreis jeder eingeschalteten Insel ab; gesteuert ueber den Seekampf-Hub. |
+| [`Allianz-Bot/`](Allianz-Bot/) | `seekampf-allianz-bot.service` | Nimmt am Allianz-Protokoll teil: Notrufe, Beistand mit Speerkaempfern, Leihe-Rueckgabe, Rohstoff-Anfragen. |
+| [`Seekampf-Hub/`](Seekampf-Hub/) | `seekampf-hub.service` | Gemeinsame Weboberflaeche fuer alle Bots (http://<pi>:8080): Status, Steuerung, Logs, Dienste starten/stoppen. |
 
 Der Raspberry Pi laeuft als Dauerbetrieb-Host; die Einrichtung dort beschreibt
-[`Ressourcen-Bot/SETUP-PI.md`](Ressourcen-Bot/SETUP-PI.md).
+[`Upgrade-Bot/SETUP-PI.md`](Upgrade-Bot/SETUP-PI.md).
 
 ## Ueberblick
 
 ```bash
 systemctl status 'seekampf-*'            # Was laeuft gerade?
-journalctl -u seekampf-ressourcen-bot -f # Live-Log eines Bots
+journalctl -u seekampf-upgrade-bot -f # Live-Log eines Bots
 ```

@@ -62,8 +62,9 @@ def ist_frei(insel: dict) -> bool:
     return "besitzer" in insel and insel.get("besitzer") is None
 
 
-def scan(client, state, heimat: tuple[int, int, int], flotte_ships: dict) -> dict:
-    """Bereich abklappern, Zielliste aktualisieren, Zusammenfassung zurueckgeben.
+def scan(client, state, insel_id, heimat: tuple[int, int, int], flotte_ships: dict) -> dict:
+    """Bereich um eine eigene Insel abklappern, deren Zielliste aktualisieren,
+    Zusammenfassung zurueckgeben.
 
     Bestehende Ziele behalten ihre Statistik und ihre Blacklist-Sperre; neu
     dazugekommene Inseln werden hinten an die Rotation angehaengt, damit die
@@ -89,7 +90,8 @@ def scan(client, state, heimat: tuple[int, int, int], flotte_ships: dict) -> dic
                 gefundene[insel["koordinaten"]] = insel
 
     with state.lock:
-        alt = state.data["ziele"]
+        eigene = state.insel(insel_id)
+        alt = eigene["ziele"]
         neu_dazu, entfernt = [], []
 
         for koord, insel in gefundene.items():
@@ -117,19 +119,20 @@ def scan(client, state, heimat: tuple[int, int, int], flotte_ships: dict) -> dic
 
         # Rotation: bekannte Reihenfolge behalten, Neues nach Entfernung
         # sortiert hinten anhaengen. So bleibt "stur reihum" stur.
-        rotation = [k for k in state.data["rotation"] if k in alt]
+        rotation = [k for k in eigene["rotation"] if k in alt]
         rotation += sorted(neu_dazu, key=lambda k: alt[k]["distanz"])
-        if not state.data["rotation"]:
+        if not eigene["rotation"]:
             rotation = sorted(alt, key=lambda k: alt[k]["distanz"])
-        state.data["rotation"] = rotation
-        if state.data["rotation_index"] >= len(rotation):
-            state.data["rotation_index"] = 0
-        state.data["letzter_scan"] = time.time()
+        eigene["rotation"] = rotation
+        if eigene["rotation_index"] >= len(rotation):
+            eigene["rotation_index"] = 0
+        eigene["letzter_scan"] = time.time()
 
     state.save()
     log.info(
-        "Scan Radius %d um %d:%d: %d freie Inseln (%d neu, %d weggefallen, %d Requests)",
-        radius, hx, hy, len(gefundene), len(neu_dazu), len(entfernt), requests_gesamt,
+        "Scan %s: Radius %d um %d:%d: %d freie Inseln (%d neu, %d weggefallen, %d Requests)",
+        eigene.get("name") or insel_id, radius, hx, hy, len(gefundene), len(neu_dazu), len(entfernt),
+        requests_gesamt,
     )
     return {"gefunden": len(gefundene), "neu": neu_dazu, "entfernt": entfernt,
             "requests": requests_gesamt, "radius": radius}
