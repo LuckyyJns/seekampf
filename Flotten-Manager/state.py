@@ -54,7 +54,8 @@ def neue_insel(name: str = "", koordinaten: str = "", aktiv: bool = False) -> di
         "rotation_index": 0,
         "letzter_scan": None,
         "pause_grund": None,
-        "ausgleich_rolle": "aus",  # Rohstoff-Ausgleich: "aus" | "spender" | "empfaenger"
+        # Rohstoff-Ausgleich: gibt/bekommt + eigene Grenzen (siehe ausgleich.einstellung)
+        "ausgleich": {"gibt": False, "bekommt": False, "ziel": None, "reserve": None, "max_abgabe": 0},
         "stats": _leere_stats(),
     }
 
@@ -106,11 +107,11 @@ class State:
         if not daten["inseln"] and "ziele" in roh:
             daten["altbestand"] = {k: roh.get(k) for k in
                                    ("ziele", "rotation", "rotation_index", "letzter_scan")}
+        import ausgleich  # spaet: ausgleich importiert geo/config, nicht state
         if not isinstance(daten["ausgleich"], dict):
-            import ausgleich  # spaet: ausgleich importiert geo/config, nicht state
             daten["ausgleich"] = ausgleich.leerer_stand()
         for insel in daten["inseln"].values():
-            insel.setdefault("ausgleich_rolle", "aus")
+            ausgleich.einstellung(insel)  # alte Rolle -> gibt/bekommt
             stats = _leere_stats()
             stats.update(insel.get("stats") or {})
             insel["stats"] = stats

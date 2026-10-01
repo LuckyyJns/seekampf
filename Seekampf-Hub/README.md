@@ -20,9 +20,10 @@ nächtliche Sicherung (`~/Seekampf/sicherung.sh`). Code: `gesundheit.py`.
 
 ## Rohstoff-Ausgleich
 
-Menüpunkt **Rohstoff-Ausgleich**: Hauptschalter, Rolle je Insel (Spender /
-Empfänger / aus), Auffüll-Ziel, Reserve, kleinste Lieferung; je Insel Bestand,
-was unterwegs ist, Bedarf bzw. Überschuss; die letzten Lieferungen. Die Logik
+Menüpunkt **Rohstoff-Ausgleich**: Hauptschalter und Standardwerte; je Insel
+die Schalter *gibt ab* / *bekommt* (beides möglich – alle Inseln gleichen sich
+gegenseitig aus), eigene Grenzen (auffüllen bis, behält mindestens, max. je
+Lieferung), Bestand, Unterwegs, Bedarf bzw. Überschuss; die letzten Lieferungen. Die Logik
 läuft im Flotten-Manager (`Flotten-Manager/ausgleich.py`).
 
 ## Karte

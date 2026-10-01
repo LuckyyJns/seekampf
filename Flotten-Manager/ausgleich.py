@@ -1,23 +1,30 @@
-"""Rohstoff-Ausgleich zwischen den eigenen Inseln.
+"""Rohstoff-Ausgleich zwischen den eigenen Inseln - in alle Richtungen.
 
-Jede Insel hat eine Rolle: "spender" (gibt Ueberschuss ab), "empfaenger"
-(wird aufgefuellt) oder "aus". Je Tick:
+Jede Insel hat zwei Schalter: "gibt" (darf Ueberschuss abgeben) und "bekommt"
+(wird aufgefuellt); beides zugleich ist erlaubt, so gleichen sich alle Inseln
+gegenseitig aus. Je Insel einstellbar (leer = Standard aus den Einstellungen):
+  ziel        auffuellen bis zu diesem Anteil der Lagerkapazitaet
+  reserve     so viel behaelt sie mindestens, wenn sie abgibt
+  max_abgabe  hoechstens so viele Rohstoffe je Lieferung (0 = unbegrenzt)
 
-  1. Bedarf je Empfaenger: jeder Rohstoff bis `ausgleich_ziel` der
-     Lagerkapazitaet - mehr, wenn der Upgrade-Bot fuer seinen naechsten Ausbau
-     mehr braucht (data/status.json des Upgrade-Bots, `plan.fehlt`). Was schon
-     per Handel unterwegs ist, zaehlt mit, sonst ginge dieselbe Lieferung
-     zweimal los.
-  2. Ueberschuss je Spender: alles ueber `ausgleich_reserve` der eigenen
-     Lagerkapazitaet.
-  3. Liefern per Handelsfahrt (mission_type "handel"), sobald es mindestens
-     `ausgleich_min_menge` sind.
+Je Tick:
+  1. Soll je Rohstoff einer "bekommt"-Insel: bis `ziel` - mehr, wenn der
+     Upgrade-Bot fuer den naechsten Ausbau mehr braucht (data/status.json,
+     `plan.fehlt`). Bedarf = Soll - Bestand - schon per Handel unterwegs.
+  2. Ueberschuss einer "gibt"-Insel: alles ueber ihrer Grenze. Die Grenze ist
+     die Reserve - bekommt die Insel selbst auch, mindestens ihr eigenes Soll.
+     So gibt keine Insel etwas ab, das sie im naechsten Moment selbst wieder
+     anfordern wuerde; ein Hin- und Herschicken ist ausgeschlossen. Was ihr
+     fuer den eigenen naechsten Ausbau fehlt, gibt sie gar nicht ab.
+  3. Je Empfaenger (dringendster zuerst) liefert die Insel, die am meisten
+     liefern kann - bei Gleichstand die naechstgelegene -, ab
+     `ausgleich_min_menge` Rohstoffen je Fahrt, per Handel (mission "handel").
 
 Handelsschiffe sind auch das, womit geraidet wird. Reichen die im Hafen nicht
-fuer die Lieferung, haelt der Manager die Handelsschiffe des Spenders zurueck
+fuer die Lieferung, haelt der Manager die Handelsschiffe des Gebers zurueck
 (`reserviert`), bis genug heimgekehrt sind - nach WARTEN_HOECHSTENS faehrt,
-was da ist. Bedrohte Inseln liefern nicht und bekommen nichts (die Ladung
-waere Beute fuer den Angreifer).
+was da ist. Inseln ganz ohne Handelsschiffe geben nichts ab. Bedrohte Inseln
+liefern nicht und bekommen nichts (die Ladung waere Beute fuer den Angreifer).
 """
 from __future__ import annotations
 
@@ -32,16 +39,35 @@ from api_client import ApiError
 
 log = logging.getLogger("seekampf_flotten_manager")
 
-ROLLEN = ("aus", "spender", "empfaenger")
 WARTEN_HOECHSTENS_S = 30 * 60
 FEHLER_PAUSE_S = 10 * 60
 UPGRADE_STATUS_MAX_ALTER_S = 15 * 60
 LIEFERUNGEN_MERKEN = 40
+LAGER_DECKE = 0.95  # nie ueber diesen Anteil auffuellen - der Rest waere verschenkt
 
 
 def leerer_stand() -> dict:
     return {"fahrten": 0, "geliefert": {r: 0.0 for r in config.RESOURCE_KEYS},
             "lieferungen": [], "warten_seit": {}}
+
+
+def standard_einstellung() -> dict:
+    return {"gibt": False, "bekommt": False, "ziel": None, "reserve": None, "max_abgabe": 0}
+
+
+def einstellung(insel: dict) -> dict:
+    """Ausgleich-Einstellung einer Insel; uebernimmt die alte Rolle
+    ("spender"/"empfaenger") beim ersten Lesen."""
+    e = insel.get("ausgleich")
+    if not isinstance(e, dict):
+        alt = insel.pop("ausgleich_rolle", "aus")
+        e = standard_einstellung()
+        e["gibt"] = alt == "spender"
+        e["bekommt"] = alt == "empfaenger"
+        insel["ausgleich"] = e
+    for k, v in standard_einstellung().items():
+        e.setdefault(k, v)
+    return e
 
 
 def _summe(werte: dict) -> float:
@@ -83,10 +109,13 @@ class Ausgleich:
     def stand(self) -> dict:
         return self.m.state.data.setdefault("ausgleich", leerer_stand())
 
-    @staticmethod
-    def rolle(insel: dict) -> str:
-        r = insel.get("ausgleich_rolle")
-        return r if r in ROLLEN else "aus"
+    def wirksam(self, e: dict) -> tuple[float, float, int]:
+        """(ziel, reserve, max_abgabe) einer Insel, leere Felder = Standard."""
+        ziel = e.get("ziel")
+        reserve = e.get("reserve")
+        return (float(self.s["ausgleich_ziel"] if ziel is None else ziel),
+                float(self.s["ausgleich_reserve"] if reserve is None else reserve),
+                int(e.get("max_abgabe") or 0))
 
     # ------------------------------------------------------- Eingangsdaten
     @staticmethod
@@ -116,6 +145,16 @@ class Ausgleich:
         return {iid: i["plan"] for iid, i in (status.get("inseln") or {}).items()
                 if isinstance(i, dict) and i.get("plan")}
 
+    @staticmethod
+    def handels_kapazitaet(insel_id: int, ov: dict, flotten_api: list) -> tuple[float, float]:
+        """(Ladung der Handelsschiffe im Hafen, Ladung aller Handelsschiffe der Insel)."""
+        hafen = geo.ladevolumen({t: int((ov.get("schiffe") or {}).get(t, 0) or 0)
+                                 for t in config.HANDELSSCHIFF_TYPEN})
+        draussen = sum(geo.ladevolumen({t: n for t, n in (f.get("ships") or {}).items()
+                                        if t in config.HANDELSSCHIFF_TYPEN})
+                       for f in flotten_api if f.get("origin_island_id") == insel_id)
+        return hafen, hafen + draussen
+
     # --------------------------------------------------------------- Tick
     def tick(self, alles: dict[int, dict], flotten_api: list, jetzt: float) -> None:
         self.reserviert = set()
@@ -125,14 +164,17 @@ class Ausgleich:
         plaene = self.upgrade_plaene() if s["ausgleich_upgrade_bedarf"] else {}
 
         bericht: dict[str, dict] = {}
-        empfaenger, spender = [], []
+        nehmer, geber = [], []
         for iid_text, insel in inseln.items():
             iid = int(iid_text)
             ov = alles.get(iid)
-            rolle = self.rolle(insel)
-            eintrag = {"rolle": rolle, "bedarf": {}, "ueberschuss": {}, "hinweis": None,
+            e = einstellung(insel)
+            ziel, reserve, max_abgabe = self.wirksam(e)
+            eintrag = {"gibt": e["gibt"], "bekommt": e["bekommt"], "ziel": ziel, "reserve": reserve,
+                       "max_abgabe": max_abgabe, "bedarf": {}, "ueberschuss": {}, "soll": {}, "grenze": {},
+                       "hinweis": None, "upgrade": plaene.get(iid_text),
                        "unterwegs": unterwegs.get(insel.get("koordinaten") or "", {}),
-                       "upgrade": plaene.get(iid_text)}
+                       "schiffe_kap": 0.0}
             bericht[iid_text] = eintrag
             if ov is None:
                 eintrag["hinweis"] = "gehoert nicht mehr zum Konto"
@@ -141,22 +183,41 @@ class Ausgleich:
             kap = float(res.get("kapazitaet") or 0)
             if kap <= 0:
                 continue
-            if rolle == "empfaenger":
-                eintrag["bedarf"] = self._bedarf(res, kap, eintrag["unterwegs"], plaene.get(iid_text))
-                empfaenger.append(iid)
-            elif rolle == "spender":
-                grenze = kap * float(s["ausgleich_reserve"])
-                eintrag["ueberschuss"] = {r: max(0.0, math.floor(float(res.get(r, 0) or 0) - grenze))
-                                          for r in config.RESOURCE_KEYS}
-                spender.append(iid)
+            fehlt = (plaene.get(iid_text) or {}).get("fehlt") or {}
+            for r in config.RESOURCE_KEYS:
+                bestand = float(res.get(r, 0) or 0)
+                soll = kap * ziel
+                if float(fehlt.get(r, 0) or 0) > 0:  # der naechste Ausbau braucht mehr als das Ziel
+                    soll = max(soll, bestand + float(fehlt[r]))
+                soll = min(kap * LAGER_DECKE, soll)
+                eintrag["soll"][r] = soll
+                if e["bekommt"]:
+                    eintrag["bedarf"][r] = max(0.0, math.floor(
+                        soll - bestand - float(eintrag["unterwegs"].get(r, 0) or 0)))
+                grenze = kap * reserve
+                if e["bekommt"]:
+                    grenze = max(grenze, soll)  # nie abgeben, was sie selbst haben will
+                eintrag["grenze"][r] = grenze
+                if e["gibt"]:
+                    # Was dem eigenen naechsten Ausbau fehlt, bleibt ganz da.
+                    frei = 0.0 if float(fehlt.get(r, 0) or 0) > 0 else max(0.0, math.floor(bestand - grenze))
+                    eintrag["ueberschuss"][r] = frei
+            _, eintrag["schiffe_kap"] = self.handels_kapazitaet(iid, ov, flotten_api)
+            if e["bekommt"]:
+                nehmer.append(iid)
+            if e["gibt"]:
+                if eintrag["schiffe_kap"] > 0:
+                    geber.append(iid)
+                elif _summe(eintrag["ueberschuss"]) > 0:
+                    eintrag["hinweis"] = "hat Ueberschuss, aber keine Handelsschiffe"
 
         self.bericht = {"inseln": bericht, "zeit": jetzt,
                         "hinweis": None if s["ausgleich_aktiv"] else "ausgeschaltet"}
         if not s["ausgleich_aktiv"]:
             self.stand()["warten_seit"] = {}
             return
-        if not spender:
-            self.bericht["hinweis"] = "keine Spender-Insel eingestellt"
+        if not geber:
+            self.bericht["hinweis"] = "keine Insel mit Handelsschiffen gibt ab"
             return
 
         min_menge = float(s["ausgleich_min_menge"])
@@ -164,7 +225,7 @@ class Ausgleich:
         def dringlichkeit(iid):
             kap = float((alles[iid].get("rohstoffe") or {}).get("kapazitaet") or 1)
             return _summe(bericht[str(iid)]["bedarf"]) / kap
-        for iid in sorted(empfaenger, key=dringlichkeit, reverse=True):
+        for iid in sorted(nehmer, key=dringlichkeit, reverse=True):
             e = bericht[str(iid)]
             if _summe(e["bedarf"]) < min_menge:
                 continue
@@ -174,39 +235,42 @@ class Ausgleich:
             if self._pause_bis.get(str(iid), 0) > jetzt:
                 e["hinweis"] = "nach einem Fehler kurz pausiert"
                 continue
-            moeglich = [sp for sp in spender if sp not in self.reserviert
-                        and not alles[sp].get("bedrohung_im_anflug")]
+            moeglich = [g for g in geber if g != iid and g not in self.reserviert
+                        and not alles[g].get("bedrohung_im_anflug")]
             if not moeglich:
-                e["hinweis"] = "Spender bedroht oder wartet auf Schiffe"
+                e["hinweis"] = "kein Geber frei (bedroht oder wartet auf Schiffe)"
                 continue
-            sp = max(moeglich, key=lambda x: _summe(self._lieferung(e["bedarf"], bericht[str(x)]["ueberschuss"])))
-            lieferung = self._lieferung(e["bedarf"], bericht[str(sp)]["ueberschuss"])
+            ziel_koord = geo.koord_parse(inseln[str(iid)]["koordinaten"])
+
+            def wertung(g):
+                menge = _summe(self._lieferung(e["bedarf"], bericht[str(g)]))
+                naehe = -geo.distanz_felder(geo.koord_parse(inseln[str(g)]["koordinaten"]), ziel_koord)
+                return (menge, naehe)
+            g = max(moeglich, key=wertung)
+            lieferung = self._lieferung(e["bedarf"], bericht[str(g)])
             if _summe(lieferung) < min_menge:
-                e["hinweis"] = "Spender hat gerade keinen passenden Ueberschuss"
+                e["hinweis"] = "gerade hat keine Insel passenden Ueberschuss"
                 continue
-            gesendet = self._senden(sp, iid, lieferung, flotten_api, jetzt, e)
+            gesendet = self._senden(g, iid, lieferung, flotten_api, jetzt, e)
             if gesendet:
-                ueb = bericht[str(sp)]["ueberschuss"]
+                ueb = bericht[str(g)]["ueberschuss"]
                 for r, n in gesendet.items():
                     ueb[r] = max(0.0, ueb[r] - n)
                     e["unterwegs"][r] = e["unterwegs"].get(r, 0.0) + n
                     e["bedarf"][r] = max(0.0, e["bedarf"].get(r, 0.0) - n)
 
-    def _bedarf(self, res: dict, kap: float, unterwegs: dict, plan: dict | None) -> dict:
-        ziel = kap * float(self.s["ausgleich_ziel"])
-        decke = kap * 0.95
-        fehlt = (plan or {}).get("fehlt") or {}
-        bedarf = {}
-        for r in config.RESOURCE_KEYS:
-            bestand = float(res.get(r, 0) or 0)
-            soll = min(decke, max(ziel, bestand + float(fehlt.get(r, 0) or 0)))
-            bedarf[r] = max(0.0, math.floor(soll - bestand - float(unterwegs.get(r, 0) or 0)))
-        return bedarf
-
     @staticmethod
-    def _lieferung(bedarf: dict, ueberschuss: dict) -> dict:
-        return {r: min(bedarf.get(r, 0.0), ueberschuss.get(r, 0.0)) for r in config.RESOURCE_KEYS
-                if min(bedarf.get(r, 0.0), ueberschuss.get(r, 0.0)) > 0}
+    def _lieferung(bedarf: dict, geber: dict) -> dict:
+        """Was `geber` von `bedarf` liefern kann, gedeckelt durch seine max_abgabe."""
+        ueb = geber["ueberschuss"]
+        lieferung = {r: min(bedarf.get(r, 0.0), ueb.get(r, 0.0)) for r in config.RESOURCE_KEYS}
+        lieferung = {r: n for r, n in lieferung.items() if n > 0}
+        grenze = geber.get("max_abgabe") or 0
+        summe = _summe(lieferung)
+        if grenze > 0 and summe > grenze:
+            lieferung = {r: math.floor(n * grenze / summe) for r, n in lieferung.items()}
+            lieferung = {r: n for r, n in lieferung.items() if n > 0}
+        return lieferung
 
     # -------------------------------------------------------------- Senden
     def _senden(self, sp: int, ziel_id: int, lieferung: dict, flotten_api: list,
@@ -216,13 +280,9 @@ class Ausgleich:
         m = self.m
         ov = m.insel_ov(sp, max_alter=0)
         hafen = {t: int((ov.get("schiffe") or {}).get(t, 0) or 0) for t in config.HANDELSSCHIFF_TYPEN}
-        kap_hafen = geo.ladevolumen(hafen)
-        draussen = sum(geo.ladevolumen({t: n for t, n in (f.get("ships") or {}).items()
-                                        if t in config.HANDELSSCHIFF_TYPEN})
-                       for f in flotten_api if f.get("origin_island_id") == sp)
-        gesamt = kap_hafen + draussen
+        kap_hafen, gesamt = self.handels_kapazitaet(sp, ov, flotten_api)
         if gesamt <= 0:
-            eintrag["hinweis"] = "der Spender hat keine Handelsschiffe"
+            eintrag["hinweis"] = f"{m.state.insel(sp).get('name')} hat keine Handelsschiffe"
             return None
 
         fracht = _summe(lieferung)

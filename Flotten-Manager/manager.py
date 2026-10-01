@@ -15,6 +15,7 @@ Ziel der Rotation.
 """
 from __future__ import annotations
 
+import copy
 import itertools
 import logging
 import time
@@ -184,12 +185,11 @@ class FlottenManager:
                     eintrag = self.state.insel(iid)
                     if eintrag is None:
                         eintrag = neue_insel()
-                        # Rolle im Rohstoff-Ausgleich von der bisher neuesten
-                        # Insel uebernehmen - nur "empfaenger"; Spender wird
-                        # eine neue Insel nie von selbst.
+                        # Einstellung im Rohstoff-Ausgleich von der bisher
+                        # neuesten Insel uebernehmen (wie beim Upgrade-Bot).
                         bisher = list(self.state.data["inseln"].values())
-                        if bisher and bisher[-1].get("ausgleich_rolle") == "empfaenger":
-                            eintrag["ausgleich_rolle"] = "empfaenger"
+                        if bisher and isinstance(bisher[-1].get("ausgleich"), dict):
+                            eintrag["ausgleich"] = copy.deepcopy(bisher[-1]["ausgleich"])
                         self.state.data["inseln"][str(iid)] = eintrag
                         if self.gestartet:
                             log.info("Neue Insel %s (%s) - im Seekampf-Hub einschalten, um von dort zu raiden",

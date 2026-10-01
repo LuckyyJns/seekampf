@@ -22,21 +22,32 @@ nachgetragen.
 
 ## Rohstoff-Ausgleich
 
-Im Seekampf-Hub unter **Rohstoff-Ausgleich**: Jede Insel ist *Spender*,
-*Empfaenger* oder *aus*. Der Manager fuellt bei Empfaengern jeden Rohstoff bis
-`ausgleich_ziel` der Lagerkapazitaet auf (Standard 50 %) - und mehr, wenn der
-Upgrade-Bot fuer seinen naechsten Ausbau mehr braucht (liest dessen
-`data/status.json`). Spender geben ab, was ueber `ausgleich_reserve` liegt
-(Standard 25 %). Geliefert wird per Handelsfahrt (`mission_type: handel`) mit
-den Handelsschiffen des Spenders, ab `ausgleich_min_menge` Rohstoffen je Fahrt.
-Was schon unterwegs ist, zaehlt mit.
+Im Seekampf-Hub unter **Rohstoff-Ausgleich**. Jede Insel hat zwei Schalter,
+*gibt ab* und *bekommt*; beides zugleich ist erlaubt, so gleichen sich alle
+Inseln gegenseitig aus. Je Insel einstellbar (leer = Standard):
+
+| Feld | Bedeutung | Standard |
+| --- | --- | --- |
+| Auffuellen bis | jeden Rohstoff bis zu diesem Anteil der Lagerkapazitaet auffuellen | `ausgleich_ziel` (50 %) |
+| Behaelt min. | beim Abgeben bleibt mindestens so viel | `ausgleich_reserve` (25 %) |
+| Max. je Lieferung | hoechstens so viele Rohstoffe je Fahrt | unbegrenzt |
+
+Braucht der Upgrade-Bot fuer den naechsten Ausbau mehr als das Ziel, wird bis
+zu dessen Kosten aufgefuellt (liest `Upgrade-Bot/data/status.json`). Eine
+Insel, die selbst auch bekommt, gibt nur ab, was ueber ihrem eigenen
+Auffuellziel liegt, und nie, was ihr fuer den naechsten Ausbau fehlt - ein
+Hin- und Herschicken ist damit ausgeschlossen. Je Empfaenger liefert die Insel,
+die am meisten liefern kann (bei Gleichstand die naechste), per Handelsfahrt
+(`mission_type: handel`) mit ihren eigenen Handelsschiffen, ab
+`ausgleich_min_menge` Rohstoffen je Fahrt. Was schon unterwegs ist, zaehlt mit.
 
 Reichen die Handelsschiffe im Hafen nicht, haelt der Manager sie fuer die
 Lieferung zurueck (die Insel raidet so lange ohne Handelsschiffe), hoechstens
-30 Minuten - dann faehrt, was da ist. Bedrohte Inseln liefern nicht und
-bekommen nichts. Neue Inseln uebernehmen die Rolle *Empfaenger*, wenn die bis
-dahin neueste Insel eine ist. Hauptschalter: `ausgleich_aktiv` (Standard aus).
-Code: `ausgleich.py`.
+30 Minuten - dann faehrt, was da ist. Inseln ohne Handelsschiffe geben nichts
+ab. Bedrohte Inseln liefern nicht und bekommen nichts. Neue Inseln uebernehmen
+die Einstellung der bis dahin neuesten Insel. Hauptschalter: `ausgleich_aktiv`.
+Code: `ausgleich.py`; Schnittstelle `GET /api/ausgleich`,
+`POST /api/inseln/{id}/ausgleich`.
 
 ## Was er tut
 

@@ -20,6 +20,7 @@ import requests
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException
 
+import ausgleich as ausgleich_modul
 import config
 import report as report_modul
 from api_client import ApiError, SeekampfClient
@@ -133,7 +134,7 @@ def status():
             "truppen": ov.get("truppen") or {},
             "bedrohung": bool(ov.get("bedrohung_im_anflug")),
             "freie_flotten": manager._freie_flotten(iid, ov) if ov else 0,
-            "ausgleich_rolle": insel.get("ausgleich_rolle") or "aus",
+            "ausgleich": insel.get("ausgleich") or {},
             "handel_reserviert": iid in manager.ausgleich.reserviert,
             "stats": _stats_ausgabe(insel["stats"]),
             "letzter_scan": insel.get("letzter_scan"),
@@ -229,8 +230,8 @@ def scannen(insel_id: int):
 
 @app.get("/api/ausgleich")
 def ausgleich_status():
-    """Rohstoff-Ausgleich fuer den Seekampf-Hub: Rollen, Bestand, Bedarf,
-    Ueberschuss, was unterwegs ist und die letzten Lieferungen."""
+    """Rohstoff-Ausgleich fuer den Seekampf-Hub: Einstellung je Insel, Bestand,
+    Bedarf, Ueberschuss, was unterwegs ist und die letzten Lieferungen."""
     daten = state.snapshot()
     ov_alle = manager._overview or {}
     bericht = manager.ausgleich.bericht.get("inseln") or {}
@@ -240,36 +241,64 @@ def ausgleich_status():
         b = bericht.get(iid_text) or {}
         inseln.append({
             "id": int(iid_text), "name": insel.get("name"), "koordinaten": insel.get("koordinaten"),
-            "rolle": insel.get("ausgleich_rolle") or "aus", "gehoert_uns": int(iid_text) in ov_alle,
+            "einstellung": insel.get("ausgleich") or {}, "gehoert_uns": int(iid_text) in ov_alle,
             "rohstoffe": ov.get("rohstoffe") or {}, "bedrohung": bool(ov.get("bedrohung_im_anflug")),
             "handelsschiffe": {t: (ov.get("schiffe") or {}).get(t, 0) for t in config.HANDELSSCHIFF_TYPEN},
-            "bedarf": b.get("bedarf") or {}, "ueberschuss": b.get("ueberschuss") or {},
-            "unterwegs": b.get("unterwegs") or {}, "upgrade": b.get("upgrade"), "hinweis": b.get("hinweis"),
+            **{k: b.get(k) for k in ("bedarf", "ueberschuss", "unterwegs", "grenze", "soll", "ziel",
+                                     "reserve", "max_abgabe", "schiffe_kap", "upgrade", "hinweis")},
             "reserviert": int(iid_text) in manager.ausgleich.reserviert,
         })
     s = daten["settings"]
     return {
         "aktiv": s["ausgleich_aktiv"], "laeuft": daten["laeuft"],
         "hinweis": manager.ausgleich.bericht.get("hinweis"),
-        "settings": {k: v for k, v in s.items() if k.startswith("ausgleich_")},
+        "settings": {k: s[k] for k in ("ausgleich_aktiv", "ausgleich_ziel", "ausgleich_reserve",
+                                       "ausgleich_min_menge", "ausgleich_upgrade_bedarf")},
         "inseln": inseln, "stand": daten.get("ausgleich") or {}, "serverzeit": time.time(),
     }
 
 
-@app.post("/api/inseln/{insel_id}/rolle")
-def rolle_setzen(insel_id: int, payload: dict = Body(...)):
-    """Rolle einer Insel im Rohstoff-Ausgleich: aus, spender oder empfaenger."""
-    rolle = str(payload.get("rolle") or "")
-    if rolle not in ("aus", "spender", "empfaenger"):
-        raise HTTPException(400, "rolle muss aus, spender oder empfaenger sein")
+def _anteil(wert, name: str):
+    """Prozentfeld aus dem Hub: None/"" = Standard, sonst Anteil 0..0.95."""
+    if wert is None or wert == "":
+        return None
+    try:
+        wert = float(wert)
+    except (TypeError, ValueError):
+        raise HTTPException(400, f"{name} muss eine Zahl sein") from None
+    if not 0 <= wert <= 0.95:
+        raise HTTPException(400, f"{name} muss zwischen 0 und 95 % liegen")
+    return wert
+
+
+@app.post("/api/inseln/{insel_id}/ausgleich")
+def ausgleich_einstellen(insel_id: int, payload: dict = Body(...)):
+    """Einstellung einer Insel im Rohstoff-Ausgleich aendern. Felder (alle
+    optional): gibt, bekommt (bool), ziel, reserve (Anteil, None = Standard),
+    max_abgabe (Rohstoffe je Lieferung, 0 = unbegrenzt)."""
+    neu = {}
+    for k in ("gibt", "bekommt"):
+        if k in payload:
+            neu[k] = bool(payload[k])
+    for k, name in (("ziel", "Auffuellen bis"), ("reserve", "Behaelt mindestens")):
+        if k in payload:
+            neu[k] = _anteil(payload[k], name)
+    if "max_abgabe" in payload:
+        try:
+            neu["max_abgabe"] = max(0, int(payload["max_abgabe"] or 0))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Max. je Lieferung muss eine ganze Zahl sein") from None
     with state.lock:
         insel = state.insel(insel_id)
         if insel is None:
             raise HTTPException(404, f"Insel {insel_id} ist nicht bekannt")
-        insel["ausgleich_rolle"] = rolle
+        e = ausgleich_modul.einstellung(insel)
+        e.update(neu)
+        ergebnis = dict(e)
     state.save()
-    log.info("Seekampf-Hub: %s im Rohstoff-Ausgleich: %s", insel.get("name") or insel_id, rolle)
-    return {"id": insel_id, "rolle": rolle}
+    log.info("Seekampf-Hub: %s im Rohstoff-Ausgleich: %s", insel.get("name") or insel_id,
+             ", ".join(f"{k}={v}" for k, v in neu.items()))
+    return {"id": insel_id, "einstellung": ergebnis}
 
 
 @app.post("/api/stats/reset")
