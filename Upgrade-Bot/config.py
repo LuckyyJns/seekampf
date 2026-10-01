@@ -57,11 +57,20 @@ HAUPTHAUS_MAX_COST_RATIO = 1.0
 # greift.
 LOW_PRIORITY_DELAY_SECONDS = 7200
 
+# Lager-Ueberlauf: Steht auf einer Insel ein Rohstoff gerade am Limit (und
+# verpufft damit Produktion) und war das in den letzten 24 Stunden schon
+# mindestens so lange der Fall, bekommt das Lagerhaus Vorrang - noch vor den
+# Ressourcen-Gebaeuden, deren Mehrproduktion sonst auch nur verpuffen wuerde.
+UEBERLAUF_VOLL_ANTEIL = 0.99
+UEBERLAUF_MIN_STUNDEN_24H = 2
+
 # Heuristik zur Erkennung des Lagerhaus-Gebaeudes anhand von typ/name aus
 # GET /islands/{id}/buildings (typ ist ein freier String ohne Enum).
 WAREHOUSE_BUILDING_KEYWORDS = ("lager", "speicher", "warehouse")
 
 STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "learned.json")
+# Verlauf je Insel und Tag (Produktion, Punkte, Stufen, Lager-Ueberlauf) - siehe verlauf.py
+VERLAUF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "verlauf.json")
 
 # Schlagen die Durchlaeufe so lange am Stueck fehl, geht ein Telegram-Alarm raus.
 ALERT_AFTER_FAILED_MINUTES = 15

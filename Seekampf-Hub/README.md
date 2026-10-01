@@ -15,8 +15,17 @@ lassen sich direkt verlinken, z. B. `#upgrade/447` oder `#flotte/20`.
 Menüpunkt **Gesundheit** (der Punkt im Menü ist grün/gelb/rot): je Bot der
 letzte Durchlauf und ob er fehlerfrei war, Fehler und Warnungen der letzten
 24 Stunden (die häufigsten zusammengefasst), wie lange jede Bau-Warteschlange
-leer stand, Temperatur/Drosselung/Speicher des Pi, Cloudflare-Tunnel und die
+leer stand und wie viel Produktion durch volle Lager verloren ging (gestern /
+heute, „läuft über“ = Lagerhaus wird vorgezogen), Temperatur/Drosselung/Speicher des Pi, Cloudflare-Tunnel und die
 nächtliche Sicherung (`~/Seekampf/sicherung.sh`). Code: `gesundheit.py`.
+
+## Upgrade-Bot: Verlauf
+
+Im Bereich **Upgrade-Bot** unten: Linien je Insel über die letzten 60 Tage –
+Produktion pro Stunde, Summe der Ausbaustufen, Punkte, und wie viel Produktion
+durch volle Lager verpufft ist (mit Tabellenansicht). Daten aus
+`Upgrade-Bot/data/verlauf.json` (`GET /api/upgrade/verlauf`); die Tage vor dem
+01.10.2026 wurden aus den Logs nachgetragen, Punkte gibt es erst ab da.
 
 ## Rohstoff-Ausgleich
 

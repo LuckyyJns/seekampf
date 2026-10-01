@@ -50,6 +50,9 @@ beim Login greift).
 
 ```bash
 systemctl status seekampf-upgrade-bot.service
+# Lager-Ueberlauf: Steht ein Rohstoff am Limit und war das in den letzten 24 h
+# schon >= 2 h so, baut der Bot zuerst das Lagerhaus (config.UEBERLAUF_*).
+# Verlauf je Insel und Tag: data/verlauf.json (verlauf.py), Diagramme im Hub.
 tail -f logs/bot-$(date +%F).log                  # Live-Log (Journal: nur Warnungen/Fehler)
 tail -f ~/Seekampf/Upgrade-Bot/logs/bot-$(date +%F).log   # Bot-eigenes Log (eine Datei pro Tag)
 ```

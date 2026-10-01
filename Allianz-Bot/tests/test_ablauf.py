@@ -17,7 +17,20 @@ from api_client import ApiError  # noqa: E402
 
 config.TELEGRAM_BOT_TOKEN = ""
 import bot as bot_modul  # noqa: E402
+import steuerung  # noqa: E402
 from state import State  # noqa: E402
+
+# Nie die echte Hub-Steuerung lesen oder den echten Status ueberschreiben:
+# sonst haengen die erwarteten Mengen davon ab, was gerade im Seekampf-Hub
+# eingestellt ist (z. B. ANFRAGE_ZIEL).
+_TEST_DATA = tempfile.mkdtemp(prefix="allianz-test-")
+steuerung.DATA_DIR = _TEST_DATA
+steuerung.STEUERUNG_PATH = os.path.join(_TEST_DATA, "steuerung.json")
+steuerung.STATUS_PATH = os.path.join(_TEST_DATA, "status.json")
+if hasattr(steuerung, "BEFEHLE_DIR"):
+    steuerung.BEFEHLE_DIR = os.path.join(_TEST_DATA, "befehle")
+steuerung._mtime = -1.0  # erzwingt Neuladen -> Standardwerte aus config.py
+steuerung.laden()
 
 # Tests schreiben nicht ins echte Tages-Log.
 logging.getLogger("seekampf_allianz_bot").handlers.clear()

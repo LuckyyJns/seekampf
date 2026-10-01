@@ -71,7 +71,7 @@ cd "$QUELLE" || exit 1
 if [ -n "$(git status --porcelain)" ]; then
   git add -A
   if git -c user.name="Jannis Hoy" -c user.email="Jannis.hoy@icloud.com" \
-       commit -q -m "Automatische Sicherung $(date +%F)"; then
+       commit -q --no-verify -m "Automatische Sicherung $(date +%F)"; then
     git_info=" · Commit $(git rev-parse --short HEAD)"
   else
     git_info=" · Commit fehlgeschlagen"

@@ -27,6 +27,19 @@ Die Bots schreiben ihr vollstaendiges Log in `logs/<name>-JJJJ-MM-TT.log`; ins
 Journal gehen nur Warnungen und Fehler (spart Schreibzugriffe auf die SD-Karte).
 Ob alles rund laeuft, zeigt der Seekampf-Hub unter **Gesundheit**.
 
+## Tests
+
+```bash
+./tests.sh                 # alle Bots (je mit eigener .venv)
+./tests.sh Upgrade-Bot     # nur einer
+```
+
+Jeder Bot hat seine Tests in `tests/` (gegen eine nachgebaute Spiel-API, ohne
+Netz und ohne echten Zustand). `tests.sh` laeuft automatisch vor jedem
+`git commit` (Hook in `githooks/`, aktiviert mit
+`git config core.hooksPath githooks`); schlaegt etwas fehl, wird nicht
+committet. Nach Code-Aenderungen erst `./tests.sh`, dann den Dienst neu starten.
+
 ## Sicherung
 
 [`sicherung.sh`](sicherung.sh) packt jede Nacht um 3:30 (crontab) Code,

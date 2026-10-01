@@ -28,6 +28,7 @@ import tempfile
 import threading
 import time
 import uuid
+from datetime import datetime, timedelta
 
 from contextlib import asynccontextmanager
 
@@ -252,6 +253,27 @@ def upgrade():
     status = _json_lesen(_pfad("upgrade", "status.json"))
     return {"status": status, "steuerung": _json_lesen(_pfad("upgrade", "steuerung.json")) or {},
             "gebaeude": GEBAEUDE, "serverzeit": time.time()}
+
+
+@app.get("/api/upgrade/verlauf")
+def upgrade_verlauf(tage: int = 60):
+    """Verlauf je Insel und Tag aus Upgrade-Bot/data/verlauf.json, Tage ohne
+    Daten als null - die Zeitachse ist lueckenlos."""
+    tage = max(1, min(int(tage), 180))
+    roh = (_json_lesen(_pfad("upgrade", "verlauf.json")) or {}).get("inseln") or {}
+    status = _json_lesen(_pfad("upgrade", "status.json")) or {}
+    heute = datetime.now().date()
+    daten = [(heute - timedelta(days=n)).isoformat() for n in range(tage - 1, -1, -1)]
+    # Reihenfolge = Position in der Inselliste (wie die Inseln dazukamen): die
+    # Farbe einer Insel haengt an ihr, nicht an ihrem Rang.
+    inseln = sorted(((iid, i) for iid, i in (status.get("inseln") or {}).items() if isinstance(i, dict)),
+                    key=lambda x: x[1].get("position", 99))
+    namen = [{"id": iid, "name": i.get("name") or iid} for iid, i in inseln]
+    for iid in roh:
+        if iid not in {n["id"] for n in namen}:
+            namen.append({"id": iid, "name": f"Insel {iid}"})
+    reihen = {n["id"]: [roh.get(n["id"], {}).get(d) for d in daten] for n in namen}
+    return {"daten": daten, "inseln": namen, "reihen": reihen}
 
 
 @app.put("/api/upgrade/inseln/{insel_id}")

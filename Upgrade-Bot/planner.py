@@ -108,8 +108,15 @@ def _best_by_weight(names, payable: dict, capacity: float, default_weight: float
     return max(choices, key=lambda x: x[0])[1]
 
 
-def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allow_low: bool):
+def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allow_low: bool,
+                   ueberlauf: bool = False):
     payable = {n: c for n, c in candidates.items() if affordable(c["cost"], current)}
+
+    # 0. Lager laeuft ueber (gerade voll und in den letzten 24 h schon laenger,
+    #    siehe bot._ueberlauf): Lagerhaus zuerst - mehr Produktion wuerde sonst
+    #    ebenfalls nur verpuffen.
+    if ueberlauf and "lagerhaus" in payable:
+        return payable["lagerhaus"]
 
     # 1. Ressourcen-Gebaeude zuerst - bewertet nach gelerntem Ertrag pro Kosten,
     #    sonst nach statischer Gewichtung.
@@ -145,14 +152,15 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allo
     return None
 
 
-def rejection_reason(name: str, candidates: dict, capacity: float, allow_low: bool) -> str:
+def rejection_reason(name: str, candidates: dict, capacity: float, allow_low: bool,
+                     ueberlauf: bool = False) -> str:
     """Warum wurde dieser bezahlbare Kandidat trotzdem nicht gebaut?
     Spiegelt exakt die Regeln aus choose_upgrade wider (fuer die Logausgabe)."""
     if name in config.LOW_PRIORITY_BUILDINGS and not allow_low:
         return "niedrige Prioritaet"
-    if name == "lagerhaus" and not storage_needed(candidates, capacity):
+    if name == "lagerhaus" and not ueberlauf and not storage_needed(candidates, capacity):
         return (f"noch nicht noetig, kein Ausbau kostet mehr als "
-                f"{config.STORAGE_TRIGGER_RATIO:.0%} der Lagerkapazitaet")
+                f"{config.STORAGE_TRIGGER_RATIO:.0%} der Lagerkapazitaet und kein Lager laeuft ueber")
     if name == "haupthaus":
         average_cost = average_resource_cost(candidates)
         if average_cost is not None:

@@ -161,6 +161,14 @@ def berechnen(bots: dict, flotte_status: dict | None, dienst_status) -> dict:
         _cache.update(zeit=jetzt, daten=dict(daten))
 
     up = _json(os.path.join(bots["upgrade"]["ordner"], "data", "status.json")) or {}
+    verlauf = (_json(os.path.join(bots["upgrade"]["ordner"], "data", "verlauf.json")) or {}).get("inseln") or {}
+    heute = datetime.now().date()
+    gestern = heute.fromordinal(heute.toordinal() - 1)
+    daten["lager_verlust"] = {
+        iid: {"heute": (tage.get(heute.isoformat()) or {}).get("verlust"),
+              "gestern": (tage.get(gestern.isoformat()) or {}).get("verlust"),
+              "ueberlauf": ((up.get("inseln") or {}).get(iid) or {}).get("ueberlauf")}
+        for iid, tage in verlauf.items()}
     al = _json(os.path.join(bots["allianz"]["ordner"], "data", "status.json")) or {}
     tick_fm = None
     if flotte_status:

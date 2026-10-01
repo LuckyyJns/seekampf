@@ -19,6 +19,8 @@
     /* Rohstoff-Farben: geprueft mit dem dataviz-Validator (Lightness-Band,
        Chroma, CVD-Abstand, Normalsicht) gegen die Kartenflaeche. */
     --gold: #c98500; --stein: #3987e5; --holz: #d95926;
+    --serie-1: #3987e5; --serie-2: #d95926; --serie-3: #199e70; --serie-4: #c98500;
+    --serie-5: #d55181; --serie-6: #008300; --serie-7: #9085e9; --serie-8: #e66767;
     --schatten: 0 1px 2px rgb(0 0 0 / .25), 0 10px 30px -14px rgb(0 0 0 / .55);
     --radius: 16px; --radius-klein: 10px; --nav-breite: 248px;
     --nav-bg: linear-gradient(180deg, #0d1a2e 0%, #0a1424 100%); --nav-text: #d6e2f2; --nav-gedaempft: #7f93b0;
@@ -34,6 +36,8 @@
       --akzent: #0e8fa0; --akzent-2: #2563eb; --akzent-text: #ffffff;
       --gut: #1d8a5b; --warn: #a86700; --schlecht: #c23b3b; --signal: #c2570d;
       --gold: #eda100; --stein: #2a78d6; --holz: #eb6834;
+      --serie-1: #2a78d6; --serie-2: #eb6834; --serie-3: #1baf7a; --serie-4: #eda100;
+      --serie-5: #e87ba4; --serie-6: #008300; --serie-7: #4a3aa7; --serie-8: #e34948;
       --schatten: 0 1px 2px rgb(15 30 50 / .06), 0 10px 28px -16px rgb(15 30 50 / .25);
     }
   }
@@ -46,6 +50,8 @@
     --akzent: #0e8fa0; --akzent-2: #2563eb; --akzent-text: #ffffff;
     --gut: #1d8a5b; --warn: #a86700; --schlecht: #c23b3b; --signal: #c2570d;
     --gold: #eda100; --stein: #2a78d6; --holz: #eb6834;
+    --serie-1: #2a78d6; --serie-2: #eb6834; --serie-3: #1baf7a; --serie-4: #eda100;
+    --serie-5: #e87ba4; --serie-6: #008300; --serie-7: #4a3aa7; --serie-8: #e34948;
     --schatten: 0 1px 2px rgb(15 30 50 / .06), 0 10px 28px -16px rgb(15 30 50 / .25);
   }
   * { box-sizing: border-box; }
@@ -307,6 +313,10 @@
   .ausgleich-raster .karte { margin: 0; display: flex; flex-direction: column; gap: 10px; }
   .ausgleich-raster .oben { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .ausgleich-raster .segment { margin-left: auto; }
+  .linien-legende { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--gedaempft); margin-bottom: 8px; }
+  .linien-legende span { display: inline-flex; align-items: center; gap: 6px; }
+  .linien-legende i { width: 14px; height: 2px; border-radius: 2px; display: inline-block; }
+  .tooltip .linie { width: 12px; height: 2px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: middle; }
   .ges-liste { list-style: none; margin: 0; padding: 0; font-size: 12.5px; }
   .ges-liste li { padding: 5px 0; border-top: 1px solid var(--rand); overflow-wrap: anywhere; }
   .ges-liste li:first-child { border-top: 0; }
@@ -598,7 +608,7 @@
       <div class="kopfzeile abschnitt-kopf" style="margin-top:0"><h2>Bots</h2><div class="rechts leise klein-text">Fehler und Warnungen der letzten 24 Stunden</div></div>
       <div class="raster" id="ges-bots"></div>
       <section class="karte" style="margin-top:16px">
-        <div class="kopfzeile"><h2>Bau-Warteschlangen – Leerlauf in 24 h</h2></div>
+        <div class="kopfzeile"><h2>Bau-Warteschlangen und Lager</h2></div>
         <div id="ges-leerlauf"></div>
       </section>
       <section class="karte">
@@ -619,6 +629,17 @@
       </div>
       <div id="up-inseln"></div>
       <section class="karte" style="margin-top:16px">
+        <div class="kopfzeile"><h2>Verlauf</h2>
+          <div class="rechts">
+            <div class="segment" role="group" aria-label="Kennzahl" id="vl-kennzahl">
+              <button data-kennzahl="produktion" class="an">Produktion/h</button><button data-kennzahl="stufen">Ausbaustufen</button><button data-kennzahl="punkte">Punkte</button><button data-kennzahl="verlust">Verlust (Lager voll)</button>
+            </div>
+            <button class="klein" id="vl-tabelle">Tabelle</button>
+          </div></div>
+        <div id="vl-diagramm"><div class="leise klein-text">wird geladen …</div></div>
+        <div class="leise klein-text" id="vl-hinweis" style="margin-top:8px"></div>
+      </section>
+      <section class="karte">
         <div class="kopfzeile"><h2>Letzte Befehle</h2></div>
         <div id="up-befehle" class="klein-text leise">noch keine</div>
       </section>
@@ -2669,17 +2690,23 @@ function zeichneGesundheit() {
       <div class="leise klein-text">Hub läuft seit ${uhrzeit(g.dienste.hub?.seit, true)}${g.dienste.hub?.neustarts ? ` · ${g.dienste.hub.neustarts} Neustarts` : ""}</div>
     </section>`;
 
-  const leer = g.logs.upgrade?.leerlauf || {}, namen = g.durchlauf.upgrade?.namen || {};
+  const leer = g.logs.upgrade?.leerlauf || {}, namen = g.durchlauf.upgrade?.namen || {}, verlust = g.lager_verlust || {};
+  const summe = (v) => v ? (v.gold || 0) + (v.stein || 0) + (v.holz || 0) : null;
   const zeilen = Object.entries(leer).sort((a, b) => b[1].anteil - a[1].anteil).map(([iid, x]) => {
     const p = Math.round(x.anteil * 100);
     const farbe = p >= 50 ? "var(--schlecht)" : p >= 20 ? "var(--warn)" : "var(--gut)";
-    return `<tr><td>${esc(namen[iid] || iid)}</td>
-      <td style="min-width:140px"><div class="balken"><i style="width:${p}%;background:${farbe}"></i></div></td>
-      <td class="zahl"><b>${p} %</b></td><td class="zahl leise">${dauer(x.leer_s)} von ${dauer(x.erfasst_s)}</td></tr>`;
+    const v = verlust[iid] || {}, heute = summe(v.heute), gestern = summe(v.gestern);
+    const ueber = v.ueberlauf?.aktiv ? ` <span class="marke warn" title="Lagerhaus wird vorgezogen"><span class="punkt"></span>läuft über</span>` : "";
+    return `<tr><td>${esc(namen[iid] || iid)}${ueber}</td>
+      <td style="min-width:120px"><div class="balken"><i style="width:${p}%;background:${farbe}"></i></div></td>
+      <td class="zahl"><b>${p} %</b></td><td class="zahl leise verstecken-schmal">${dauer(x.leer_s)} von ${dauer(x.erfasst_s)}</td>
+      <td class="zahl" style="${gestern > 0 ? "color:var(--warn)" : ""}">${gestern == null ? "–" : zahl(gestern)}</td>
+      <td class="zahl" style="${heute > 0 ? "color:var(--warn)" : ""}">${heute == null ? "–" : zahl(heute)}</td></tr>`;
   }).join("");
   $("ges-leerlauf").innerHTML = zeilen
-    ? `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th>Leer</th><th class="zahl">Anteil</th><th class="zahl">Dauer</th></tr></thead><tbody>${zeilen}</tbody></table></div>
-       <div class="leise klein-text" style="margin-top:8px">Leer = kein Bauauftrag in der Warteschlange, meist weil Rohstoffe fehlen. Der Rohstoff-Ausgleich setzt genau hier an.</div>`
+    ? `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th>Warteschlange leer</th><th class="zahl">Anteil</th><th class="zahl verstecken-schmal">Dauer</th>
+        <th class="zahl">Verlust gestern</th><th class="zahl">heute</th></tr></thead><tbody>${zeilen}</tbody></table></div>
+       <div class="leise klein-text" style="margin-top:8px">Leer = kein Bauauftrag in der Warteschlange (letzte 24 h), meist weil Rohstoffe fehlen – da setzt der Rohstoff-Ausgleich an. Verlust = Produktion, die wegen eines vollen Lagers verpufft ist; läuft ein Lager regelmäßig über, zieht der Upgrade-Bot das Lagerhaus vor.</div>`
     : `<div class="leise klein-text">keine Daten</div>`;
 
   const lauf = sich.lauf || {};
@@ -2698,10 +2725,157 @@ async function gesundheitHolen() {
   if (tab === "gesundheit") zeichneGesundheit();
 }
 
+// ======================================================================
+// Upgrade-Bot: Verlauf je Insel (Linien, eine Farbe je Insel)
+// ======================================================================
+let verlaufUp = null, vlKennzahl = "produktion", vlTabelle = false, vlGeholt = 0;
+const VL_KENNZAHLEN = {
+  produktion: { titel: "Produktion pro Stunde (Gold + Stein + Holz)", wert: t => t.produktion ? t.produktion.gold + t.produktion.stein + t.produktion.holz : null },
+  stufen: { titel: "Summe aller Ausbaustufen", wert: t => t.stufen_summe ?? null },
+  punkte: { titel: "Inselpunkte", wert: t => t.punkte ?? null },
+  verlust: { titel: "Durch volles Lager verlorene Rohstoffe je Tag", wert: t => t.verlust ? t.verlust.gold + t.verlust.stein + t.verlust.holz : null },
+};
+const serienFarbe = (i) => `var(--serie-${(i % 8) + 1})`;
+
+function linienDiagramm(el, daten, serien) {
+  const breite = Math.max(280, el.clientWidth || 600), hoehe = 240;
+  const links = 52, rechts = 16, oben = 12, unten = 24;
+  const innenB = breite - links - rechts, innenH = hoehe - oben - unten;
+  const n = daten.length;
+  const alle = serien.flatMap(s => s.werte).filter(v => v != null);
+  const max = niceMax(Math.max(1, ...alle));
+  const x = (i) => links + (n <= 1 ? innenB / 2 : innenB * i / (n - 1));
+  const y = (v) => oben + innenH - (v / max) * innenH;
+  let svg = `<svg viewBox="0 0 ${breite} ${hoehe}" height="${hoehe}" role="img" aria-label="Verlauf"><g class="achse">`;
+  for (let k = 0; k <= 4; k++) {
+    const v = max * k / 4;
+    svg += `<line class="gitter" x1="${links}" x2="${links + innenB}" y1="${y(v)}" y2="${y(v)}"/><text x="${links - 6}" y="${y(v) + 4}" text-anchor="end">${kompakt(v)}</text>`;
+  }
+  const jede = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(innenB / 64))));
+  daten.forEach((d, i) => {
+    if ((n - 1 - i) % jede) return;
+    const [, m, t] = d.split("-");
+    svg += `<text x="${x(i)}" y="${hoehe - 6}" text-anchor="middle">${t}.${m}.</text>`;
+  });
+  svg += `</g>`;
+  serien.forEach((s) => {
+    // Luecken (Tage ohne Daten) unterbrechen die Linie statt sie zu verbinden
+    let pfad = "", stift = false;
+    s.werte.forEach((v, i) => {
+      if (v == null) { stift = false; return; }
+      pfad += `${stift ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+      stift = true;
+    });
+    if (pfad) svg += `<path d="${pfad}" fill="none" stroke="${s.farbe}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    s.werte.forEach((v, i) => {   // einzelne Punkte ohne Nachbarn sichtbar machen
+      const allein = v != null && s.werte[i - 1] == null && s.werte[i + 1] == null;
+      if (allein) svg += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${s.farbe}" stroke="var(--flaeche)" stroke-width="2"/>`;
+    });
+  });
+  svg += `<line class="vl-faden" x1="0" x2="0" y1="${oben}" y2="${oben + innenH}" stroke="var(--gedaempft)" stroke-width="1" opacity="0"/>`;
+  svg += `<g class="vl-punkte"></g><rect class="vl-treffer" x="${links}" y="${oben}" width="${innenB}" height="${innenH}" fill="transparent" tabindex="0"/></svg>`;
+
+  el.innerHTML = `<div class="linien-legende"></div><div class="diagramm">${svg}<div class="tooltip"></div></div>`;
+  const legende = el.querySelector(".linien-legende");
+  serien.forEach(s => {
+    const span = document.createElement("span"), key = document.createElement("i");
+    key.style.background = s.farbe;
+    span.append(key, document.createTextNode(s.name));
+    legende.appendChild(span);
+  });
+  const box = el.querySelector(".diagramm"), tip = el.querySelector(".tooltip");
+  const faden = el.querySelector(".vl-faden"), punkte = el.querySelector(".vl-punkte"), treffer = el.querySelector(".vl-treffer");
+  const zeige = (i) => {
+    faden.setAttribute("x1", x(i)); faden.setAttribute("x2", x(i)); faden.setAttribute("opacity", ".6");
+    punkte.innerHTML = serien.map(s => s.werte[i] == null ? "" :
+      `<circle cx="${x(i)}" cy="${y(s.werte[i])}" r="4" fill="${s.farbe}" stroke="var(--flaeche)" stroke-width="2"/>`).join("");
+    const [j, m, t] = daten[i].split("-");
+    tip.replaceChildren();
+    const kopf = document.createElement("div");
+    kopf.style.marginBottom = "4px"; kopf.innerHTML = `<b>${t}.${m}.${j}</b>`;
+    tip.appendChild(kopf);
+    serien.forEach(s => {
+      const zeile = document.createElement("div"); zeile.className = "zeile";
+      const name = document.createElement("span"), linie = document.createElement("i"), wert = document.createElement("b");
+      linie.className = "linie"; linie.style.background = s.farbe;
+      name.append(linie, document.createTextNode(s.name));
+      wert.textContent = s.werte[i] == null ? "–" : zahl(s.werte[i]);
+      zeile.append(name, wert); tip.appendChild(zeile);
+    });
+    tip.style.display = "block";
+    const bb = box.getBoundingClientRect(), sx = bb.width / breite;
+    let left = x(i) * sx + 12;
+    if (left + tip.offsetWidth > bb.width) left = x(i) * sx - tip.offsetWidth - 12;
+    tip.style.left = `${Math.max(0, left)}px`; tip.style.top = "10px";
+  };
+  const verstecke = () => { tip.style.display = "none"; faden.setAttribute("opacity", "0"); punkte.innerHTML = ""; };
+  let aktuell = n - 1;
+  treffer.addEventListener("pointermove", (e) => {
+    const bb = treffer.getBoundingClientRect();
+    aktuell = Math.round((e.clientX - bb.left) / bb.width * (n - 1));
+    zeige(Math.max(0, Math.min(n - 1, aktuell)));
+  });
+  treffer.addEventListener("pointerleave", verstecke);
+  treffer.addEventListener("focus", () => zeige(aktuell));
+  treffer.addEventListener("blur", verstecke);
+  treffer.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") aktuell = Math.max(0, aktuell - 1);
+    else if (e.key === "ArrowRight") aktuell = Math.min(n - 1, aktuell + 1);
+    else return;
+    e.preventDefault(); zeige(aktuell);
+  });
+}
+function linienTabelle(daten, serien) {
+  const kopf = serien.map(s => `<th class="zahl">${esc(s.name)}</th>`).join("");
+  const zeilen = daten.map((d, i) => [d, i]).reverse().map(([d, i]) => {
+    const [j, m, t] = d.split("-");
+    return `<tr><td>${t}.${m}.${j}</td>${serien.map(s => `<td class="zahl">${s.werte[i] == null ? "–" : zahl(s.werte[i])}</td>`).join("")}</tr>`;
+  }).join("");
+  return `<div class="tabelle-rahmen" style="max-height:320px;overflow:auto"><table><thead><tr><th>Tag</th>${kopf}</tr></thead><tbody>${zeilen}</tbody></table></div>`;
+}
+function zeichneVerlaufUp() {
+  const el = $("vl-diagramm");
+  if (!verlaufUp || !el) return;
+  const k = VL_KENNZAHLEN[vlKennzahl];
+  // Erst ab dem ersten Tag mit Daten zeigen
+  const erster = verlaufUp.daten.findIndex((d, i) => verlaufUp.inseln.some(x => verlaufUp.reihen[x.id][i]));
+  const ab = Math.max(0, Math.min(erster, verlaufUp.daten.length - 2));
+  const daten = verlaufUp.daten.slice(ab);
+  const serien = verlaufUp.inseln.map((insel, idx) => ({
+    name: insel.name, farbe: serienFarbe(idx),
+    werte: verlaufUp.reihen[insel.id].slice(ab).map(t => t ? k.wert(t) : null),
+  })).filter(s => s.werte.some(v => v != null));
+  $("vl-tabelle").textContent = vlTabelle ? "Diagramm" : "Tabelle";
+  if (!serien.length) { el.innerHTML = `<div class="leise klein-text">noch keine Daten</div>`; }
+  else if (vlTabelle) el.innerHTML = linienTabelle(daten, serien);
+  else linienDiagramm(el, daten, serien);
+  const hinweise = {
+    produktion: "Stand am Ende des Tages, alle drei Rohstoffe zusammen.",
+    stufen: "Summe der Stufen aller Gebäude. Vor dem 01.10. aus den Logs zurückgerechnet.",
+    punkte: "Inselpunkte werden erst seit dem 01.10. aufgezeichnet.",
+    verlust: "Produktion, die verpufft ist, weil das Lager voll war. Läuft ein Lager regelmäßig über (≥ 2 h in 24 h), zieht der Upgrade-Bot das Lagerhaus vor.",
+  };
+  $("vl-hinweis").textContent = `${k.titel}. ${hinweise[vlKennzahl]}`;
+}
+async function verlaufUpHolen() {
+  if (Date.now() - vlGeholt < 60000 && verlaufUp) return zeichneVerlaufUp();
+  try { verlaufUp = await hole("/api/upgrade/verlauf?tage=60"); vlGeholt = Date.now(); } catch (e) { return; }
+  zeichneVerlaufUp();
+}
+$("vl-kennzahl").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-kennzahl]");
+  if (!b) return;
+  vlKennzahl = b.dataset.kennzahl;
+  $("vl-kennzahl").querySelectorAll("button").forEach(x => x.classList.toggle("an", x === b));
+  zeichneVerlaufUp();
+});
+$("vl-tabelle").onclick = () => { vlTabelle = !vlTabelle; zeichneVerlaufUp(); };
+window.addEventListener("resize", () => { if (tab === "upgrade" && !vlTabelle) zeichneVerlaufUp(); });
+
 function aktualisieren() {
   if (tab === "karte") { farbenLesen(); flotteHolen(); angriffeHolen(); karteHolen(); zeichneKarte(); }
   if (tab === "flotte") { flotteHolen(); if (!verlauf) verlaufHolen(); else { diagramm("fl-diagramm", verlauf.gesamt); } }
-  if (tab === "upgrade") upgradeHolen();
+  if (tab === "upgrade") { upgradeHolen(); verlaufUpHolen(); }
   if (tab === "allianz") allianzHolen();
   if (tab === "ausgleich") ausgleichHolen();
   if (tab === "gesundheit") gesundheitHolen();

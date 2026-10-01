@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Vor jedem Commit alle Tests laufen lassen (siehe tests.sh).
+# Notfalls umgehen: git commit --no-verify
+exec "$(git rev-parse --show-toplevel)/tests.sh"

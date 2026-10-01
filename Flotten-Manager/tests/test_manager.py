@@ -1,0 +1,272 @@
+"""Ablauftests fuer den Flotten-Manager - gegen eine nachgebaute Spiel-API.
+
+    .venv/bin/python -m unittest discover -s tests
+"""
+import json
+import logging
+import os
+import sys
+import tempfile
+import threading
+import time
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+logging.disable(logging.CRITICAL)
+
+import config  # noqa: E402
+from api_client import ApiError  # noqa: E402
+from manager import FlottenManager  # noqa: E402
+from state import State  # noqa: E402
+
+ZUKUNFT = "2030-01-01T00:00:00Z"
+VERGANGEN = "2000-01-01T00:00:00Z"
+
+
+def insel(iid, name, koord, res, schiffe=None, truppen=None, bedroht=False):
+    gold, stein, holz, kap = res
+    return {"id": iid, "name": name, "koordinaten": koord, "schiffe": dict(schiffe or {}),
+            "truppen": dict(truppen or {}), "bedrohung_im_anflug": bedroht,
+            "rohstoffe": {"gold": gold, "stein": stein, "holz": holz, "kapazitaet": kap}}
+
+
+class FakeApi:
+    """Gerade genug Seekampf-API: Inseln, Flotten, Karte, Berichte."""
+
+    def __init__(self, inseln, ziele=None):
+        self.ov = inseln
+        self.fleets, self.created, self.recalled = [], [], []
+        self.ziele = ziele or []          # [(koord, anfaengerschutz)]
+        self.nid = 1000
+
+    def get_me(self):
+        return {"current_island_id": self.ov[0]["id"]}
+
+    def get_islands_overview(self):
+        return json.loads(json.dumps(self.ov))
+
+    def get_fleets(self):
+        return json.loads(json.dumps(self.fleets))
+
+    def get_region(self, x, y):
+        return {"inseln": [{"koordinaten": k, "x": int(k.split(":")[0]), "y": int(k.split(":")[1]),
+                            "z": int(k.split(":")[2]), "besitzer": None, "name": k} for k, _ in self.ziele]}
+
+    def get_island_info(self, x, y, z):
+        return {"besitzer": None}
+
+    def get_combat_messages(self, limit=50):
+        return []
+
+    def archive_message(self, i):
+        pass
+
+    def recall_fleet(self, i):
+        self.recalled.append(i)
+
+    def create_fleet(self, p):
+        if p["mission_type"] == "attack":
+            koord = f"{p['target']['x']}:{p['target']['y']}:{p['target']['z']}"
+            if dict(self.ziele).get(koord):
+                raise ApiError(409, "newbie_protection", "Anfaengerschutz")
+        self.created.append(p)
+        self.nid += 1
+        herkunft = next(i for i in self.ov if i["id"] == p["origin_island_id"])
+        for t, n in {**p.get("ships", {}), **p.get("units", {})}.items():
+            topf = "schiffe" if t in herkunft["schiffe"] else "truppen"
+            herkunft[topf][t] = herkunft[topf].get(t, 0) - n
+        f = {"id": self.nid, "mission": "attack" if p["mission_type"] == "attack" else "transport",
+             "origin_island_id": p["origin_island_id"], "target": dict(p["target"], name="Ziel"),
+             "ships": p.get("ships", {}), "units": p.get("units", {}), "resources": p.get("resources", {}),
+             "state": "outbound", "arrive_at": ZUKUNFT, "return_at": None, "recallable_until": ZUKUNFT}
+        self.fleets.append(f)
+        return f
+
+
+class Basis(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._alt = config.UPGRADE_STATUS_PATH
+        config.UPGRADE_STATUS_PATH = os.path.join(self.tmp, "upgrade-status.json")
+
+    def tearDown(self):
+        config.UPGRADE_STATUS_PATH = self._alt
+
+    def manager(self, api, vorher: dict | None = None):
+        pfad = os.path.join(self.tmp, "state.json")
+        if vorher is not None:
+            with open(pfad, "w") as f:
+                json.dump(vorher, f)
+        state = State(pfad)
+        m = FlottenManager(api, state)
+        m.start()
+        return m, state
+
+    def upgrade_plan(self, plaene: dict):
+        with open(config.UPGRADE_STATUS_PATH, "w") as f:
+            json.dump({"zeit": time.time(), "inseln": {k: {"plan": v} for k, v in plaene.items()}}, f)
+
+
+class Raids(Basis):
+    def test_handelsfahrt_ist_kein_raid(self):
+        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000))])
+        api.fleets.append({"id": 1, "mission": "transport", "origin_island_id": 447,
+                           "target": {"x": 50, "y": 50, "z": 1, "name": "Allianz"}, "ships": {},
+                           "resources": {"holz": 100}, "state": "outbound", "arrive_at": VERGANGEN})
+        m, st = self.manager(api)
+        m.tick()
+        self.assertEqual(st.data["stats"]["raids"], 0)
+        self.assertFalse(st.data.get("offene_berichte"))
+
+    def test_rueckruf_nur_fuer_raids(self):
+        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000), {"kleines_kriegsschiff": 1,
+                       "kleines_handelsschiff": 1}, {"steinewerfer": 1})], ziele=[("53:48:1", False)])
+        api.fleets.append({"id": 1, "mission": "transport", "origin_island_id": 447,
+                           "target": {"x": 50, "y": 50, "z": 1}, "ships": {}, "state": "outbound",
+                           "arrive_at": ZUKUNFT, "recallable_until": ZUKUNFT})
+        m, _ = self.manager(api)
+        m.tick()  # schickt einen Raid los
+        raid = next(f["id"] for f in api.fleets if f["mission"] == "attack")
+        api.ov[0]["bedrohung_im_anflug"] = True
+        m._overview_zeit = 0
+        m.tick()
+        self.assertEqual(api.recalled, [raid])
+
+    def test_anfaengerschutz_sperrt_ziel_und_nimmt_das_naechste(self):
+        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000), {"kleines_kriegsschiff": 1,
+                       "kleines_handelsschiff": 1}, {"steinewerfer": 1})],
+                      ziele=[("53:48:1", False), ("53:48:2", True)])  # :2 liegt naeher, kommt zuerst
+        m, st = self.manager(api)
+        m.tick()
+        ziele = st.insel(447)["ziele"]
+        self.assertEqual(ziele["53:48:2"]["blacklist_grund"], "Anfaengerschutz")
+        self.assertEqual([p["target"]["z"] for p in api.created], [1])
+
+
+class Zustand(Basis):
+    def test_kaputte_datei_wird_beiseitegelegt_und_pausiert(self):
+        pfad = os.path.join(self.tmp, "state.json")
+        with open(pfad, "w") as f:
+            f.write("{halb")
+        st = State(pfad)
+        self.assertIsNotNone(st.defekt)
+        self.assertTrue(os.path.exists(st.defekt))
+        self.assertFalse(st.data["laeuft"])
+
+    def test_gleichzeitiges_speichern(self):
+        st = State(os.path.join(self.tmp, "state.json"))
+        fehler = []
+
+        def los():
+            for _ in range(25):
+                try:
+                    st.save()
+                except Exception as e:  # noqa: BLE001
+                    fehler.append(e)
+        threads = [threading.Thread(target=los) for _ in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        self.assertEqual(fehler, [])
+        self.assertEqual(os.listdir(self.tmp), ["state.json"])
+
+    def test_alte_rollen_werden_uebernommen(self):
+        alt = {"inseln": {"447": {"name": "GiG", "koordinaten": "53:49:8", "ziele": {}, "rotation": [],
+                                  "ausgleich_rolle": "spender"},
+                          "20": {"name": "GiG 2", "koordinaten": "46:55:6", "ziele": {}, "rotation": [],
+                                 "ausgleich_rolle": "empfaenger"}}}
+        with open(os.path.join(self.tmp, "state.json"), "w") as f:
+            json.dump(alt, f)
+        st = State(os.path.join(self.tmp, "state.json"))
+        self.assertTrue(st.insel(447)["ausgleich"]["gibt"])
+        self.assertFalse(st.insel(447)["ausgleich"]["bekommt"])
+        self.assertTrue(st.insel(20)["ausgleich"]["bekommt"])
+        self.assertNotIn("ausgleich_rolle", st.insel(20))
+
+
+class Ausgleich(Basis):
+    def drei_inseln(self):
+        return FakeApi([
+            insel(447, "GiG", "53:49:8", (12000, 30000, 4000, 50000),
+                  {"kleines_handelsschiff": 10, "grosses_handelsschiff": 2}),
+            insel(20, "GiG 2", "46:55:6", (900, 100, 1700, 1749), {"kleines_handelsschiff": 10}),
+            insel(581, "GiG 3", "46:55:9", (900, 1000, 50, 1749)),
+        ])
+
+    def einstellen(self, st, **inseln):
+        st.settings.update(ausgleich_aktiv=True, ausgleich_ziel=0.5, ausgleich_reserve=0.25,
+                           ausgleich_min_menge=200)
+        for iid, werte in inseln.items():
+            st.insel(iid.lstrip("i"))["ausgleich"].update(werte)
+
+    def lieferungen(self, api):
+        return {(p["origin_island_id"], p["target"]["z"]): p["resources"] for p in api.created
+                if p["mission_type"] == "handel"}
+
+    def test_gegenseitig_und_ohne_hin_und_her(self):
+        api = self.drei_inseln()
+        self.upgrade_plan({"447": {"gebaeude": "kaserne", "fehlt": {"holz": 500}}})
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"gibt": True, "bekommt": True}, i581={"bekommt": True})
+        m.tick()
+        lief = self.lieferungen(api)
+        self.assertIn("stein", lief[(447, 6)])            # GiG -> GiG 2: Stein
+        self.assertEqual(set(lief[(20, 9)]), {"holz"})     # GiG 2 -> GiG 3: Holz (gibt UND bekommt)
+        b = m.ausgleich.bericht["inseln"]
+        self.assertEqual(b["447"]["ueberschuss"]["holz"], 0)    # fehlt GiG selbst fuer den Ausbau
+        self.assertAlmostEqual(b["20"]["grenze"]["holz"], 1749 * 0.5)  # nie unter das eigene Soll
+        vorher = len(api.created)
+        m.tick()
+        self.assertEqual(len(api.created), vorher)          # Unterwegs zaehlt mit: nichts doppelt
+
+    def test_max_abgabe_je_lieferung(self):
+        api = self.drei_inseln()
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True, "max_abgabe": 300}, i20={"bekommt": True})
+        m.tick()
+        self.assertLessEqual(sum(self.lieferungen(api)[(447, 6)].values()), 300)
+
+    def test_eigene_grenzen_je_insel(self):
+        api = self.drei_inseln()
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True, "reserve": 0.9}, i20={"bekommt": True, "ziel": 0.8})
+        m.tick()
+        b = m.ausgleich.bericht["inseln"]
+        self.assertEqual(b["447"]["ueberschuss"]["stein"], 0)          # 30000 < 90 % von 50000
+        self.assertEqual(b["20"]["bedarf"]["stein"], int(1749 * 0.8) - 100)
+
+    def test_bedrohte_insel_bekommt_nichts(self):
+        api = self.drei_inseln()
+        api.ov[1]["bedrohung_im_anflug"] = True
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
+        m.tick()
+        self.assertEqual(self.lieferungen(api), {})
+
+    def test_wartet_auf_schiffe_und_haelt_sie_zurueck(self):
+        api = self.drei_inseln()
+        api.ov[0]["schiffe"] = {"kleines_handelsschiff": 1}
+        api.fleets.append({"id": 5, "mission": "attack", "origin_island_id": 447,
+                           "target": {"x": 1, "y": 1, "z": 1}, "ships": {"grosses_handelsschiff": 3},
+                           "state": "returning", "arrive_at": VERGANGEN})
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
+        m.tick()
+        self.assertEqual(self.lieferungen(api), {})
+        self.assertIn(447, m.ausgleich.reserviert)
+        self.assertEqual(m.vorrat_fuer_raids(447, api.ov[0]).get("kleines_handelsschiff"), 0)
+
+    def test_neue_insel_erbt_einstellung(self):
+        api = self.drei_inseln()
+        m, st = self.manager(api)
+        st.insel(581)["ausgleich"].update(gibt=True, bekommt=True, ziel=0.6)
+        api.ov.append(insel(184, "GiG 5", "48:54:12", (0, 0, 0, 1000)))
+        m._overview_zeit = 0
+        m.overview()
+        self.assertEqual(st.insel(184)["ausgleich"]["ziel"], 0.6)
+        self.assertTrue(st.insel(184)["ausgleich"]["bekommt"])
+
+
+if __name__ == "__main__":
+    unittest.main()
