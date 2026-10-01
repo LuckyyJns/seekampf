@@ -437,7 +437,7 @@
   <a href="#gesundheit" data-tab="gesundheit"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Gesundheit<span class="dot" id="nav-dot-gesundheit"></span></a>
   <div class="rubrik">Bots</div>
   <a href="#flotte" data-tab="flotte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/></svg>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
-  <a href="#ausgleich" data-tab="ausgleich"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13"/><path d="M14 4l3 3-3 3"/><path d="M20 17H7"/><path d="M10 14l-3 3 3 3"/></svg>Rohstoff-Ausgleich</a>
+  <a href="#ausgleich" data-tab="ausgleich"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13"/><path d="M14 4l3 3-3 3"/><path d="M20 17H7"/><path d="M10 14l-3 3 3 3"/></svg>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
   <a href="#upgrade" data-tab="upgrade"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M12 11v.01"/></svg>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
   <a href="#allianz" data-tab="allianz"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M15.5 14.8c2.6-.3 4.8 1.4 5.5 4.7"/></svg>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
   <div class="fuss">
@@ -2485,6 +2485,17 @@ function zeichneAusgleich() {
       <td class="zahl">${x.ankunft && x.ankunft > jetzt() ? `<b>${countdown(x.ankunft, "angekommen")}</b>` : uhrzeit(x.ankunft)}</td></tr>`).join("")}
       </tbody></table></div>` : `<div class="leise klein-text">noch keine Lieferung</div>`;
 }
+/** Menüpunkt: grün = liefert, gelb = an, aber blockiert, grau = aus, rot = nicht erreichbar. */
+function ausgleichPunkt(a, fehler) {
+  const dot = $("nav-dot-ausgleich");
+  let klasse = "", titel = "ausgeschaltet";
+  if (fehler) { klasse = "schlecht"; titel = "Flotten-Manager nicht erreichbar"; }
+  else if (a.aktiv && !a.laeuft) { klasse = "warn"; titel = "an, aber der Flotten-Manager ist gestoppt"; }
+  else if (a.aktiv && a.hinweis) { klasse = "warn"; titel = a.hinweis; }
+  else if (a.aktiv) { klasse = "gut"; titel = "aktiv"; }
+  dot.className = `dot ${klasse}`;
+  dot.title = titel;
+}
 async function ausgleichHolen() {
   const box = $("aus-fehler");
   try {
@@ -2493,8 +2504,10 @@ async function ausgleichHolen() {
   } catch (e) {
     box.hidden = false;
     box.textContent = `Flotten-Manager nicht erreichbar: ${e.message}`;
+    ausgleichPunkt(null, true);
     return;
   }
+  ausgleichPunkt(ausgleich, false);
   if (tab === "ausgleich") zeichneAusgleich();
 }
 $("aus-inseln").addEventListener("click", async (e) => {
@@ -2648,8 +2661,9 @@ setInterval(() => {
   if (tab === "karte") flotteHolen();
   if (tab === "ausgleich") ausgleichHolen();
 }, 3000);
-setInterval(() => gesundheitHolen(), 20000);
+setInterval(() => { gesundheitHolen(); if (tab !== "ausgleich") ausgleichHolen(); }, 20000);
 gesundheitHolen();
+ausgleichHolen();
 setInterval(() => { if (tab === "karte") angriffeHolen(); }, 20000);
 setInterval(() => { if (tab === "karte") karteHolen(); }, 300000);
 setInterval(dienstHolen, 5000);
