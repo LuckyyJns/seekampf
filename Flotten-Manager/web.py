@@ -135,6 +135,8 @@ def status():
             "bedrohung": bool(ov.get("bedrohung_im_anflug")),
             "freie_flotten": manager._freie_flotten(iid, ov) if ov else 0,
             "ausgleich": insel.get("ausgleich") or {},
+            # Eigene Werte der Insel; was fehlt, gilt global (settings).
+            "einstellungen": insel.get("einstellungen") or {},
             "handel_reserviert": iid in manager.ausgleich.reserviert,
             "stats": _stats_ausgabe(insel["stats"]),
             "letzter_scan": insel.get("letzter_scan"),
@@ -152,6 +154,7 @@ def status():
         "flotten": flotten,
         "inseln": inseln,
         "settings": daten["settings"],
+        "insel_einstellungen": list(config.INSEL_EINSTELLUNGEN),
     }
 
 
@@ -216,6 +219,26 @@ def einstellungen(payload: dict = Body(...)):
         log.info("Einstellungen geaendert: %s",
                  ", ".join(f"{k}={v}" for k, v in geaendert.items()))
     return {"geaendert": geaendert, "settings": state.settings}
+
+
+@app.post("/api/inseln/{insel_id}/einstellungen")
+def insel_einstellungen(insel_id: int, payload: dict = Body(...)):
+    """Eigene Einstellungen einer Insel (Flottenaufbau, Radius ...). Ein leerer
+    Wert nimmt wieder den globalen. Aendert sich der Radius, wird beim naechsten
+    Takt neu gescannt."""
+    vorher = state.insel_settings(insel_id)["scan_radius_sektoren"] if state.insel(insel_id) else None
+    try:
+        eigene = state.update_insel_settings(insel_id, payload)
+    except KeyError:
+        raise HTTPException(404, f"Insel {insel_id} ist nicht bekannt")
+    insel = state.insel(insel_id)
+    if state.insel_settings(insel_id)["scan_radius_sektoren"] != vorher:
+        with state.lock:
+            insel["letzter_scan"] = 0
+        state.save()
+    log.info("Seekampf-Hub: Einstellungen %s: %s", insel.get("name") or insel_id,
+             ", ".join(f"{k}={v}" for k, v in eigene.items()) or "alle global")
+    return {"id": insel_id, "einstellungen": eigene, "wirksam": state.insel_settings(insel_id)}
 
 
 @app.post("/api/inseln/{insel_id}/scan")

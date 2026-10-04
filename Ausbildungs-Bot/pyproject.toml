@@ -1,0 +1,12 @@
+[project]
+name = "seekampf-ausbildungs-bot"
+version = "0.1.0"
+description = "Haelt die Truppen je Insel auf Soll (Seekampf.de)"
+requires-python = ">=3.12"
+dependencies = [
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "tzdata>=2024.1",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]

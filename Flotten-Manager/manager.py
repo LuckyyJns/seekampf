@@ -27,7 +27,7 @@ import config
 import geo
 import scanner
 from api_client import ApiError
-from ausgleich import Ausgleich
+from ausgleich import Ausgleich, reserve_lesen
 from state import neue_insel
 
 log = logging.getLogger("seekampf_flotten_manager")
@@ -123,9 +123,13 @@ class FlottenManager:
     def settings(self) -> dict:
         return self.state.settings
 
-    def flotte_bedarf(self) -> list[tuple[tuple[str, ...], int]]:
-        """Was eine Flotte an Schiffen braucht: je Klasse eine Anzahl."""
-        s = self.settings
+    def s(self, insel_id) -> dict:
+        """Die fuer diese Insel wirksamen Einstellungen (eigene vor globalen)."""
+        return self.state.insel_settings(insel_id)
+
+    def flotte_bedarf(self, insel_id) -> list[tuple[tuple[str, ...], int]]:
+        """Was eine Flotte dieser Insel an Schiffen braucht: je Klasse eine Anzahl."""
+        s = self.s(insel_id)
         handel = config.HANDELSSCHIFF_TYPEN
         if not s["grosse_handelsschiffe"]:
             handel = tuple(t for t in handel if t != "grosses_handelsschiff")
@@ -149,9 +153,14 @@ class FlottenManager:
         if insel_id in self.ausgleich.reserviert:
             for typ in config.HANDELSSCHIFF_TYPEN:
                 bestand[typ] = 0
+        # Kriegsschiffe, die der Ausbildungs-Bot gerade fuer einen Truppentransport braucht.
+        transport = reserve_lesen(config.AUSBILDUNG_RESERVE_PATH, "kriegsschiffe").get(str(insel_id))
+        for typ, n in (transport or {}).items():
+            if typ in bestand:
+                bestand[typ] = max(0, int(bestand[typ] or 0) - int(n or 0))
         return bestand
 
-    def flotte_ships(self, vorrat: dict | None = None) -> dict:
+    def flotte_ships(self, insel_id, vorrat: dict | None = None) -> dict:
         """Die Schiffe EINER Flotte, mit konkreten Typen.
 
         Die Einstellung gibt nur vor, wie viele Kriegs- und Handelsschiffe
@@ -160,7 +169,7 @@ class FlottenManager:
         reicht der Bestand nicht fuer eine vollstaendige Flotte, kommt {}.
         """
         ships: dict[str, int] = {}
-        for typen, anzahl in self.flotte_bedarf():
+        for typen, anzahl in self.flotte_bedarf(insel_id):
             if anzahl <= 0:
                 continue
             gewaehlt = waehle_schiffe(typen, anzahl, vorrat)
@@ -169,8 +178,8 @@ class FlottenManager:
             ships.update(gewaehlt)
         return ships
 
-    def flotte_units(self) -> dict:
-        s = self.settings
+    def flotte_units(self, insel_id) -> dict:
+        s = self.s(insel_id)
         return {s["flotte_einheit_typ"]: int(s["flotte_einheiten"])} if s["flotte_einheiten"] > 0 else {}
 
     def overview(self, max_alter: float = 15.0) -> dict[int, dict]:
@@ -248,7 +257,8 @@ class FlottenManager:
             raise ApiError(0, "insel_unbekannt", f"Insel {insel_id} gehoert nicht zum Konto")
         # Fuer die Fahrzeiten zaehlt, was gerade wirklich faehrt; ist nichts
         # daheim, tut es die Wunschbesetzung als Schaetzung.
-        ships = self.flotte_ships(self.vorrat(self.insel_ov(insel_id))) or self.flotte_ships()
+        ships = (self.flotte_ships(insel_id, self.vorrat(self.insel_ov(insel_id)))
+                 or self.flotte_ships(insel_id))
         return scanner.scan(self.client, self.state, insel_id, heimat, ships)
 
     # ------------------------------------------------------------------- Tick
@@ -288,7 +298,7 @@ class FlottenManager:
             ov = alles[iid]
             if self._bedrohung_behandeln(iid, insel, ov, flotten_api, jetzt):
                 continue
-            if self._lager_voll(ov):
+            if self._lager_voll(iid, ov):
                 self._insel_pause(insel, "Lager voll - Beute waere verschenkt")
                 continue
             self._losschicken(iid, insel, jetzt)
@@ -361,6 +371,8 @@ class FlottenManager:
         gesehen = set()
 
         for f in flotten_api:
+            if (f.get("ships") or {}).get("kolonisationsschiff"):
+                continue  # Sache des Kolonisations-Bots, kein Raid
             fid = str(f.get("id"))
             gesehen.add(fid)
             rec = aktiv.get(fid)
@@ -633,9 +645,10 @@ class FlottenManager:
         ziel["niederlagen"] += 1
         ziel["niederlagen_gesamt"] += 1
         ziel["letzte_beute"] = beute
-        grenze = int(self.settings["niederlagen_bis_blacklist"])
+        s = self.s(iid)
+        grenze = int(s["niederlagen_bis_blacklist"])
         if ziel["niederlagen"] >= grenze:
-            tage = float(self.settings["blacklist_tage"])
+            tage = float(s["blacklist_tage"])
             ziel["blacklist_bis"] = time.time() + tage * 86400
             ziel["blacklist_grund"] = f"{ziel['niederlagen']} Niederlagen in Folge (Garnison?)"
             ziel["niederlagen"] = 0
@@ -690,7 +703,7 @@ class FlottenManager:
         kehren immer zu ihrer Ausgangsinsel zurueck) und keine neuen losschicken."""
         if not ov.get("bedrohung_im_anflug"):
             return False
-        if not self.settings["rueckruf_bei_bedrohung"]:
+        if not self.s(insel_id)["rueckruf_bei_bedrohung"]:
             self._insel_pause(insel, "Bedrohung im Anflug (Rueckruf abgeschaltet)")
             return True
         for f in flotten_api:
@@ -715,17 +728,17 @@ class FlottenManager:
         self._insel_pause(insel, "Bedrohung im Anflug - Flotten bleiben daheim")
         return True
 
-    def _lager_voll(self, ov: dict) -> bool:
+    def _lager_voll(self, insel_id, ov: dict) -> bool:
         res = ov.get("rohstoffe") or {}
         kapazitaet = float(res.get("kapazitaet") or 0)
         if kapazitaet <= 0:
             return False
-        grenze = kapazitaet * float(self.settings["lager_voll_schwelle"])
+        grenze = kapazitaet * float(self.s(insel_id)["lager_voll_schwelle"])
         return all(float(res.get(r, 0) or 0) >= grenze for r in config.RESOURCE_KEYS)
 
     # --------------------------------------------------------------- Scan/Report
     def _scan_wenn_faellig(self, insel_id: int, insel: dict, jetzt: float) -> None:
-        intervall = float(self.settings["scan_intervall_stunden"]) * 3600
+        intervall = float(self.s(insel_id)["scan_intervall_stunden"]) * 3600
         letzter = insel.get("letzter_scan") or 0
         if (intervall > 0 and jetzt - letzter >= intervall) or (not insel["ziele"] and not letzter):
             try:
@@ -753,13 +766,13 @@ class FlottenManager:
         # Je Klasse zaehlt die Summe ueber alle Typen: ein kleines und ein
         # grosses Handelsschiff sind zwei Handelsschiffe.
         reicht_fuer = [sum(int(vorrat.get(t, 0) or 0) for t in typen) // anzahl
-                       for typen, anzahl in self.flotte_bedarf() if anzahl > 0]
+                       for typen, anzahl in self.flotte_bedarf(insel_id) if anzahl > 0]
         reicht_fuer += [int(vorrat.get(typ, 0) or 0) // anzahl
-                        for typ, anzahl in self.flotte_units().items()]
+                        for typ, anzahl in self.flotte_units(insel_id).items()]
         if not reicht_fuer:
             return 0
         moeglich = min(reicht_fuer)
-        grenze = int(self.settings["max_flotten"])
+        grenze = int(self.s(insel_id)["max_flotten"])
         if grenze > 0:
             moeglich = min(moeglich, grenze - len(self._flotten_von(insel_id)))
         return max(0, moeglich)
@@ -793,7 +806,8 @@ class FlottenManager:
         Vier Flotten mit Stein unterwegs heben Stein rechnerisch so weit an,
         dass die fuenfte von selbst etwas anderes holt.
         """
-        modus = str(self.settings["rohstoff_modus"])
+        s = self.s(insel_id)
+        modus = str(s["rohstoff_modus"])
         if modus in config.RESOURCE_KEYS:
             return modus
         if modus == "gleichmaessig":
@@ -801,7 +815,7 @@ class FlottenManager:
 
         res = ov.get("rohstoffe") or {}
         kapazitaet = float(res.get("kapazitaet") or 0)
-        ladung = geo.ladevolumen(ships if ships is not None else self.flotte_ships())
+        ladung = geo.ladevolumen(ships if ships is not None else self.flotte_ships(insel_id))
         erwartet = {r: float(res.get(r, 0) or 0) for r in config.RESOURCE_KEYS}
         for rec in self._flotten_von(insel_id):
             if rec.get("angekommen") and rec.get("loot"):
@@ -815,14 +829,14 @@ class FlottenManager:
                     erwartet[r] += fracht / len(config.RESOURCE_KEYS)
 
         if kapazitaet > 0:
-            grenze = kapazitaet * float(self.settings["lager_voll_schwelle"])
+            grenze = kapazitaet * float(s["lager_voll_schwelle"])
             kandidaten = {r: v for r, v in erwartet.items() if v < grenze}
             if not kandidaten:
                 return None
             # Liegt alles dicht beieinander, bringt Priorisieren nichts - dann
             # lieber gleichmaessig und dafuer die volle Ladung.
             if max(erwartet.values()) - min(erwartet.values()) < float(
-                    self.settings["ausgleich_schwelle"]) * kapazitaet:
+                    s["ausgleich_schwelle"]) * kapazitaet:
                 return None
         else:
             kandidaten = erwartet
@@ -884,7 +898,7 @@ class FlottenManager:
         # Belegt sind Ziele, die IRGENDEINE eigene Flotte gerade anfaehrt -
         # zwei eigene Inseln greifen nie gleichzeitig dasselbe Ziel an.
         belegt = {rec["koordinaten"] for rec in self.state.data["flotten"].values()}
-        units = self.flotte_units()
+        units = self.flotte_units(insel_id)
         # Was noch im Hafen liegt. Jede losgeschickte Flotte wird abgezogen,
         # damit die naechste nicht dieselben Schiffe einplant.
         rest = self.vorrat_fuer_raids(insel_id, ov)
@@ -893,7 +907,7 @@ class FlottenManager:
         for _ in itertools.repeat(None, versuche):
             if offen <= 0:
                 break
-            ships = self.flotte_ships(rest)
+            ships = self.flotte_ships(insel_id, rest)
             if not ships:
                 break  # Bestand reicht nicht mehr fuer eine volle Flotte
             ziel = self._naechstes_ziel(insel, belegt)
@@ -915,7 +929,7 @@ class FlottenManager:
                 "target": {"x": ziel["x"], "y": ziel["y"], "z": ziel["z"]},
                 "ships": ships,
                 "units": units,
-                "razzia_ziel": self.settings["razzia_ziel"] or None,
+                "razzia_ziel": self.s(insel_id)["razzia_ziel"] or None,
             }
             if prio:
                 payload["razzia_prioritaet"] = prio

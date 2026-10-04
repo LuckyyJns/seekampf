@@ -1,0 +1,8 @@
+[Unit]
+Description=Telegram-Alarm, wenn der Seekampf Kolonisations-Bot ausfaellt
+
+[Service]
+Type=oneshot
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Kolonisations-Bot
+ExecStart=/home/jannishoy/Seekampf/Kolonisations-Bot/.venv/bin/python /home/jannishoy/Seekampf/Kolonisations-Bot/alert.py "systemd hat seekampf-kolonisations-bot.service als fehlgeschlagen markiert - die Kolonisations-Warteschlange steht still."

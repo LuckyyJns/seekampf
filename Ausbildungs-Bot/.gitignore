@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+logs/
+.venv/
+# Laufzeitzustand (Zielliste, Statistik, laufende Flotten) gehoert nicht ins Repo.
+data/

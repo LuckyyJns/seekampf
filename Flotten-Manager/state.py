@@ -56,6 +56,8 @@ def neue_insel(name: str = "", koordinaten: str = "", aktiv: bool = False) -> di
         "pause_grund": None,
         # Rohstoff-Ausgleich: gibt/bekommt + eigene Grenzen (siehe ausgleich.einstellung)
         "ausgleich": {"gibt": False, "bekommt": False, "ziel": None, "reserve": None, "max_abgabe": 0},
+        # Eigene Werte fuer config.INSEL_EINSTELLUNGEN; was fehlt, gilt global.
+        "einstellungen": {},
         "stats": _leere_stats(),
     }
 
@@ -115,6 +117,8 @@ class State:
             stats = _leere_stats()
             stats.update(insel.get("stats") or {})
             insel["stats"] = stats
+            eigene = insel.get("einstellungen") or {}
+            insel["einstellungen"] = {k: v for k, v in eigene.items() if k in config.INSEL_EINSTELLUNGEN}
 
         # Neue Einstellungen aus config ergaenzen, bestehende nicht ueberschreiben.
         # Abgeschaffte Schluessel fallen dabei raus (z. B. die frueher fest
@@ -173,25 +177,33 @@ class State:
     def settings(self) -> dict:
         return self.data["settings"]
 
+    @staticmethod
+    def _umwandeln(key: str, wert):
+        """Wert in den Typ des Standardwerts bringen - die Weboberflaeche
+        schickt alles als Text. ValueError, wenn das nicht geht."""
+        standard = config.DEFAULT_SETTINGS[key]
+        if isinstance(standard, bool):
+            return wert if isinstance(wert, bool) else str(wert).lower() in ("1", "true", "ja", "on")
+        try:
+            if isinstance(standard, int):
+                return int(wert)
+            if isinstance(standard, float):
+                return float(wert)
+        except (TypeError, ValueError) as e:
+            raise ValueError(str(e)) from e
+        return str(wert)
+
     def update_settings(self, neu: dict) -> dict:
         """Uebernimmt nur bekannte Schluessel und erzwingt den Typ des
-        Standardwerts - die Weboberflaeche schickt alles als Text."""
+        Standardwerts."""
         geaendert = {}
         with self.lock:
             for key, wert in (neu or {}).items():
                 if key not in config.DEFAULT_SETTINGS:
                     continue
-                standard = config.DEFAULT_SETTINGS[key]
                 try:
-                    if isinstance(standard, bool):
-                        wert = wert if isinstance(wert, bool) else str(wert).lower() in ("1", "true", "ja", "on")
-                    elif isinstance(standard, int):
-                        wert = int(wert)
-                    elif isinstance(standard, float):
-                        wert = float(wert)
-                    else:
-                        wert = str(wert)
-                except (TypeError, ValueError):
+                    wert = self._umwandeln(key, wert)
+                except ValueError:
                     continue
                 if self.settings.get(key) != wert:
                     self.settings[key] = wert
@@ -199,6 +211,37 @@ class State:
         if geaendert:
             self.save()
         return geaendert
+
+    def insel_settings(self, insel_id) -> dict:
+        """Die fuer diese Insel wirksamen Einstellungen: global, ueberlagert
+        von dem, was die Insel selbst setzt."""
+        wirksam = dict(self.settings)
+        insel = self.insel(insel_id)
+        if insel is not None:
+            wirksam.update(insel.get("einstellungen") or {})
+        return wirksam
+
+    def update_insel_settings(self, insel_id, neu: dict) -> dict:
+        """Eigene Werte einer Insel setzen. Leer (None/"") heisst: wieder den
+        globalen Wert nehmen. Rueckgabe: die eigenen Werte danach."""
+        with self.lock:
+            insel = self.insel(insel_id)
+            if insel is None:
+                raise KeyError(insel_id)
+            eigene = insel.setdefault("einstellungen", {})
+            for key, wert in (neu or {}).items():
+                if key not in config.INSEL_EINSTELLUNGEN:
+                    continue
+                if wert is None or (isinstance(wert, str) and not wert.strip()):
+                    eigene.pop(key, None)
+                    continue
+                try:
+                    eigene[key] = self._umwandeln(key, wert)
+                except ValueError:
+                    continue
+            ergebnis = dict(eigene)
+        self.save()
+        return ergebnis
 
     # ------------------------------------------------------------------ Inseln
     def insel(self, insel_id) -> dict | None:

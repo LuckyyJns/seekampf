@@ -47,6 +47,8 @@ SEEKAMPF_DIR = os.path.dirname(BASE_DIR)
 HOST = os.environ.get("HUB_HOST", "0.0.0.0")
 PORT = int(os.environ.get("HUB_PORT", "8080"))
 FLOTTE_URL = os.environ.get("FLOTTEN_MANAGER_URL", "http://127.0.0.1:8081")
+KOLONIE_URL = os.environ.get("KOLONISATIONS_BOT_URL", "http://127.0.0.1:8082")
+AUSBILDUNG_URL = os.environ.get("AUSBILDUNGS_BOT_URL", "http://127.0.0.1:8083")
 
 BOTS = {
     "flotte": {"titel": "Flotten-Manager", "dienst": "seekampf-flotten-manager.service",
@@ -55,13 +57,18 @@ BOTS = {
                 "ordner": os.path.join(SEEKAMPF_DIR, "Upgrade-Bot"), "log": "bot"},
     "allianz": {"titel": "Allianz-Bot", "dienst": "seekampf-allianz-bot.service",
                 "ordner": os.path.join(SEEKAMPF_DIR, "Allianz-Bot"), "log": "allianz"},
+    "kolonie": {"titel": "Kolonisations-Bot", "dienst": "seekampf-kolonisations-bot.service",
+                "ordner": os.path.join(SEEKAMPF_DIR, "Kolonisations-Bot"), "log": "kolonie"},
+    "ausbildung": {"titel": "Ausbildungs-Bot", "dienst": "seekampf-ausbildungs-bot.service",
+                   "ordner": os.path.join(SEEKAMPF_DIR, "Ausbildungs-Bot"), "log": "ausbildung"},
     "hub": {"titel": "Seekampf-Hub", "dienst": "seekampf-hub.service",
                   "ordner": BASE_DIR, "log": None},
 }
 # Was sudoers erlaubt - der Seekampf-Hub selbst laesst sich nur neu starten, sonst
 # saegte man den Ast ab, auf dem die Seite sitzt.
 AKTIONEN = {"flotte": ("start", "stop", "restart"), "upgrade": ("start", "stop", "restart"),
-            "allianz": ("start", "stop", "restart"), "hub": ("restart",)}
+            "allianz": ("start", "stop", "restart"), "kolonie": ("start", "stop", "restart"),
+            "ausbildung": ("start", "stop", "restart"), "hub": ("restart",)}
 
 # Gebaeude, die der Upgrade-Bot bauen kann (Labor und Marktplatz sind im Spiel abgeschaltet).
 GEBAEUDE = ("haupthaus", "goldmine", "steingrube", "saegewerk", "lagerhaus",
@@ -231,20 +238,36 @@ def log_lesen(bot: str, zeilen: int = 200):
     return {"datei": os.path.basename(dateien[-1]), "zeilen": [z.rstrip() for z in inhalt[-zeilen:]]}
 
 
-# ------------------------------------------------------------ Flotten-Manager
+# ------------------------------------------- Bots mit eigener JSON-Schnittstelle
 _http = httpx.AsyncClient(base_url=FLOTTE_URL, timeout=60.0)
+_http_kolonie = httpx.AsyncClient(base_url=KOLONIE_URL, timeout=30.0)
+_http_ausbildung = httpx.AsyncClient(base_url=AUSBILDUNG_URL, timeout=30.0)
+
+
+async def _weiterreichen(client: httpx.AsyncClient, titel: str, pfad: str, request: Request) -> Response:
+    try:
+        antwort = await client.request(
+            request.method, f"/api/{pfad}", params=request.query_params,
+            content=await request.body(), headers={"Content-Type": "application/json"})
+    except httpx.HTTPError as e:
+        raise HTTPException(503, f"{titel} nicht erreichbar ({type(e).__name__})") from e
+    return Response(antwort.content, status_code=antwort.status_code,
+                    media_type=antwort.headers.get("content-type", "application/json"))
 
 
 @app.api_route("/api/flotte/{pfad:path}", methods=["GET", "POST"])
 async def flotte(pfad: str, request: Request):
-    try:
-        antwort = await _http.request(
-            request.method, f"/api/{pfad}", params=request.query_params,
-            content=await request.body(), headers={"Content-Type": "application/json"})
-    except httpx.HTTPError as e:
-        raise HTTPException(503, f"Flotten-Manager nicht erreichbar ({type(e).__name__})") from e
-    return Response(antwort.content, status_code=antwort.status_code,
-                    media_type=antwort.headers.get("content-type", "application/json"))
+    return await _weiterreichen(_http, "Flotten-Manager", pfad, request)
+
+
+@app.api_route("/api/kolonie/{pfad:path}", methods=["GET", "POST"])
+async def kolonie(pfad: str, request: Request):
+    return await _weiterreichen(_http_kolonie, "Kolonisations-Bot", pfad, request)
+
+
+@app.api_route("/api/ausbildung/{pfad:path}", methods=["GET", "POST"])
+async def ausbildung(pfad: str, request: Request):
+    return await _weiterreichen(_http_ausbildung, "Ausbildungs-Bot", pfad, request)
 
 
 # ------------------------------------------------------------------ Upgrade
@@ -394,12 +417,15 @@ def allianz_befehl(payload: dict = Body(...)):
 # --------------------------------------------------------------- Gesundheit
 @app.get("/api/gesundheit")
 async def gesundheit_daten():
-    try:
-        antwort = await _http.get("/api/status", timeout=5.0)
-        flotte_status = antwort.json() if antwort.status_code == 200 else None
-    except (httpx.HTTPError, ValueError):
-        flotte_status = None
-    return gesundheit.berechnen(BOTS, flotte_status, _dienst_status)
+    async def status(client):
+        try:
+            antwort = await client.get("/api/status", timeout=5.0)
+            return antwort.json() if antwort.status_code == 200 else None
+        except (httpx.HTTPError, ValueError):
+            return None
+    return gesundheit.berechnen(BOTS, await status(_http), _dienst_status,
+                                {"kolonie": await status(_http_kolonie),
+                                 "ausbildung": await status(_http_ausbildung)})
 
 
 # -------------------------------------------------------------------- Karte

@@ -1,0 +1,8 @@
+[Unit]
+Description=Telegram-Alarm, wenn der Seekampf Ausbildungs-Bot ausfaellt
+
+[Service]
+Type=oneshot
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Ausbildungs-Bot
+ExecStart=/home/jannishoy/Seekampf/Ausbildungs-Bot/.venv/bin/python /home/jannishoy/Seekampf/Ausbildungs-Bot/alert.py "systemd hat seekampf-ausbildungs-bot.service als fehlgeschlagen markiert - es wird nichts mehr ausgebildet oder verlegt."

@@ -14,5 +14,11 @@ Cmnd_Alias SEEKAMPF_DIENSTE = \
     /usr/bin/systemctl start seekampf-allianz-bot.service, \
     /usr/bin/systemctl stop seekampf-allianz-bot.service, \
     /usr/bin/systemctl restart seekampf-allianz-bot.service, \
+    /usr/bin/systemctl start seekampf-kolonisations-bot.service, \
+    /usr/bin/systemctl stop seekampf-kolonisations-bot.service, \
+    /usr/bin/systemctl restart seekampf-kolonisations-bot.service, \
+    /usr/bin/systemctl start seekampf-ausbildungs-bot.service, \
+    /usr/bin/systemctl stop seekampf-ausbildungs-bot.service, \
+    /usr/bin/systemctl restart seekampf-ausbildungs-bot.service, \
     /usr/bin/systemctl restart seekampf-hub.service
 jannishoy ALL=(root) NOPASSWD: SEEKAMPF_DIENSTE

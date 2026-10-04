@@ -35,6 +35,15 @@ gegenseitig aus), eigene Grenzen (auffüllen bis, behält mindestens, max. je
 Lieferung), Bestand, Unterwegs, Bedarf bzw. Überschuss; die letzten Lieferungen. Die Logik
 läuft im Flotten-Manager (`Flotten-Manager/ausgleich.py`).
 
+## Kolonisation und Ausbildung
+
+Menüpunkte **Kolonisation** (Warteschlange freier Inseln, Bau-Inseln,
+Verlauf; Code `Kolonisations-Bot/`) und **Ausbildung** (Soll-Truppen je Insel
+und Einheit; Code `Ausbildungs-Bot/`). Beide Bots haben wie der
+Flotten-Manager eine eigene Schnittstelle (8082 bzw. 8083), der Hub reicht
+`/api/kolonie/...` und `/api/ausbildung/...` durch. Auf der Karte hat jede
+freie Insel den Knopf „Zur Kolonisation“.
+
 ## Karte
 
 Menüpunkt **Karte**: die ganze Welt (100 × 100 Sektoren) statt der 3 × 3
@@ -89,6 +98,7 @@ erreichbar und zeigt das an.
 | Bot | Weg |
 | --- | --- |
 | Flotten-Manager | eigene JSON-Schnittstelle auf `127.0.0.1:8081`, der Seekampf-Hub reicht `/api/flotte/...` durch |
+| Kolonisations-Bot, Ausbildungs-Bot | ebenso auf `127.0.0.1:8082` / `8083`, durchgereicht unter `/api/kolonie/...` / `/api/ausbildung/...` |
 | Upgrade-Bot, Allianz-Bot | Dateien in `data/` des Bots: `steuerung.json` (schreibt der Seekampf-Hub), `befehle/*.json` (führt der Bot aus und löscht sie), `status.json` (schreibt der Bot) |
 | systemd | Status per `systemctl show`; Starten/Stoppen/Neustarten per `sudo`, erlaubt nur über `seekampf-hub.sudoers` |
 
@@ -115,7 +125,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now seekampf-hub
 ```
 
-Die sudo-Regel erlaubt genau Start/Stopp/Neustart der drei Bots und den
+Die sudo-Regel erlaubt genau Start/Stopp/Neustart der fünf Bots und den
 Neustart des Seekampf-Hubs – ohne Platzhalter und ohne gespeichertes Passwort.
 
 ## Dateien

@@ -46,6 +46,19 @@ LIEFERUNGEN_MERKEN = 40
 LAGER_DECKE = 0.95  # nie ueber diesen Anteil auffuellen - der Rest waere verschenkt
 
 
+def reserve_lesen(pfad: str, feld: str) -> dict[str, dict]:
+    """Reservierung eines anderen Bots (Insel-ID -> {Name: Menge}); leer, wenn
+    die Datei fehlt oder veraltet ist (Bot aus)."""
+    try:
+        with open(pfad, encoding="utf-8") as f:
+            daten = json.load(f)
+        if time.time() - float(daten.get("zeit") or 0) > config.RESERVE_MAX_ALTER_S:
+            return {}
+        return {str(k): v for k, v in (daten.get(feld) or {}).items() if isinstance(v, dict)}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+
+
 def leerer_stand() -> dict:
     return {"fahrten": 0, "geliefert": {r: 0.0 for r in config.RESOURCE_KEYS},
             "lieferungen": [], "warten_seit": {}}
@@ -162,6 +175,7 @@ class Ausgleich:
         inseln = self.m.state.data["inseln"]
         unterwegs = self.unterwegs(flotten_api)
         plaene = self.upgrade_plaene() if s["ausgleich_upgrade_bedarf"] else {}
+        kolo = reserve_lesen(config.KOLO_RESERVE_PATH, "inseln")
 
         bericht: dict[str, dict] = {}
         nehmer, geber = [], []
@@ -197,6 +211,8 @@ class Ausgleich:
                 grenze = kap * reserve
                 if e["bekommt"]:
                     grenze = max(grenze, soll)  # nie abgeben, was sie selbst haben will
+                # Was der Kolonisations-Bot hier fuer ein Schiff anspart, bleibt da.
+                grenze = max(grenze, float((kolo.get(iid_text) or {}).get(r, 0) or 0))
                 eintrag["grenze"][r] = grenze
                 if e["gibt"]:
                     # Was dem eigenen naechsten Ausbau fehlt, bleibt ganz da.

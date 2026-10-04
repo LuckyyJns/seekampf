@@ -1,0 +1,20 @@
+[Unit]
+Description=Seekampf Kolonisations-Bot (Warteschlange freier Inseln)
+After=network-online.target
+Wants=network-online.target
+# Bei einer Absturzschleife nach 5 Starts in 10 Minuten aufgeben, statt endlos
+# neu zu starten - erst dann gilt der Dienst als "failed".
+StartLimitIntervalSec=600
+StartLimitBurst=5
+OnFailure=seekampf-kolonisations-bot-alert.service
+
+[Service]
+Type=simple
+User=jannishoy
+WorkingDirectory=/home/jannishoy/Seekampf/Kolonisations-Bot
+ExecStart=/home/jannishoy/Seekampf/Kolonisations-Bot/.venv/bin/python /home/jannishoy/Seekampf/Kolonisations-Bot/web.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

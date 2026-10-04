@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from collections import deque
@@ -18,6 +19,7 @@ from planner import (
     choose_upgrade,
     collect_candidates,
     missing_resources,
+    nur_niedrige,
     projected_levels,
     rejection_reason,
     resource_gain,
@@ -75,6 +77,29 @@ def _stop_low_priority(store, key: str) -> None:
 def _usable_resources(resources: dict) -> dict:
     """Fuer Ausbau-Entscheidungen nutzbare Rohstoffe: der komplette Lagerstand."""
     return {r: float(resources.get(r, 0.0) or 0.0) for r in config.RESOURCE_KEYS}
+
+
+def _kolo_reserve(island_id) -> dict:
+    """Was der Kolonisations-Bot auf dieser Insel fuer ein Schiff anspart."""
+    try:
+        with open(config.KOLO_RESERVE_PATH, encoding="utf-8") as f:
+            daten = json.load(f)
+        if time.time() - float(daten.get("zeit") or 0) > config.KOLO_RESERVE_MAX_ALTER_S:
+            return {}
+        eintrag = (daten.get("inseln") or {}).get(str(island_id)) or {}
+        return {r: float(eintrag.get(r, 0) or 0) for r in config.RESOURCE_KEYS}
+    except (OSError, ValueError, TypeError, AttributeError):
+        return {}
+
+
+def _ohne_reserve(resources: dict, reserve: dict) -> dict:
+    """Lagerstand abzueglich der Kolonisations-Reserve - nur damit wird geplant."""
+    if not reserve:
+        return resources
+    aus = dict(resources)
+    for r in config.RESOURCE_KEYS:
+        aus[r] = max(0.0, float(resources.get(r, 0) or 0) - reserve.get(r, 0.0))
+    return aus
 
 
 def _lager_key(buildings: list) -> str | None:
@@ -254,7 +279,7 @@ def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key:
         parts.append("aktuell ist kein Ausbau in Sicht")
 
     low_payable = [n for n in payable if n in config.LOW_PRIORITY_BUILDINGS]
-    if low_payable and not allow_low:
+    if low_payable and not allow_low and not nur_niedrige(candidates):
         low_names = "/".join(config.LOW_PRIORITY_BUILDINGS)
         release = _low_priority_release_in(key, queue_empty, now_ts)
         if release is not None:
@@ -431,7 +456,9 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
         free_slots = 0  # nichts Neues starten, laufende Auftraege laufen weiter
     while free_slots > 0 and acted < config.MAX_UPGRADES_PER_TICK:
         now_dt = datetime.now(TZ)
-        current = _usable_resources(resources)
+        reserve = _kolo_reserve(island_id)
+        planbar = _ohne_reserve(resources, reserve)
+        current = _usable_resources(planbar)
         capacity = float(resources.get("kapazitaet", 0) or 0)
         levels = projected_levels(buildings, active_orders)
         candidates = {n: c for n, c in collect_candidates(buildings, levels).items() if n not in gesperrt}
@@ -454,7 +481,7 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
             if ziel is not None:
                 # Priorisierung: warten, bis das Zielgebaeude bezahlbar ist. Die
                 # Leerlauf-Uhr fuer Steinmauer/Wachturm bleibt dabei unberuehrt.
-                next_hint = _ziel_grund(ziel, candidates, by_typ, resources, now_dt)
+                next_hint = _ziel_grund(ziel, candidates, by_typ, planbar, now_dt)
                 break
             # Die Leerlauf-Uhr fuer Steinmauer/Wachturm laeuft, sobald die
             # Warteschlange leer ist und die Prioritaets-Kaskade nichts
@@ -467,8 +494,10 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
             else:
                 _stop_low_priority(store, key)
             next_hint = _skip_reason(
-                candidates, resources, capacity, store, key, queue_empty, allow_low, now_dt, now, ueberlauf
+                candidates, planbar, capacity, store, key, queue_empty, allow_low, now_dt, now, ueberlauf
             )
+            if reserve:
+                next_hint += f"; Kolonisations-Bot spart hier {_fmt_res(reserve)} an"
             break
 
         _stop_low_priority(store, key)
@@ -530,7 +559,8 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
     ueberlauf, volle = _ueberlauf(resources, verlauf, island_id, jetzt_ts, active_orders)
     plan = None
     if einstellung.get("aktiv", True):
-        plan = _plan(candidates, resources, float(resources.get("kapazitaet", 0) or 0), store, key,
+        plan = _plan(candidates, _ohne_reserve(resources, _kolo_reserve(island_id)),
+                     float(resources.get("kapazitaet", 0) or 0), store, key,
                      len(active_orders) == 0, active_orders, now_dt, jetzt_ts, ziel, ueberlauf)
     if verlauf is not None:
         verlauf.erfassen(island_id, resources, buildings, punkte, len(started), jetzt_ts)

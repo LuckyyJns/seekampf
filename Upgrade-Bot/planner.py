@@ -108,8 +108,17 @@ def _best_by_weight(names, payable: dict, capacity: float, default_weight: float
     return max(choices, key=lambda x: x[0])[1]
 
 
+def nur_niedrige(candidates: dict) -> bool:
+    """True, wenn ausser Steinmauer/Wachturm kein Gebaeude mehr ausbaubar ist -
+    alle anderen stehen auf Hoechststufe, sind im Seekampf-Hub gesperrt oder
+    (noch) nicht verfuegbar. Dann entfaellt die Leerlauf-Wartezeit, sonst kaeme
+    nie wieder etwas in die Warteschlange."""
+    return bool(candidates) and all(n in config.LOW_PRIORITY_BUILDINGS for n in candidates)
+
+
 def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allow_low: bool,
                    ueberlauf: bool = False):
+    allow_low = allow_low or nur_niedrige(candidates)
     payable = {n: c for n, c in candidates.items() if affordable(c["cost"], current)}
 
     # 0. Lager laeuft ueber (gerade voll und in den letzten 24 h schon laenger,
@@ -156,7 +165,7 @@ def rejection_reason(name: str, candidates: dict, capacity: float, allow_low: bo
                      ueberlauf: bool = False) -> str:
     """Warum wurde dieser bezahlbare Kandidat trotzdem nicht gebaut?
     Spiegelt exakt die Regeln aus choose_upgrade wider (fuer die Logausgabe)."""
-    if name in config.LOW_PRIORITY_BUILDINGS and not allow_low:
+    if name in config.LOW_PRIORITY_BUILDINGS and not allow_low and not nur_niedrige(candidates):
         return "niedrige Prioritaet"
     if name == "lagerhaus" and not ueberlauf and not storage_needed(candidates, capacity):
         return (f"noch nicht noetig, kein Ausbau kostet mehr als "

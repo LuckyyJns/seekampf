@@ -9,7 +9,7 @@
 # nicht committet - und ein Dienst sollte dann auch nicht neu gestartet werden.
 set -u
 cd "$(dirname "$0")"
-bots=("${@:-Flotten-Manager Upgrade-Bot Allianz-Bot Seekampf-Hub}")
+bots=("${@:-Flotten-Manager Upgrade-Bot Allianz-Bot Kolonisations-Bot Ausbildungs-Bot Seekampf-Hub}")
 fehler=0
 for bot in ${bots[@]}; do
   if [ ! -d "$bot/tests" ]; then

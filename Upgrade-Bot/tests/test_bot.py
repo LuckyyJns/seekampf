@@ -41,6 +41,55 @@ def statuszeile(t: datetime, insel, lager, kap=1749, prod=(100, 100, 100), gesta
             f"von {kap} | Produktion +{prod[0]}/+{prod[1]}/+{prod[2]} pro h{g} | kein Ausbau: x\n")
 
 
+class NurNochMauerUndTurm(unittest.TestCase):
+    """Sind alle anderen Gebaeude auf Hoechststufe oder gesperrt, kommen
+    Steinmauer/Wachturm ohne die Leerlauf-Wartezeit dran."""
+    genug = {"gold": 5000, "stein": 5000, "holz": 5000}
+
+    def test_nur_niedrige_uebrig_baut_sofort(self):
+        kandidaten = {"steinmauer": kandidat("steinmauer", 6, {"gold": 429, "stein": 1431, "holz": 215})}
+        wahl = planner.choose_upgrade(kandidaten, self.genug, 50000, KeinStore(), False)
+        self.assertEqual(wahl["building"], "steinmauer")
+        self.assertNotEqual(planner.rejection_reason("steinmauer", kandidaten, 50000, False), "niedrige Prioritaet")
+
+    def test_anderes_gebaeude_noch_ausbaubar_haelt_die_wartezeit(self):
+        kandidaten = {
+            "steinmauer": kandidat("steinmauer", 6, {"gold": 429, "stein": 1431, "holz": 215}),
+            "haupthaus": kandidat("haupthaus", 14, {"gold": 9000, "stein": 9000, "holz": 9000}),
+        }
+        self.assertIsNone(planner.choose_upgrade(kandidaten, self.genug, 50000, KeinStore(), False))
+        self.assertEqual(planner.rejection_reason("steinmauer", kandidaten, 50000, False), "niedrige Prioritaet")
+
+    def test_keine_kandidaten(self):
+        self.assertFalse(planner.nur_niedrige({}))
+
+
+class KoloReserve(unittest.TestCase):
+    def setUp(self):
+        self._pfad = config.KOLO_RESERVE_PATH
+        config.KOLO_RESERVE_PATH = os.path.join(tempfile.mkdtemp(), "reserve.json")
+
+    def tearDown(self):
+        config.KOLO_RESERVE_PATH = self._pfad
+
+    def schreiben(self, alter_s):
+        with open(config.KOLO_RESERVE_PATH, "w") as f:
+            json.dump({"zeit": time.time() - alter_s, "inseln": {"447": {"gold": 19525, "stein": 4260, "holz": 35500}}}, f)
+
+    def test_reserve_wird_abgezogen(self):
+        self.schreiben(0)
+        reserve = bot._kolo_reserve(447)
+        planbar = bot._ohne_reserve({"gold": 20000, "stein": 3000, "holz": 40000, "kapazitaet": 50000}, reserve)
+        self.assertEqual((planbar["gold"], planbar["stein"], planbar["holz"]), (475, 0, 4500))
+        self.assertEqual(planbar["kapazitaet"], 50000)
+        self.assertEqual(bot._kolo_reserve(20), {"gold": 0.0, "stein": 0.0, "holz": 0.0})
+
+    def test_veraltete_oder_fehlende_datei_zaehlt_nicht(self):
+        self.assertEqual(bot._kolo_reserve(447), {})
+        self.schreiben(config.KOLO_RESERVE_MAX_ALTER_S + 60)
+        self.assertEqual(bot._kolo_reserve(447), {})
+
+
 class Ueberlauf(unittest.TestCase):
     def setUp(self):
         self.kandidaten = {

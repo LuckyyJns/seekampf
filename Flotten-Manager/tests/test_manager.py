@@ -89,11 +89,17 @@ class FakeApi:
 class Basis(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        self._alt = config.UPGRADE_STATUS_PATH
+        self._alt = (config.UPGRADE_STATUS_PATH, config.KOLO_RESERVE_PATH, config.AUSBILDUNG_RESERVE_PATH)
         config.UPGRADE_STATUS_PATH = os.path.join(self.tmp, "upgrade-status.json")
+        config.KOLO_RESERVE_PATH = os.path.join(self.tmp, "kolo-reserve.json")
+        config.AUSBILDUNG_RESERVE_PATH = os.path.join(self.tmp, "ausbildung-reserve.json")
 
     def tearDown(self):
-        config.UPGRADE_STATUS_PATH = self._alt
+        config.UPGRADE_STATUS_PATH, config.KOLO_RESERVE_PATH, config.AUSBILDUNG_RESERVE_PATH = self._alt
+
+    def reserve(self, pfad, feld, werte, alter_s=0):
+        with open(pfad, "w") as f:
+            json.dump({"zeit": time.time() - alter_s, feld: werte}, f)
 
     def manager(self, api, vorher: dict | None = None):
         pfad = os.path.join(self.tmp, "state.json")
@@ -144,6 +150,52 @@ class Raids(Basis):
         ziele = st.insel(447)["ziele"]
         self.assertEqual(ziele["53:48:2"]["blacklist_grund"], "Anfaengerschutz")
         self.assertEqual([p["target"]["z"] for p in api.created], [1])
+
+
+class InselEinstellungen(Basis):
+    def zwei_inseln(self):
+        schiffe = {"kleines_kriegsschiff": 4, "kleines_handelsschiff": 4}
+        return FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000), dict(schiffe), {"steinewerfer": 8}),
+                        insel(20, "GiG 2", "46:55:6", (0, 0, 0, 1000), dict(schiffe), {"steinewerfer": 8})],
+                       ziele=[("53:48:1", False), ("53:48:2", False), ("53:48:3", False), ("53:48:4", False)])
+
+    def test_eigene_werte_ueberlagern_die_globalen(self):
+        m, st = self.manager(self.zwei_inseln())
+        st.update_settings({"flotte_einheiten": 1})
+        st.update_insel_settings(20, {"flotte_einheiten": "3", "flotte_handelsschiffe": "2", "max_flotten": ""})
+        self.assertEqual(m.flotte_units(20), {"steinewerfer": 3})
+        self.assertEqual(m.flotte_units(447), {"steinewerfer": 1})
+        self.assertEqual(st.insel(20)["einstellungen"], {"flotte_einheiten": 3, "flotte_handelsschiffe": 2})
+        # leer = wieder global
+        st.update_insel_settings(20, {"flotte_einheiten": ""})
+        self.assertEqual(m.flotte_units(20), {"steinewerfer": 1})
+
+    def test_unbekannte_und_globale_schluessel_werden_ignoriert(self):
+        m, st = self.manager(self.zwei_inseln())
+        st.update_insel_settings(447, {"tick_sekunden": 1, "quatsch": 5, "max_flotten": "x"})
+        self.assertEqual(st.insel(447)["einstellungen"], {})
+
+    def test_max_flotten_je_insel(self):
+        api = self.zwei_inseln()
+        m, st = self.manager(api)
+        with st.lock:
+            st.insel(447)["aktiv"] = True
+        st.update_insel_settings(447, {"max_flotten": 2})
+        m.tick()
+        self.assertEqual(len([p for p in api.created if p["origin_island_id"] == 447]), 2)
+
+    def test_kriegsschiffe_fuer_truppentransport_bleiben_daheim(self):
+        api = self.zwei_inseln()
+        self.reserve(config.AUSBILDUNG_RESERVE_PATH, "kriegsschiffe", {"447": {"kleines_kriegsschiff": 3}})
+        m, st = self.manager(api)
+        self.assertEqual(m._freie_flotten(447, api.ov[0]), 1)
+        self.assertEqual(m._freie_flotten(20, api.ov[1]), 4)
+
+    def test_einstellungen_ueberstehen_neustart(self):
+        m, st = self.manager(self.zwei_inseln())
+        st.update_insel_settings(447, {"scan_radius_sektoren": 3})
+        st2 = State(st.path)
+        self.assertEqual(st2.insel_settings(447)["scan_radius_sektoren"], 3)
 
 
 def iso(t):
@@ -328,6 +380,25 @@ class Ausgleich(Basis):
         b = m.ausgleich.bericht["inseln"]
         self.assertEqual(b["447"]["ueberschuss"]["stein"], 0)          # 30000 < 90 % von 50000
         self.assertEqual(b["20"]["bedarf"]["stein"], int(1749 * 0.8) - 100)
+
+    def test_kolonisations_reserve_bleibt_beim_geber(self):
+        api = self.drei_inseln()
+        self.reserve(config.KOLO_RESERVE_PATH, "inseln", {"447": {"gold": 19525, "stein": 4260, "holz": 35500}})
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
+        m.tick()
+        b = m.ausgleich.bericht["inseln"]
+        self.assertEqual(b["447"]["grenze"]["gold"], 19525)
+        self.assertEqual(b["447"]["ueberschuss"]["gold"], 0)            # 12000 < 19525
+        self.assertEqual(b["447"]["grenze"]["stein"], 12500)             # Reserve 25 % > 4260
+
+    def test_veraltete_reserve_zaehlt_nicht(self):
+        api = self.drei_inseln()
+        self.reserve(config.KOLO_RESERVE_PATH, "inseln", {"447": {"gold": 19525}}, alter_s=3600)
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
+        m.tick()
+        self.assertEqual(m.ausgleich.bericht["inseln"]["447"]["grenze"]["gold"], 12500)
 
     def test_bedrohte_insel_bekommt_nichts(self):
         api = self.drei_inseln()

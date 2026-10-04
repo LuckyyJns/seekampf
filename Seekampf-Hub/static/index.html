@@ -456,6 +456,8 @@
   <a href="#ausgleich" data-tab="ausgleich"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13"/><path d="M14 4l3 3-3 3"/><path d="M20 17H7"/><path d="M10 14l-3 3 3 3"/></svg>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
   <a href="#upgrade" data-tab="upgrade"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M12 11v.01"/></svg>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
   <a href="#allianz" data-tab="allianz"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M15.5 14.8c2.6-.3 4.8 1.4 5.5 4.7"/></svg>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
+  <a href="#kolonie" data-tab="kolonie"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21h14"/><path d="M12 21V4"/><path d="M12 4l7 3-7 3"/><path d="M8 21c0-2 1.5-4 4-4s4 2 4 4"/></svg>Kolonisation<span class="dot" id="nav-dot-kolonie"></span></a>
+  <a href="#ausbildung" data-tab="ausbildung"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Ausbildung<span class="dot" id="nav-dot-ausbildung"></span></a>
   <div class="fuss">
     <button class="klein" id="thema" title="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>Thema</button>
     <span id="uhr" class="mono"></span>
@@ -557,7 +559,7 @@
         </div></div>
       <div id="fl-inseln"></div>
       <section class="karte" style="margin-top:16px">
-        <div class="kopfzeile"><h2>Einstellungen (alle Inseln)</h2>
+        <div class="kopfzeile"><h2>Einstellungen (global – gilt, wo eine Insel nichts Eigenes setzt)</h2>
           <div class="rechts">
             <span class="ungespeichert-marke" data-dirty-anzeige="fl-settings" hidden>● ungespeichert</span>
             <span class="leise klein-text" id="fl-settings-info"></span>
@@ -650,6 +652,58 @@
     </div>
 
     <!-- ======================= Allianz-Bot ======================= -->
+    <!-- ======================= Kolonisation ======================= -->
+    <div class="tab" id="tab-kolonie">
+      <div class="fehler" id="ko-fehler" hidden></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Warteschlange</h2>
+          <div class="rechts"><label class="schalter" title="Warteschlange abarbeiten"><input type="checkbox" id="ko-laeuft"><span class="spur"></span><span>Aktiv</span></label></div></div>
+        <div class="formular-leiste" style="margin-bottom:12px">
+          <input type="text" id="ko-koord" class="eingabe mono" placeholder="x:y:z, z. B. 48:53:21" style="max-width:220px">
+          <button class="haupt" id="ko-hinzu">Hinzufügen</button>
+          <span class="leise klein-text">Nur freie Inseln. Wird ein Ziel vorher besiedelt, fliegt es raus. Auch über die Karte: Insel anklicken → „Zur Kolonisation“.</span>
+        </div>
+        <div id="ko-liste"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Bau-Inseln</h2><div class="rechts leise klein-text" id="ko-schiff"></div></div>
+        <div id="ko-inseln"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Zuletzt</h2></div>
+        <div id="ko-verlauf"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="kolonie"></div></div>
+        <pre class="log" data-log="kolonie">…</pre>
+      </section>
+    </div>
+
+    <!-- ======================= Ausbildung ======================= -->
+    <div class="tab" id="tab-ausbildung">
+      <div class="fehler" id="ab-fehler" hidden></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Soll-Truppen je Insel</h2>
+          <div class="rechts">
+            <span class="ungespeichert-marke" data-dirty-anzeige="ab-soll" hidden>● ungespeichert</span>
+            <label class="schalter" title="Truppen auf Soll halten"><input type="checkbox" id="ab-laeuft"><span class="spur"></span><span>Aktiv</span></label>
+            <button class="klein" id="ab-speichern">Speichern</button></div></div>
+        <div data-form="ab-soll" id="ab-tabelle"></div>
+        <div class="leise klein-text" style="margin-top:8px">Leer = keine Vorgabe: der Bot bildet dort diese Einheit nicht aus und gibt keine ab.
+          Vorhanden zählt daheim + auf Raids + in Ausbildung + per Handel im Anflug. Ohne passende Kaserne kommt der Überschuss
+          (über dem Soll) der nächstgelegenen Insel per Handel auf Kriegsschiffen; hat keine Insel Überschuss, bildet die nächstgelegene
+          Kaserne mit Soll für die Einheit zusätzlich aus.</div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Zuletzt</h2></div>
+        <div id="ab-verlauf"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="ausbildung"></div></div>
+        <pre class="log" data-log="ausbildung">…</pre>
+      </section>
+    </div>
+
     <div class="tab" id="tab-allianz">
       <div class="fehler" id="al-fehler" hidden></div>
       <div class="zwei-spalten">
@@ -822,6 +876,156 @@ async function aktion(knopf, fn, erfolg) {
 }
 
 // ======================================================================
+// Kolonisations-Bot
+// ======================================================================
+let kolonie = null, kolonieFehler = null;
+const KO_STATUS = {
+  wartet: ["grau", "wartet"], spart: ["warn", "spart"], baut: ["warn", "Schiff in Ausbildung"],
+  bereit: ["gut", "Schiff bereit"], unterwegs: ["gut", "unterwegs"],
+};
+const KO_ERGEBNIS = { kolonisiert: "gut", besiedelt: "schlecht", gescheitert: "schlecht", entfernt: "grau" };
+async function kolonieHolen() {
+  try { kolonie = await hole("/api/kolonie/status"); kolonieFehler = null; }
+  catch (e) { kolonieFehler = `Kolonisations-Bot nicht erreichbar: ${e.message}`; }
+  if (tab === "kolonie") zeichneKolonie();
+}
+function zeichneKolonie() {
+  const box = $("ko-fehler"), fehler = kolonieFehler || kolonie?.fehler;
+  box.hidden = !fehler; box.textContent = fehler ? `Fehler: ${fehler}` : "";
+  if (!kolonie) return;
+  $("ko-laeuft").checked = kolonie.laeuft;
+  const ws = kolonie.warteschlange;
+  $("ko-liste").innerHTML = ws.length ? `<div class="tabelle-rahmen"><table><thead><tr><th>#</th><th>Ziel</th><th>Status</th>
+      <th>Schiff von</th><th class="zahl verstecken-schmal">Fahrzeit</th><th>Hinweis</th><th></th></tr></thead><tbody>${ws.map((e, n) => {
+      const [klasse, text] = KO_STATUS[e.status] || ["grau", e.status];
+      const ankunft = e.status === "unterwegs" && e.ankunft ? ` · Ankunft in <span data-bis="${e.ankunft}" data-fertig="jetzt">${dauer(e.ankunft - jetzt())}</span>` : "";
+      return `<tr><td class="mono">${n + 1}</td>
+        <td><span class="mono">${esc(e.koordinaten)}</span> <span class="leise">${esc(e.name || "")}</span></td>
+        <td><span class="marke ${klasse}"><span class="punkt"></span>${text}</span>${ankunft}</td>
+        <td>${esc(e.bau_insel_name || "–")}${e.entfernung != null ? ` <span class="leise klein-text">(${zahl(e.entfernung, 1)} Felder)</span>` : ""}</td>
+        <td class="zahl verstecken-schmal">${e.fahrzeit_s ? dauer(e.fahrzeit_s) : "–"}</td>
+        <td class="klein-text">${esc(e.hinweis || "")}</td>
+        <td style="white-space:nowrap"><button class="klein" data-ko-hoch="${e.id}" ${n === 0 ? "disabled" : ""} title="nach oben">▲</button>
+          <button class="klein" data-ko-runter="${e.id}" ${n === ws.length - 1 ? "disabled" : ""} title="nach unten">▼</button>
+          <button class="klein" data-ko-weg="${e.id}" title="entfernen">✕</button></td></tr>`;
+    }).join("")}</tbody></table></div>` : `<div class="leise klein-text">Die Warteschlange ist leer.</div>`;
+
+  const sch = kolonie.schiff;
+  $("ko-schiff").textContent = `Kolonisationsschiff: Hafen ${sch.ab_hafen}, ${mengenText(sch.kosten)}`;
+  $("ko-inseln").innerHTML = `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th class="zahl">Hafen</th><th class="zahl">Lager</th>
+      <th class="zahl">Schiffe im Hafen</th><th>Kann bauen</th><th>Baut für</th></tr></thead><tbody>${kolonie.inseln.map(i => `<tr>
+      <td>${esc(i.name)} <span class="leise mono klein-text">${esc(i.koordinaten)}</span></td>
+      <td class="zahl">${i.hafen}</td><td class="zahl">${kompakt(i.kapazitaet)}</td><td class="zahl">${i.schiffe_im_hafen}</td>
+      <td>${i.ungeeignet ? `<span class="leise klein-text">${esc(i.ungeeignet)}</span>` : `<span class="marke gut"><span class="punkt"></span>ja</span>`}</td>
+      <td>${i.baut_fuer ? `<span class="mono">${esc(i.baut_fuer)}</span>${i.reserviert ? ` <span class="leise klein-text">· reserviert ${mengenText(i.reserviert)}</span>` : ""}` : "–"}</td>
+    </tr>`).join("")}</tbody></table></div>`;
+  $("ko-verlauf").innerHTML = kolonie.verlauf.length ? kolonie.verlauf.slice(0, 15).map(v =>
+    `<div class="klein-text" style="margin:3px 0"><span class="marke ${KO_ERGEBNIS[v.ergebnis] || "grau"}" style="margin-right:6px">${esc(v.ergebnis)}</span>${uhrzeit(v.zeit, true)} · <span class="mono">${esc(v.koordinaten)}</span> ${esc(v.text)}</div>`).join("")
+    : `<div class="leise klein-text">noch nichts</div>`;
+  const dot = $("nav-dot-kolonie");
+  if (kolonieFehler) dot.className = "dot schlecht";
+}
+async function kolonieHinzu(koord, knopf) {
+  const r = await aktion(knopf, () => post("/api/kolonie/warteschlange", { koordinaten: koord }),
+    (e) => `${e.koordinaten} ist auf Platz ${(kolonie?.warteschlange.length || 0) + 1} der Kolonisations-Warteschlange`);
+  if (r) { $("ko-koord").value = ""; kolonieHolen(); }
+}
+$("ko-hinzu").onclick = (e) => kolonieHinzu($("ko-koord").value.trim(), e.target);
+$("ko-koord").addEventListener("keydown", (e) => { if (e.key === "Enter") kolonieHinzu(e.target.value.trim(), $("ko-hinzu")); });
+$("ko-laeuft").onchange = async (e) => {
+  const an = e.target.checked;
+  if (!an && !confirm("Kolonisations-Bot anhalten? Er baut keine Schiffe mehr und schickt keine los; die Reservierung wird freigegeben.")) { e.target.checked = true; return; }
+  await aktion(e.target, () => post("/api/kolonie/control", { aktion: an ? "start" : "stop" }), `Kolonisations-Bot ${an ? "aktiv" : "angehalten"}`);
+  kolonieHolen();
+};
+$("ko-liste").addEventListener("click", async (e) => {
+  const hoch = e.target.closest("[data-ko-hoch]"), runter = e.target.closest("[data-ko-runter]"), weg = e.target.closest("[data-ko-weg]");
+  if (hoch || runter) {
+    const id = (hoch || runter).dataset[hoch ? "koHoch" : "koRunter"];
+    await aktion(hoch || runter, () => post(`/api/kolonie/warteschlange/${id}/verschieben`, { richtung: hoch ? -1 : 1 }));
+    return kolonieHolen();
+  }
+  if (weg) {
+    const eintrag = kolonie.warteschlange.find(x => String(x.id) === weg.dataset.koWeg);
+    const zusatz = eintrag?.status === "unterwegs" ? " Das Schiff wird zurückgerufen, solange das noch geht." : "";
+    if (!confirm(`${eintrag?.koordinaten} aus der Warteschlange nehmen?${zusatz}`)) return;
+    await aktion(weg, () => post(`/api/kolonie/warteschlange/${weg.dataset.koWeg}/entfernen`), (r) => r.text);
+    kolonieHolen();
+  }
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-kolonie-hinzu]");
+  if (b) kolonieHinzu(b.dataset.kolonieHinzu, b);
+});
+
+// ======================================================================
+// Ausbildungs-Bot
+// ======================================================================
+let ausbildung = null, ausbildungFehler = null;
+const EINHEIT_NAME = { steinewerfer: "Steinewerfer", speerkaempfer: "Speerkämpfer", bogenschuetze: "Bogenschützen" };
+async function ausbildungHolen() {
+  try { ausbildung = await hole("/api/ausbildung/status"); ausbildungFehler = null; }
+  catch (e) { ausbildungFehler = `Ausbildungs-Bot nicht erreichbar: ${e.message}`; }
+  if (tab === "ausbildung") zeichneAusbildung();
+}
+function zeichneAusbildung() {
+  const box = $("ab-fehler"), fehler = ausbildungFehler || ausbildung?.fehler;
+  box.hidden = !fehler; box.textContent = fehler ? `Fehler: ${fehler}` : "";
+  if (!ausbildung) return;
+  $("ab-laeuft").checked = ausbildung.laeuft;
+  const el = $("ab-tabelle");
+  const stand = JSON.stringify(ausbildung.inseln.map(i => [i.id, i.soll, i.bericht, i.truppen]));
+  if (!ungespeichert.has("ab-soll") && el.dataset.gebaut !== stand) {
+    el.dataset.gebaut = stand;
+    const E = ausbildung.einheiten;
+    el.innerHTML = `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th class="zahl">Kaserne</th>
+        ${E.map(e => `<th>${EINHEIT_NAME[e] || e}<div class="leise klein-text" style="font-weight:normal">Soll · vorhanden</div></th>`).join("")}<th>Hinweis</th></tr></thead>
+      <tbody>${ausbildung.inseln.map(i => {
+        const b = i.bericht;
+        return `<tr><td>${esc(i.name)} <span class="leise mono klein-text">${esc(i.koordinaten)}</span>${i.bedrohung ? ` <span class="marke schlecht"><span class="punkt"></span>bedroht</span>` : ""}</td>
+          <td class="zahl">${i.kaserne}</td>
+          ${E.map(e => {
+            const ist = b ? b.ist[e] : (i.truppen[e] || 0);
+            const teile = b ? [["daheim", b.daheim[e]], ["Raids", b.unterwegs[e]], ["Anflug", b.im_anflug[e]], ["Ausbildung", b.in_ausbildung[e]]]
+              .filter(([, n]) => n).map(([t, n]) => `${t} ${n}`).join(", ") : "daheim";
+            const soll = i.soll[e];
+            const farbe = soll != null && ist < soll ? "var(--warn)" : "inherit";
+            return `<td style="white-space:nowrap"><input type="number" min="0" step="1" class="eingabe" style="width:78px"
+                data-ab-insel="${i.id}" data-ab-einheit="${e}" value="${soll ?? ""}" placeholder="–">
+              <span class="mono" style="color:${farbe}" title="${esc(teile)}">${zahl(ist)}</span></td>`;
+          }).join("")}
+          <td class="klein-text">${esc((b?.hinweise || []).join(" · "))}</td></tr>`;
+      }).join("")}</tbody></table></div>`;
+  }
+  $("ab-verlauf").innerHTML = ausbildung.verlauf.length ? ausbildung.verlauf.slice(0, 15).map(v =>
+    `<div class="klein-text" style="margin:3px 0">${uhrzeit(v.zeit, true)} · ${esc(v.text)}</div>`).join("")
+    : `<div class="leise klein-text">noch nichts</div>`;
+}
+$("ab-speichern").onclick = async (e) => {
+  const je = {};
+  document.querySelectorAll("[data-ab-insel]").forEach(f => {
+    (je[f.dataset.abInsel] ||= {})[f.dataset.abEinheit] = f.value === "" ? null : f.value;
+  });
+  const geaendert = Object.entries(je).filter(([id, werte]) => {
+    const i = ausbildung.inseln.find(x => String(x.id) === id);
+    return Object.entries(werte).some(([k, v]) => String(i.soll[k] ?? "") !== String(v ?? ""));
+  });
+  for (const [id, werte] of geaendert) {
+    const r = await aktion(e.target, () => post(`/api/ausbildung/inseln/${id}/soll`, werte));
+    if (!r) return;
+  }
+  melde(geaendert.length ? `Soll für ${geaendert.length} Insel(n) gespeichert` : "nichts geändert", "gut");
+  dirtySetzen("ab-soll", false);
+  $("ab-tabelle").dataset.gebaut = "";
+  setTimeout(ausbildungHolen, 1500);
+};
+$("ab-laeuft").onchange = async (e) => {
+  const an = e.target.checked;
+  await aktion(e.target, () => post("/api/ausbildung/control", { aktion: an ? "start" : "stop" }), `Ausbildungs-Bot ${an ? "aktiv" : "angehalten"}`);
+  ausbildungHolen();
+};
+
+// ======================================================================
 // Ungespeicherte Aenderungen: jedes Formular mit data-form meldet sich hier
 // ======================================================================
 const ungespeichert = new Set();
@@ -848,7 +1052,7 @@ function ungespeichertIn(tab) {
 // ======================================================================
 // Navigation: Hamburger + Tabs ueber den Hash
 // ======================================================================
-const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot" };
+const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot", kolonie: "Kolonisations-Bot", ausbildung: "Ausbildungs-Bot" };
 const UNTERTITEL = {
   uebersicht: "Alle Bots und Inseln auf einen Blick",
   karte: "Die ganze Welt – Spieler, Allianzen und deine Flotten",
@@ -857,6 +1061,8 @@ const UNTERTITEL = {
   gesundheit: "Läuft alles – und tut es auch etwas?",
   upgrade: "Bau-Warteschlangen, Priorisierung und Ausbau von Hand",
   allianz: "Allianz-Protokoll: Notrufe, Beistand, Rohstoff-Anfragen",
+  kolonie: "Freie Inseln aus deiner Warteschlange kolonisieren",
+  ausbildung: "Truppen je Insel auf Soll halten",
 };
 let tab = null;
 
@@ -915,7 +1121,7 @@ try { const t = localStorage.getItem("thema"); if (t) document.documentElement.d
 // Dienste (systemd)
 // ======================================================================
 let dienste = null;
-const DIENST_FUER_TAB = { flotte: "flotte", upgrade: "upgrade", allianz: "allianz" };
+const DIENST_FUER_TAB = { flotte: "flotte", upgrade: "upgrade", allianz: "allianz", kolonie: "kolonie", ausbildung: "ausbildung" };
 const AKTION_TEXT = { start: "Starten", stop: "Stoppen", restart: "Neu starten" };
 
 function dienstMarke(d) {
@@ -947,8 +1153,9 @@ document.addEventListener("click", async (e) => {
 });
 async function dienstHolen() {
   try { dienste = await hole("/api/dienste"); } catch (e) { return; }
-  for (const name of ["flotte", "upgrade", "allianz"]) {
+  for (const name of ["flotte", "upgrade", "allianz", "kolonie", "ausbildung"]) {
     const d = dienste[name], dot = $(`nav-dot-${name}`);
+    if (!d || !dot) continue;
     dot.className = "dot " + (d.zustand === "active" ? "gut" : d.zustand === "activating" ? "warn" : "schlecht");
     dot.title = d.zustand;
   }
@@ -1280,6 +1487,11 @@ function zeichneFlotte() {
         <div id="fl-diagramm-${id}"></div></div>
       <div class="unterteil"><h2>Im Hafen</h2><div data-teil="hafen" class="klein-text"></div></div>
       <div class="unterteil"><h2>Flotten unterwegs</h2><div data-teil="flotten"></div></div>
+      <div class="unterteil"><div class="kopfzeile"><h2>Einstellungen dieser Insel</h2>
+        <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="fl-insel-${id}" hidden>● ungespeichert</span>
+          <button class="klein" data-fl-insel-speichern="${id}">Speichern</button></div></div>
+        <div class="formular" data-form="fl-insel-${id}" data-teil="einstellungen"></div>
+        <span class="hinweis">leer = globaler Wert (unten unter Einstellungen)</span></div>
       <div class="unterteil"><div class="kopfzeile"><h2>Zielrotation</h2>
         <div class="rechts"><span class="leise klein-text" data-teil="scaninfo"></span>
           <button class="klein" data-scan="${id}">Jetzt scannen</button></div></div>
@@ -1312,6 +1524,7 @@ function zeichneFlotte() {
     karte.querySelector('[data-teil="flotten"]').innerHTML = flottenTabelle(fl);
     karte.querySelector('[data-teil="scaninfo"]').textContent = i.letzter_scan ? `letzter Scan ${vor(i.letzter_scan)}` : "noch kein Scan";
     karte.querySelector('[data-teil="ziele"]').innerHTML = zieleTabelle(i, unterwegs);
+    zeichneInselEinstellungen(karte, i);
     if (verlauf && verlauf.inseln[id] && !diagramme[`fl-diagramm-${id}`]) diagramm(`fl-diagramm-${id}`, verlauf.inseln[id]);
     else if (verlauf && !verlauf.inseln[id]) $(`fl-diagramm-${id}`).innerHTML = `<div class="leise klein-text">noch keine Beute von dieser Insel</div>`;
   }
@@ -1348,6 +1561,44 @@ $("fl-stats-reset").onclick = (e) => {
   if (confirm("Gesamt- und Inselstatistik wirklich auf null setzen? Der Beute-Verlauf bleibt erhalten."))
     aktion(e.target, () => post("/api/flotte/stats/reset"), "Statistik zurückgesetzt").then(flotteHolen);
 };
+
+/** Eigene Einstellungen einer Insel: je Feld leer = globaler Wert. */
+function zeichneInselEinstellungen(karte, i) {
+  const el = karte.querySelector('[data-teil="einstellungen"]');
+  const form = `fl-insel-${i.id}`;
+  const eigene = i.einstellungen || {}, global = flotte.settings || {};
+  const stand = JSON.stringify([eigene, global]);
+  if (ungespeichert.has(form) || el.dataset.gebaut === stand) return;
+  el.dataset.gebaut = stand;
+  const erlaubt = new Set(flotte.insel_einstellungen || []);
+  const anzeige = (f, w) => f.typ === "checkbox" ? (w ? "an" : "aus")
+    : f.typ === "select" ? (f.optionen.find(([v]) => v === w)?.[1] ?? w) : w;
+  el.innerHTML = FELDER.filter(f => f.gruppe || erlaubt.has(f.key)).map((f, n, liste) => {
+    if (f.gruppe) return liste[n + 1] && !liste[n + 1].gruppe ? `<div class="gruppe">${f.gruppe}</div>` : "";
+    const hat = Object.prototype.hasOwnProperty.call(eigene, f.key);
+    const glob = `global: ${esc(anzeige(f, global[f.key]))}`;
+    if (f.typ === "checkbox" || f.typ === "select") {
+      const optionen = f.typ === "checkbox" ? [["true", "an"], ["false", "aus"]] : f.optionen;
+      const wert = hat ? String(eigene[f.key]) : "";
+      return `<div class="feld"><label>${f.label}</label><select data-ifeld="${f.key}">
+          <option value="" ${wert === "" ? "selected" : ""}>(${glob})</option>
+          ${optionen.map(([w, t]) => `<option value="${w}" ${wert === w ? "selected" : ""}>${t}</option>`).join("")}
+        </select></div>`;
+    }
+    return `<div class="feld"><label>${f.label}</label>
+      <input type="${f.typ}" step="${f.schritt ?? "any"}" data-ifeld="${f.key}" value="${hat ? esc(eigene[f.key]) : ""}" placeholder="${glob}"></div>`;
+  }).join("");
+}
+$("fl-inseln").addEventListener("click", async (e) => {
+  const knopf = e.target.closest("[data-fl-insel-speichern]");
+  if (!knopf) return;
+  const id = knopf.dataset.flInselSpeichern, el = document.querySelector(`[data-form="fl-insel-${id}"]`);
+  const nutzlast = {};
+  el.querySelectorAll("[data-ifeld]").forEach(f => nutzlast[f.dataset.ifeld] = f.value === "" ? null : f.value);
+  const name = flotte.inseln.find(x => String(x.id) === id)?.name;
+  const r = await aktion(knopf, () => post(`/api/flotte/inseln/${id}/einstellungen`, nutzlast), `${name}: Einstellungen gespeichert`);
+  if (r) { dirtySetzen(`fl-insel-${id}`, false); el.dataset.gebaut = ""; flotteHolen(); }
+});
 
 function zeichneFlotteFormular(s) {
   const el = $("fl-formular");
@@ -1549,8 +1800,10 @@ function zeichneUpgradeFormular(karte, id, steuer, i) {
 function formularVerwerfen(form) {
   if (form === "fl-settings") $("fl-formular").dataset.gebaut = "";
   else if (form === "aus-settings") ausgleichFormGebaut = "";
+  else if (form.startsWith("fl-insel-")) { const el = document.querySelector(`[data-form="${form}"]`); if (el) el.dataset.gebaut = ""; }
   else if (form.startsWith("aus-insel-")) { const el = document.querySelector(`[data-form="${form}"]`); if (el) el.dataset.gebaut = ""; }
   else if (form === "al-strategie") $("al-strategie").dataset.gebaut = "";
+  else if (form === "ab-soll") $("ab-tabelle").dataset.gebaut = "";
   else if (form === "al-anfrage") ["gold", "stein", "holz"].forEach(k => $(`al-anfrage-${k}`).value = "");
   else if (form.startsWith("up-form-")) {
     const el = document.querySelector(`[data-form="${form}"]`);
@@ -1788,6 +2041,8 @@ function zeichneUebersichtDienste() {
     flotte: () => flotte ? `${flotte.flotten.length} Flotten unterwegs` : "",
     upgrade: () => upgrade?.status ? `letzter Durchlauf ${uhrzeit(upgrade.status.letzter_tick)}` : "",
     allianz: () => allianz?.status ? `${allianz.status.faehigkeiten.wirksam.length} Fähigkeiten gemeldet` : "",
+    kolonie: () => kolonie ? `${kolonie.warteschlange.length} Ziele in der Warteschlange` : "",
+    ausbildung: () => "",
     hub: () => "diese Seite",
   };
   $("ue-dienste").innerHTML = Object.entries(dienste).map(([name, d]) => `
@@ -1796,7 +2051,7 @@ function zeichneUebersichtDienste() {
         ${name !== "hub" ? `<a href="#${name}">${esc(d.titel)} →</a>` : `<b>${esc(d.titel)}</b>`}
         ${dienstMarke(d)}</div>
       <div class="leise klein-text">${d.seit && d.zustand === "active" ? `läuft seit ${uhrzeit(d.seit, true)}` : esc(d.ergebnis || "")}
-        ${d.neustarts ? ` · ${d.neustarts} Neustarts` : ""}${extra[name]() ? ` · ${extra[name]()}` : ""}</div>
+        ${d.neustarts ? ` · ${d.neustarts} Neustarts` : ""}${extra[name]?.() ? ` · ${extra[name]()}` : ""}</div>
       <div class="dienst"><span class="knoepfe">${dienstKnoepfe(name, d)}</span></div>
     </section>`).join("");
 }
@@ -2289,6 +2544,7 @@ function inselInfo() {
     ${zeilen.map(([k, v]) => `<div class="info-zeile"><span>${k}</span><span>${v}</span></div>`).join("")}
     ${eigeneId ? `<div class="formular-leiste" style="margin-top:10px"><a href="#flotte/${eigeneId}"><button class="klein">Flotten-Manager</button></a>
       <a href="#upgrade/${eigeneId}"><button class="klein">Upgrade-Bot</button></a></div>` : ""}
+    ${!i.b ? `<div class="formular-leiste" style="margin-top:10px"><button class="klein" data-kolonie-hinzu="${esc(i.k)}">Zur Kolonisation</button></div>` : ""}
     <div class="feld" style="margin-top:12px"><label for="ka-ring-schiff">${eigen ? "Fahrzeit-Ringe für" : "Fahrzeit mit"}</label>
       <select id="ka-ring-schiff" class="eingabe">${Object.entries(KNOTEN).map(([k, v]) => `<option value="${k}" ${k === ka.ringSchiff ? "selected" : ""}>${esc(sname(k))} (${v} Knoten)</option>`).join("")}</select></div>
     ${fahrt ? `<div style="margin-top:8px">${fahrt}</div>` : ""}`;
@@ -2638,7 +2894,8 @@ $("aus-speichern").onclick = async (e) => {
 // Gesundheit
 // ======================================================================
 let gesundheit = null;
-const GES_BOTS = [["flotte", "Flotten-Manager"], ["upgrade", "Upgrade-Bot"], ["allianz", "Allianz-Bot"]];
+const GES_BOTS = [["flotte", "Flotten-Manager"], ["upgrade", "Upgrade-Bot"], ["allianz", "Allianz-Bot"],
+                  ["kolonie", "Kolonisations-Bot"], ["ausbildung", "Ausbildungs-Bot"]];
 
 /** Ampel je Bot: [Klasse, Text]. Frisch heisst: letzter Durchlauf jünger als ein paar Takte. */
 function gesBewertung(name, g) {
@@ -2881,6 +3138,8 @@ function aktualisieren() {
   if (tab === "allianz") allianzHolen();
   if (tab === "ausgleich") ausgleichHolen();
   if (tab === "gesundheit") gesundheitHolen();
+  if (tab === "kolonie") kolonieHolen();
+  if (tab === "ausbildung") ausbildungHolen();
   if (tab === "uebersicht") {
     flotteHolen(); upgradeHolen(); allianzHolen();
     if (!verlauf) verlaufHolen(); else diagramm("ue-diagramm", verlauf.gesamt);
@@ -2905,6 +3164,8 @@ setInterval(() => {
   if (tab === "uebersicht") { flotteHolen(); upgradeHolen(); allianzHolen(); }
   if (tab === "karte") flotteHolen();
   if (tab === "ausgleich") ausgleichHolen();
+  if (tab === "kolonie") kolonieHolen();
+  if (tab === "ausbildung") ausbildungHolen();
 }, 3000);
 setInterval(() => { gesundheitHolen(); if (tab !== "ausgleich") ausgleichHolen(); }, 20000);
 gesundheitHolen();

@@ -10,6 +10,8 @@ und gestoppt werden koennen.
 | [`Upgrade-Bot/`](Upgrade-Bot/) | `seekampf-upgrade-bot.service` | Haelt die Bau-Warteschlange gefuellt und verplant die Rohstoffe nach Ertrag pro Kosten. |
 | [`Flotten-Manager/`](Flotten-Manager/) | `seekampf-flotten-manager.service` | Raidet die freien Inseln im Umkreis jeder eingeschalteten Insel ab; gesteuert ueber den Seekampf-Hub. |
 | [`Allianz-Bot/`](Allianz-Bot/) | `seekampf-allianz-bot.service` | Nimmt am Allianz-Protokoll teil: Notrufe, Beistand mit Speerkaempfern, Leihe-Rueckgabe, Rohstoff-Anfragen. |
+| [`Kolonisations-Bot/`](Kolonisations-Bot/) | `seekampf-kolonisations-bot.service` | Kolonisiert freie Inseln aus einer Warteschlange im Hub; baut die Schiffe auf der nächstgelegenen geeigneten Insel. |
+| [`Ausbildungs-Bot/`](Ausbildungs-Bot/) | `seekampf-ausbildungs-bot.service` | Hält die Truppen je Insel auf Soll: bildet aus oder verlegt per Handel. |
 | [`Seekampf-Hub/`](Seekampf-Hub/) | `seekampf-hub.service` | Gemeinsame Weboberflaeche fuer alle Bots (http://<pi>:8080): Status, Steuerung, Logs, Dienste starten/stoppen, Rohstoff-Ausgleich, Gesundheit. |
 
 Der Raspberry Pi laeuft als Dauerbetrieb-Host; die Einrichtung dort beschreibt
@@ -49,8 +51,8 @@ Rechte 600, die letzten 7 bleiben). Schlaegt sie fehl, kommt eine
 Telegram-Nachricht. Zurueckspielen:
 
 ```bash
-sudo systemctl stop seekampf-flotten-manager seekampf-upgrade-bot seekampf-allianz-bot
+sudo systemctl stop seekampf-flotten-manager seekampf-upgrade-bot seekampf-allianz-bot seekampf-kolonisations-bot seekampf-ausbildungs-bot
 tar -xzf ~/Seekampf-Sicherungen/seekampf-JJJJ-MM-TT.tar.gz -C ~      # ueberschreibt ~/Seekampf
 (cd ~/Seekampf/<Bot> && uv sync)                                      # nur nach Kartentausch
-sudo systemctl start seekampf-flotten-manager seekampf-upgrade-bot seekampf-allianz-bot
+sudo systemctl start seekampf-flotten-manager seekampf-upgrade-bot seekampf-allianz-bot seekampf-kolonisations-bot seekampf-ausbildungs-bot
 ```

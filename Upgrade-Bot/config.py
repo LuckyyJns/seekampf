@@ -72,6 +72,13 @@ STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "l
 # Verlauf je Insel und Tag (Produktion, Punkte, Stufen, Lager-Ueberlauf) - siehe verlauf.py
 VERLAUF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "verlauf.json")
 
+# Rohstoffe, die der Kolonisations-Bot auf einer Insel fuer ein
+# Kolonisationsschiff anspart - davon baut der Upgrade-Bot nichts. Aeltere
+# Dateien (Kolonisations-Bot aus) zaehlen nicht.
+KOLO_RESERVE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                 "Kolonisations-Bot", "data", "reserve.json")
+KOLO_RESERVE_MAX_ALTER_S = 10 * 60
+
 # Schlagen die Durchlaeufe so lange am Stueck fehl, geht ein Telegram-Alarm raus.
 ALERT_AFTER_FAILED_MINUTES = 15
 

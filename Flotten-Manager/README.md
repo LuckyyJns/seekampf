@@ -13,8 +13,20 @@ heisst: keine neuen Flotten; was unterwegs ist, faehrt zu Ende. Neue Inseln
 starten ausgeschaltet. Zwei eigene Inseln greifen nie gleichzeitig dasselbe
 Ziel an, und ein Ziel mit neuem Besitzer fliegt aus allen Ziellisten.
 Bedrohung und "Lager voll" gelten je Insel; beim Rueckruf werden nur die
-Flotten der bedrohten Insel geholt. Die Einstellungen gelten fuer alle Inseln,
-`max_flotten` je Insel.
+Flotten der bedrohten Insel geholt.
+
+**Einstellungen je Insel:** Flottenaufbau (Kriegs-/Handelsschiffe, grosse
+Handelsschiffe, Steinewerfer, Einheitentyp), `max_flotten`, Radius und
+Scan-Intervall, Beute-Priorisierung, Razzia-Ziel, Lager-voll-Schwelle,
+Rueckruf bei Bedrohung und Blacklist lassen sich je Insel abweichend setzen
+(im Hub in der Inselkarte unter "Einstellungen dieser Insel"; leer = globaler
+Wert, `config.INSEL_EINSTELLUNGEN`, `POST /api/inseln/{id}/einstellungen`).
+Aendert sich der Radius, wird beim naechsten Takt neu gescannt. Global bleiben
+Takt, Pruefintervalle unterwegs, Postfach, Telegram und der Rohstoff-Ausgleich.
+
+Kriegsschiffe, die der Ausbildungs-Bot fuer einen Truppentransport braucht
+(`Ausbildungs-Bot/data/reserve.json`), fahren nicht zum Raiden raus.
+Kolonisationsfahrten (Kolonisations-Bot) uebernimmt der Manager nicht.
 
 Beim Umstieg (erster Start dieser Version) bekam die Heimatinsel die
 bisherige Zielliste und Statistik; der Beute-Verlauf wurde aus den Logs
@@ -36,7 +48,9 @@ Braucht der Upgrade-Bot fuer den naechsten Ausbau mehr als das Ziel, wird bis
 zu dessen Kosten aufgefuellt (liest `Upgrade-Bot/data/status.json`). Eine
 Insel, die selbst auch bekommt, gibt nur ab, was ueber ihrem eigenen
 Auffuellziel liegt, und nie, was ihr fuer den naechsten Ausbau fehlt - ein
-Hin- und Herschicken ist damit ausgeschlossen. Je Empfaenger liefert die Insel,
+Hin- und Herschicken ist damit ausgeschlossen. Was der Kolonisations-Bot auf
+einer Insel fuer ein Schiff anspart (`Kolonisations-Bot/data/reserve.json`),
+gibt sie ebenfalls nicht ab. Je Empfaenger liefert die Insel,
 die am meisten liefern kann (bei Gleichstand die naechste), per Handelsfahrt
 (`mission_type: handel`) mit ihren eigenen Handelsschiffen, ab
 `ausgleich_min_menge` Rohstoffen je Fahrt. Was schon unterwegs ist, zaehlt mit.

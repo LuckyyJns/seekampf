@@ -72,7 +72,7 @@ def scan(client, state, insel_id, heimat: tuple[int, int, int], flotte_ships: di
     Besitzer haben oder aus dem Bereich gefallen sind, fliegen raus.
     """
     hx, hy, _ = heimat
-    radius = max(0, int(state.settings["scan_radius_sektoren"]))
+    radius = max(0, int(state.insel_settings(insel_id)["scan_radius_sektoren"]))
     knoten = geo.flotten_knoten(flotte_ships) or 10.0
 
     gefundene: dict[str, dict] = {}

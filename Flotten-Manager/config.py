@@ -28,6 +28,15 @@ STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
 # Der Rohstoff-Ausgleich liest hier, was der Upgrade-Bot als Naechstes bauen
 # will und was ihm dafuer fehlt.
 UPGRADE_STATUS_PATH = os.path.join(os.path.dirname(BASE_DIR), "Upgrade-Bot", "data", "status.json")
+# Rohstoffe, die der Kolonisations-Bot auf einer Insel fuer ein
+# Kolonisationsschiff anspart: der Rohstoff-Ausgleich gibt dort nur ab, was
+# darueber liegt.
+KOLO_RESERVE_PATH = os.path.join(os.path.dirname(BASE_DIR), "Kolonisations-Bot", "data", "reserve.json")
+# Kriegsschiffe, die der Ausbildungs-Bot fuer einen Truppentransport braucht:
+# sie fahren nicht zum Raiden raus.
+AUSBILDUNG_RESERVE_PATH = os.path.join(os.path.dirname(BASE_DIR), "Ausbildungs-Bot", "data", "reserve.json")
+# Aeltere Reservierungen (Bot aus) zaehlen nicht.
+RESERVE_MAX_ALTER_S = 10 * 60
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "flotte"
 LOG_RETENTION_DAYS = 60
@@ -136,3 +145,15 @@ DEFAULT_SETTINGS = {
     "telegram_report": True,
     "report_stunde": 7,
 }
+
+# Diese Einstellungen lassen sich je Insel abweichend setzen (Seekampf-Hub,
+# POST /api/inseln/{id}/einstellungen). Was eine Insel nicht selbst setzt,
+# kommt aus DEFAULT_SETTINGS bzw. den globalen Einstellungen.
+INSEL_EINSTELLUNGEN = (
+    "scan_radius_sektoren", "scan_intervall_stunden",
+    "flotte_kriegsschiffe", "flotte_handelsschiffe", "grosse_handelsschiffe",
+    "flotte_einheiten", "flotte_einheit_typ", "max_flotten",
+    "razzia_ziel", "rohstoff_modus", "ausgleich_schwelle",
+    "lager_voll_schwelle", "rueckruf_bei_bedrohung",
+    "niederlagen_bis_blacklist", "blacklist_tage",
+)

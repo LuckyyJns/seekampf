@@ -147,9 +147,10 @@ def sicherung() -> dict:
             "gesamt_groesse": sum(os.path.getsize(d) for d in dateien)}
 
 
-def berechnen(bots: dict, flotte_status: dict | None, dienst_status) -> dict:
+def berechnen(bots: dict, flotte_status: dict | None, dienst_status, weitere: dict | None = None) -> dict:
     """bots: BOTS aus hub.py; flotte_status: /api/status des Flotten-Managers
-    (None = nicht erreichbar); dienst_status: Funktion unit -> dict."""
+    (None = nicht erreichbar); dienst_status: Funktion unit -> dict;
+    weitere: /api/status der anderen Bots mit Schnittstelle (Name -> dict/None)."""
     jetzt = time.time()
     if _cache["daten"] is not None and jetzt - _cache["zeit"] < CACHE_S:
         daten = dict(_cache["daten"])
@@ -186,6 +187,11 @@ def berechnen(bots: dict, flotte_status: dict | None, dienst_status) -> dict:
                               if isinstance(i, dict)}},
         "allianz": {"letzter": al.get("zeit"), "fehler": al.get("fehler"), "takt_s": 15},
     }
+    takt = {"kolonie": 30, "ausbildung": 60}
+    for name, st in (weitere or {}).items():
+        daten["durchlauf"][name] = ({"letzter": st.get("letzter_tick"), "fehler": st.get("fehler"),
+                                     "laeuft": st.get("laeuft"), "takt_s": takt.get(name, 60)}
+                                    if st else {"fehler": "Schnittstelle nicht erreichbar"})
     daten["dienste"] = {name: dienst_status(b["dienst"]) for name, b in bots.items()}
     daten["dienste"]["cloudflared"] = dienst_status("cloudflared.service")
     daten["serverzeit"] = jetzt
