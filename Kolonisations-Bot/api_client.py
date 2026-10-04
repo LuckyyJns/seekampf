@@ -106,6 +106,10 @@ class SeekampfClient:
         """POST /fleets/{id}/recall - geht nur bis recallable_until."""
         return self._request("POST", f"/fleets/{fleet_id}/recall")
 
+    def rename_island(self, island_id, name):
+        """POST /islands/{id}/rename - neuer Name, 1 bis 40 Zeichen."""
+        return self._request("POST", f"/islands/{island_id}/rename", json={"name": name})
+
     # ------------------------------------------------------------ Ausbildung
     def get_training(self, island_id):
         """GET /islands/{id}/training -> auftraege (item_typ, anzahl,

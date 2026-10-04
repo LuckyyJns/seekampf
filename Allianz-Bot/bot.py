@@ -39,6 +39,7 @@ from verteidiger import Verteidiger
 log = logger_setup.get_logger()
 
 VERARBEITET_BEHALTEN = timedelta(days=14)
+PN_WEITERLEITEN_MAX_ALTER = timedelta(days=1)
 
 
 class AllianzBot:
@@ -302,10 +303,29 @@ class AllianzBot:
             erg = protokoll.parse(m.get("body") or "", "pn", absender, int(m["id"]),
                                   m["created_at"], m.get("subject"))
             self._erledigt(schluessel)
+            self._pn_weiterleiten(m, erg, absender)
             if erg.nachricht is None or absender not in k.mitglieder or absender == k.ich_id:
                 continue
             self._verteilen(erg.nachricht, "pn", absender, zeit(m["created_at"]), int(m["id"]))
         self.state.speichern()
+
+    def _pn_weiterleiten(self, m: dict, erg, absender: int) -> None:
+        """PN eines Mitspielers per Telegram weiterleiten - nur, was ein Mensch
+        geschrieben hat: keine Protokoll-Nachrichten (auch keine ungueltigen
+        mit Protokoll-Kopf), keine Systemnachrichten, nichts von uns selbst.
+        Aeltere PNs (z. B. nach dem Kuerzen der verarbeiteten IDs wieder als
+        neu erkannt) werden nicht nachgeschickt."""
+        if not config.PN_WEITERLEITEN or erg.nachricht is not None or absender == self.k.ich_id:
+            return
+        if erg.grund not in ("kein_kopf", "unbekannter_typ"):
+            return  # Protokoll-Kopf, nur ungueltig/andere Version - kein Mensch
+        if self.k.jetzt() - zeit(m["created_at"]) > PN_WEITERLEITEN_MAX_ALTER:
+            return
+        betreff = (m.get("subject") or "").strip() or "(ohne Betreff)"
+        text = (m.get("body") or "").strip()
+        if len(text) > 3000:
+            text = text[:3000] + " …"
+        self.k.melden(f"PN von {m.get('sender') or absender}: {betreff}", text or "(leer)")
 
     def _verteilen(self, n: dict, kanal: str, absender: int, zeitpunkt, msg_id: int) -> None:
         typ, f = n["typ"], n["felder"]

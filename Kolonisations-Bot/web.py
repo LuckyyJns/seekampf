@@ -98,7 +98,26 @@ def status():
         "verlauf": daten["verlauf"],
         "inseln": sorted(bot.inseln.values(), key=lambda i: i["id"]),
         "schiff": {"ab_hafen": bot.ab_hafen, "kosten": bot.kosten},
+        "umbenennen": daten["umbenennen"],
     }
+
+
+@app.post("/api/umbenennen")
+def umbenennen(payload: dict = Body(...)):
+    """Neue Inseln automatisch umbenennen: {aktiv, muster}; {n} = naechste Nummer."""
+    with state.lock:
+        einst = state.data["umbenennen"]
+        if "aktiv" in payload:
+            einst["aktiv"] = bool(payload["aktiv"])
+        if "muster" in payload:
+            muster = str(payload["muster"] or "").strip()
+            if not muster or len(muster.replace("{n}", "999")) > 40:
+                raise HTTPException(400, "Muster: 1 bis 40 Zeichen, {n} steht fuer die Nummer")
+            einst["muster"] = muster
+        ergebnis = dict(einst)
+    state.save()
+    log.info("Seekampf-Hub: Umbenennen %s, Muster '%s'", "an" if ergebnis["aktiv"] else "aus", ergebnis["muster"])
+    return ergebnis
 
 
 @app.post("/api/control")

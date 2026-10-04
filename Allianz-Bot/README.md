@@ -24,6 +24,13 @@ der Insel, die am meisten bereitstellen kann.
 | **Beistand** | Nur fuer Mitglieder mit aktiver Bot-Praesenz (Whitelist) und `leihe_rueckgabe`. Nur Speerkaempfer, immer als Leihe, hoechstens 50 % der eigenen je Insel (Verliehenes mitgerechnet, fremde Leihen bei uns nicht). Angeboten wird von der Insel mit der groessten moeglichen Menge, nie von einer bedrohten. Transport auf Kriegsschiffen: aus dem Hafen, sonst werden nach der Zusage Raid-Flotten in Rueckruf-Reichweite zurueckgerufen (im Angebot eingerechnet). Nie, solange die eigene Insel bedroht ist. Zusage -> Versand innerhalb der 10-min-Frist + `[VERSANDT]`; reicht es nicht: was passt, sonst `[ABSAGE] nicht_verfuegbar`. |
 | **Rohstoffe** | Gibt nie etwas her. Faellt auf einer Insel ein Rohstoff unter 10 % ihrer Lagerkapazitaet und ist keine Lieferung im Anflug (`handel_im_anflug`, z. B. vom Rohstoff-Ausgleich des Flotten-Managers): `[ANFRAGE]` bis 25 %; Angebote werden automatisch bis zur angefragten Menge zugesagt; `[ERLEDIGT]`, sobald alles wieder auf 25 % ist. Je Insel gibt es nur eine offene Anfrage: Neue Rohstoffe (automatisch oder von Hand) kommen dazu, die Anfrage wird mit derselben Vorgangs-ID neu gepostet und die alte geloescht. |
 
+## PNs an Telegram
+
+PNs von Mitspielern (nicht nur aus der Allianz) leitet der Bot per Telegram
+weiter - ohne Protokoll-Nachrichten, Systemnachrichten und eigene. Nur PNs,
+die hoechstens einen Tag alt sind. Abschaltbar ueber `PN_WEITERLEITEN` in
+`config.py`.
+
 ## Raid-Flotten zurueckrufen
 
 Nur Flotten mit `mission: attack` auf dem Hinweg, die von der Insel stammen, auf

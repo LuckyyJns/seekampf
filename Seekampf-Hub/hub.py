@@ -317,6 +317,22 @@ def upgrade_insel(insel_id: int, payload: dict = Body(...)):
                 neu["bis_stufe"] = max(1, min(int(bis), 20))
             except (TypeError, ValueError):
                 raise HTTPException(400, "Zielstufe muss eine Zahl sein") from None
+    if "ausbauziele" in payload:
+        ziele = payload["ausbauziele"] or []
+        if not isinstance(ziele, list):
+            raise HTTPException(400, "Ausbauziele muessen eine Liste sein")
+        sauber = []
+        for z in ziele:
+            if not isinstance(z, dict) or z.get("gebaeude") not in GEBAEUDE:
+                raise HTTPException(400, "Unbekanntes Gebaeude in den Ausbauzielen")
+            try:
+                stufe = int(z.get("stufe"))
+            except (TypeError, ValueError):
+                raise HTTPException(400, "Stufe der Ausbauziele muss eine Zahl sein") from None
+            if not 1 <= stufe <= 20:
+                raise HTTPException(400, "Stufe der Ausbauziele: 1 bis 20")
+            sauber.append({"gebaeude": z["gebaeude"], "stufe": stufe})
+        neu["ausbauziele"] = sauber
     if "gesperrt" in payload:
         gesperrt = payload["gesperrt"] or []
         if not isinstance(gesperrt, list) or any(g not in GEBAEUDE for g in gesperrt):

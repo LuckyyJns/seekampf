@@ -64,6 +64,44 @@ class NurNochMauerUndTurm(unittest.TestCase):
         self.assertFalse(planner.nur_niedrige({}))
 
 
+class Ausbauziele(unittest.TestCase):
+    def geb(self, typ, naechste=1, verfuegbar=True):
+        return {"typ": typ, "naechste_stufe": naechste, "verfuegbar": verfuegbar}
+
+    def setUp(self):
+        self.by_typ = {"hafen": self.geb("hafen"), "kaserne": self.geb("kaserne"),
+                       "lagerhaus": self.geb("lagerhaus", verfuegbar=False), "goldmine": self.geb("goldmine", None)}
+        self.ziele = {"modus": "auto", "ausbauziele": [{"gebaeude": "hafen", "stufe": 7},
+                                                        {"gebaeude": "kaserne", "stufe": 5}]}
+
+    def test_der_reihe_nach(self):
+        ziel, hinweis = bot._zielgebaeude(self.ziele, {"hafen": 3, "kaserne": 0}, self.by_typ)
+        self.assertEqual(ziel, "hafen")
+        self.assertIn("1/2", hinweis)
+        ziel, _ = bot._zielgebaeude(self.ziele, {"hafen": 7, "kaserne": 0}, self.by_typ)
+        self.assertEqual(ziel, "kaserne")
+
+    def test_alle_erreicht_baut_automatisch(self):
+        ziel, hinweis = bot._zielgebaeude(self.ziele, {"hafen": 7, "kaserne": 5}, self.by_typ)
+        self.assertIsNone(ziel)
+        self.assertIn("erreicht", hinweis)
+
+    def test_nicht_verfuegbares_wird_uebersprungen(self):
+        e = {"modus": "auto", "ausbauziele": [{"gebaeude": "lagerhaus", "stufe": 3},
+                                               {"gebaeude": "goldmine", "stufe": 25},
+                                               {"gebaeude": "kaserne", "stufe": 5}]}
+        ziel, hinweis = bot._zielgebaeude(e, {"goldmine": 20}, self.by_typ)
+        self.assertEqual(ziel, "kaserne")
+        self.assertIn("uebersprungen", hinweis)
+
+    def test_priorisierung_geht_vor(self):
+        e = dict(self.ziele, modus="kaserne")
+        self.assertEqual(bot._zielgebaeude(e, {}, self.by_typ)[0], "kaserne")
+
+    def test_ohne_liste_wie_bisher(self):
+        self.assertEqual(bot._zielgebaeude({"modus": "auto"}, {}, self.by_typ), (None, None))
+
+
 class KoloReserve(unittest.TestCase):
     def setUp(self):
         self._pfad = config.KOLO_RESERVE_PATH
@@ -82,7 +120,7 @@ class KoloReserve(unittest.TestCase):
         planbar = bot._ohne_reserve({"gold": 20000, "stein": 3000, "holz": 40000, "kapazitaet": 50000}, reserve)
         self.assertEqual((planbar["gold"], planbar["stein"], planbar["holz"]), (475, 0, 4500))
         self.assertEqual(planbar["kapazitaet"], 50000)
-        self.assertEqual(bot._kolo_reserve(20), {"gold": 0.0, "stein": 0.0, "holz": 0.0})
+        self.assertEqual(bot._kolo_reserve(20), {})
 
     def test_veraltete_oder_fehlende_datei_zaehlt_nicht(self):
         self.assertEqual(bot._kolo_reserve(447), {})

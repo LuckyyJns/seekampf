@@ -215,6 +215,44 @@ class Basis(unittest.TestCase):
             self.bot.tick()
 
 
+class Merker:
+    aktiv = True
+
+    def __init__(self):
+        self.gesendet = []
+
+    def send(self, titel, text):
+        self.gesendet.append((titel, text))
+        return True
+
+
+class PnWeiterleiten(Basis):
+    def setUp(self):
+        super().setUp()
+        self.merker = Merker()
+        self.bot.k.notifier = self.merker
+
+    def pn_titel(self):
+        return [t for t, _ in self.merker.gesendet if t.startswith("PN von")]
+
+    def test_nur_menschliche_pns(self):
+        self.api.pn_von(ANDI, "Hey, brauchst du Holz?", "Frage")
+        self.api.pn_von(BENNI, "[ABSAGE/1]\nvorgang: 104-65\ngrund: nicht_verfuegbar", "[ABSAGE] 104-65")
+        self.api.pn_von(BENNI, "[ABSAGE/2]\nvorgang: 104-65", "[ABSAGE] 104-65")   # andere Version
+        self.api.inbox.append({"id": 9999, "sender_id": None, "sender": "System", "subject": "Auszahlung",
+                               "body": "freigegeben", "created_at": self.api.uhr.isoformat()})
+        self.lauf()
+        self.assertEqual(self.pn_titel(), ["PN von Andi: Frage"])
+        self.lauf()
+        self.assertEqual(len(self.pn_titel()), 1)          # nicht doppelt
+
+    def test_alte_pn_wird_nicht_nachgeschickt(self):
+        self.api.pn_von(ANDI, "alt", "Alt")
+        self.warte(days=2)
+        self.lauf()
+        self.assertEqual(self.pn_titel(), [])
+
+
 class Praesenz(Basis):
     def test_praesenz_und_whitelist(self):
         self.lauf()

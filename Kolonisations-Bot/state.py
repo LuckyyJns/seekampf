@@ -5,6 +5,9 @@
                   Ausbildungsauftrag und Flotte
   verlauf         abgeschlossene Eintraege (kolonisiert, entfernt, gescheitert)
   naechste_id     laufende Nummer fuer neue Eintraege
+  umbenennen      neue Inseln automatisch umbenennen: an/aus und Muster
+  bekannte_inseln Inseln, die schon da waren bzw. schon umbenannt sind
+                  (None = noch nie erfasst, dann wird nichts umbenannt)
 
 Weboberflaeche und Bot-Schleife laufen in einem Prozess, aber in
 verschiedenen Threads - Zugriffe gehen deshalb ueber das Lock. Geschrieben
@@ -43,7 +46,8 @@ class State:
                 self.defekt = f"{self.path}.defekt-{time.strftime('%Y%m%d-%H%M%S')}"
                 os.replace(self.path, self.defekt)
                 roh = {"laeuft": False}
-        daten = {"laeuft": True, "warteschlange": [], "verlauf": [], "naechste_id": 1}
+        daten = {"laeuft": True, "warteschlange": [], "verlauf": [], "naechste_id": 1,
+                 "umbenennen": {"aktiv": True, "muster": "GiG {n}"}, "bekannte_inseln": None}
         daten.update({k: v for k, v in roh.items() if k in daten})
         return daten
 

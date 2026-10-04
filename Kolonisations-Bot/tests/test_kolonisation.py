@@ -14,7 +14,7 @@ logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
 from api_client import ApiError  # noqa: E402
-from kolonisation import Kolonisierer  # noqa: E402
+from kolonisation import Kolonisierer, naechster_name  # noqa: E402
 from state import State  # noqa: E402
 
 ZUKUNFT = "2030-01-01T00:00:00Z"
@@ -85,6 +85,10 @@ class FakeApi:
 
     def recall_fleet(self, fid):
         self.recalled.append(fid)
+
+    def rename_island(self, iid, name):
+        self.umbenannt = getattr(self, "umbenannt", []) + [(iid, name)]
+        next(i for i in self.ov if i["id"] == iid)["name"] = name
 
 
 class Basis(unittest.TestCase):
@@ -231,6 +235,36 @@ class Besiedelt(Basis):
         api.besitzer["41:40:1"] = "Lucky_Jns"
         bot.tick()
         self.assertEqual(st.data["verlauf"][0]["ergebnis"], "kolonisiert")
+
+
+class Umbenennen(Basis):
+    def test_muster(self):
+        namen = ["GiG", "GiG 2", "GiG 7", "Fremd 9"]
+        self.assertEqual(naechster_name("GiG {n}", namen), "GiG 8")
+        self.assertEqual(naechster_name("GiG {n}", ["GiG"]), "GiG 2")
+        self.assertEqual(naechster_name("Kolonie-{n}", namen), "Kolonie-1")
+
+    def test_nur_neue_inseln_werden_umbenannt(self):
+        api = FakeApi([insel(1, "40:40:1"), insel(2, "40:40:2")])
+        api.ov[0]["name"], api.ov[1]["name"] = "GiG", "GiG 2"
+        bot, st = self.bot(api)
+        bot.tick()                                   # erster Lauf: nur erfassen
+        self.assertEqual(getattr(api, "umbenannt", []), [])
+        api.ov.append(insel(9, "41:40:1"))
+        api.ov[2]["name"] = "Unbewohnte Insel"
+        bot.tick()
+        self.assertEqual(api.umbenannt, [(9, "GiG 3")])
+        bot.tick()
+        self.assertEqual(len(api.umbenannt), 1)
+
+    def test_ausgeschaltet(self):
+        api = FakeApi([insel(1, "40:40:1")])
+        bot, st = self.bot(api)
+        bot.tick()
+        st.data["umbenennen"]["aktiv"] = False
+        api.ov.append(insel(9, "41:40:1"))
+        bot.tick()
+        self.assertEqual(getattr(api, "umbenannt", []), [])
 
 
 class Reihenfolge(Basis):

@@ -37,6 +37,15 @@ und gescheiterte Ziele.
 
 Der Flotten-Manager lässt Kolonisationsfahrten in Ruhe.
 
+## Neue Inseln umbenennen
+
+Jede neu dazukommende Insel (egal, wie sie dazukam) wird nach einem Muster
+umbenannt, Standard `GiG {n}`: `{n}` ist die höchste schon vergebene Nummer
++ 1, eine Insel namens „GiG“ zählt als 1. Beim ersten Start werden die
+vorhandenen Inseln nur erfasst (`bekannte_inseln` in `data/state.json`), nie
+umbenannt. An/aus und Muster im Hub unter **Kolonisation**
+(`POST /api/umbenennen {aktiv, muster}`).
+
 ## Betrieb
 
 ```bash

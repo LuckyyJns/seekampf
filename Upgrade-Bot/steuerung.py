@@ -32,7 +32,9 @@ SPERR_PATH = os.path.join(DATA_DIR, "steuerung.lock")
 STATUS_PATH = os.path.join(DATA_DIR, "status.json")
 BEFEHLE_DIR = os.path.join(DATA_DIR, "befehle")
 
-STANDARD = {"aktiv": True, "modus": "auto", "bis_stufe": None, "gesperrt": []}
+# ausbauziele: [{"gebaeude": ..., "stufe": ...}, ...] - der Reihe nach abarbeiten,
+# danach wieder automatisch (siehe bot._zielgebaeude).
+STANDARD = {"aktiv": True, "modus": "auto", "bis_stufe": None, "gesperrt": [], "ausbauziele": []}
 
 _NIE = object()  # noch nie nachgesehen - anders als "Datei fehlt" (None)
 _mtime_gesehen = _NIE

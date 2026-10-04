@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -48,6 +49,20 @@ def iso_zu_epoch(wert: str | None) -> float | None:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.timestamp()
+
+
+def naechster_name(muster: str, namen: list[str]) -> str:
+    """Name nach Muster mit {n} = hoechste schon vergebene Nummer + 1.
+    "GiG {n}" bei GiG, GiG 2 ... GiG 7 -> "GiG 8"."""
+    if "{n}" not in muster:
+        return muster
+    vor, nach = muster.split("{n}", 1)
+    regel = re.compile("^" + re.escape(vor) + r"(\d+)" + re.escape(nach) + "$")
+    nummern = [int(m.group(1)) for n in namen if (m := regel.match(n or ""))]
+    # Die erste Insel heisst oft nur "GiG" (ohne Nummer) - sie zaehlt als 1.
+    if any((n or "").strip() == (vor + nach).strip() for n in namen):
+        nummern.append(1)
+    return muster.replace("{n}", str(max(nummern, default=0) + 1))
 
 
 def fmt_res(werte: dict) -> str:
@@ -154,6 +169,7 @@ class Kolonisierer:
         self.ov = {int(i["id"]): i for i in (self.client.get_islands_overview() or [])}
         flotten = {str(f.get("id")): f for f in (self.client.get_fleets() or [])}
         eigene = {i.get("koordinaten"): iid for iid, i in self.ov.items()}
+        self._umbenennen()
 
         for e in [e for e in self.state.warteschlange if e["status"] == "unterwegs"]:
             self._unterwegs(e, flotten, eigene, jetzt)
@@ -190,6 +206,34 @@ class Kolonisierer:
         self._inseln_bewerten()
         self.state.save()
         self.letzter_tick = jetzt
+
+    # --------------------------------------------------------- Umbenennen
+    def _umbenennen(self) -> None:
+        """Neu aufgetauchte Inseln nach dem Muster umbenennen. Beim allerersten
+        Mal werden die vorhandenen Inseln nur erfasst, nie umbenannt."""
+        bekannt = self.state.data.get("bekannte_inseln")
+        if bekannt is None:
+            self.state.data["bekannte_inseln"] = sorted(self.ov)
+            self.state.save()
+            return
+        einst = self.state.data.get("umbenennen") or {}
+        for iid in sorted(set(self.ov) - set(bekannt)):
+            bekannt.append(iid)
+            alt = self.ov[iid].get("name") or ""
+            if not einst.get("aktiv") or not (einst.get("muster") or "").strip():
+                continue
+            neu = naechster_name(einst["muster"].strip(), [i.get("name") for i in self.ov.values()])[:40]
+            if neu == alt:
+                continue
+            try:
+                self.client.rename_island(iid, neu)
+            except ApiError as err:
+                log.error("Neue Insel %s (%s) liess sich nicht umbenennen: %s",
+                          alt, self.ov[iid].get("koordinaten"), err)
+                continue
+            self.ov[iid]["name"] = neu
+            log.info("UMBENANNT  neue Insel %s: '%s' -> '%s'", self.ov[iid].get("koordinaten"), alt, neu)
+        self.state.save()
 
     # ----------------------------------------------------------- Zuordnung
     def _zuordnen(self) -> None:

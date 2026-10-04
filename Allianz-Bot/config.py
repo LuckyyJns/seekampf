@@ -55,6 +55,8 @@ MITGLIEDER_MAX_ALTER = timedelta(hours=1)
 TICK_S = 15
 INCOMING_INTERVALL_S = 30       # eigene Insel auf Angriffe pruefen
 PN_INTERVALL_S = 60             # Postfach
+# PNs von Mitspielern (keine Protokoll- und Systemnachrichten) per Telegram weiterleiten.
+PN_WEITERLEITEN = True
 FORUM_INTERVALL_S = 300         # Protokoll-Threads (Pflicht: <= 10 min)
 MITGLIEDER_INTERVALL_S = 1800   # Mitgliederliste (Pflicht: <= 1 h)
 ANFRAGE_INTERVALL_S = 300       # Lagerstand fuer Rohstoff-Anfragen

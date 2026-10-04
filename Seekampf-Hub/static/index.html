@@ -666,6 +666,16 @@
         <div id="ko-liste"></div>
       </section>
       <section class="karte">
+        <div class="kopfzeile"><h2>Neue Inseln umbenennen</h2>
+          <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="ko-umbenennen" hidden>● ungespeichert</span>
+            <button class="klein" id="ko-umb-speichern">Speichern</button></div></div>
+        <div class="formular-leiste" data-form="ko-umbenennen">
+          <label class="schalter"><input type="checkbox" id="ko-umb-aktiv"><span class="spur"></span><span>an</span></label>
+          <input type="text" id="ko-umb-muster" class="eingabe" style="max-width:200px" maxlength="40">
+          <span class="leise klein-text">{n} = nächste freie Nummer (bei GiG … GiG 7 → GiG 8). Gilt für jede neu dazukommende Insel, vorhandene bleiben, wie sie sind.</span>
+        </div>
+      </section>
+      <section class="karte">
         <div class="kopfzeile"><h2>Bau-Inseln</h2><div class="rechts leise klein-text" id="ko-schiff"></div></div>
         <div id="ko-inseln"></div>
       </section>
@@ -894,6 +904,10 @@ function zeichneKolonie() {
   box.hidden = !fehler; box.textContent = fehler ? `Fehler: ${fehler}` : "";
   if (!kolonie) return;
   $("ko-laeuft").checked = kolonie.laeuft;
+  if (!ungespeichert.has("ko-umbenennen") && kolonie.umbenennen) {
+    $("ko-umb-aktiv").checked = kolonie.umbenennen.aktiv;
+    $("ko-umb-muster").value = kolonie.umbenennen.muster;
+  }
   const ws = kolonie.warteschlange;
   $("ko-liste").innerHTML = ws.length ? `<div class="tabelle-rahmen"><table><thead><tr><th>#</th><th>Ziel</th><th>Status</th>
       <th>Schiff von</th><th class="zahl verstecken-schmal">Fahrzeit</th><th>Hinweis</th><th></th></tr></thead><tbody>${ws.map((e, n) => {
@@ -930,6 +944,11 @@ async function kolonieHinzu(koord, knopf) {
     (e) => `${e.koordinaten} ist auf Platz ${(kolonie?.warteschlange.length || 0) + 1} der Kolonisations-Warteschlange`);
   if (r) { $("ko-koord").value = ""; kolonieHolen(); }
 }
+$("ko-umb-speichern").onclick = async (e) => {
+  const r = await aktion(e.target, () => post("/api/kolonie/umbenennen", { aktiv: $("ko-umb-aktiv").checked, muster: $("ko-umb-muster").value }),
+    "Umbenennen gespeichert");
+  if (r) { dirtySetzen("ko-umbenennen", false); kolonieHolen(); }
+};
 $("ko-hinzu").onclick = (e) => kolonieHinzu($("ko-koord").value.trim(), e.target);
 $("ko-koord").addEventListener("keydown", (e) => { if (e.key === "Enter") kolonieHinzu(e.target.value.trim(), $("ko-hinzu")); });
 $("ko-laeuft").onchange = async (e) => {
@@ -1677,7 +1696,7 @@ function zeichneUpgrade() {
   const container = $("up-inseln");
   for (const i of Object.values(st.inseln).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
     const id = String(i.id);
-    const steuer = { aktiv: true, modus: "auto", bis_stufe: null, gesperrt: [], ...(upgrade.steuerung.inseln?.[id] || {}) };
+    const steuer = { aktiv: true, modus: "auto", bis_stufe: null, gesperrt: [], ausbauziele: [], ...(upgrade.steuerung.inseln?.[id] || {}) };
     const karte = inselKarte(container, id, `
       <div class="zwei-spalten">
         <div class="unterteil"><h2>Lager</h2><div data-teil="lager"></div></div>
@@ -1693,9 +1712,11 @@ function zeichneUpgrade() {
     karte.classList.toggle("offen", offeneInseln.upgrade.has(id));
     const schlange = i.warteschlange || [];
     const aktiv = schlange.find(o => o.status === "aktiv");
-    const modusText = steuer.modus === "auto" ? "automatisch"
+    const modusText = steuer.modus === "auto" ? (steuer.ausbauziele?.length ? `${steuer.ausbauziele.length} Ausbauziele` : "automatisch")
       : `nur ${gname(steuer.modus)}${steuer.bis_stufe ? ` bis ${steuer.bis_stufe}` : ""}`;
-    const modusMarke = steuer.modus === "auto" ? `<span class="marke grau">${modusText}</span>`
+    const modusMarke = steuer.modus === "auto" ? (steuer.ausbauziele?.length
+        ? `<span class="marke${i.priorisierung_aktiv ? "" : " grau"}" title="${esc(i.priorisierung_hinweis || "")}">${esc(modusText)}${i.priorisierung_aktiv ? "" : " · erreicht"}</span>`
+        : `<span class="marke grau">${modusText}</span>`)
       : i.priorisierung_aktiv ? `<span class="marke">${esc(modusText)}</span>`
       : `<span class="marke grau" title="${esc(i.priorisierung_hinweis || "")}">${esc(modusText)} · erreicht</span>`;
     karte.querySelector(".insel-kopf").innerHTML = `
@@ -1795,7 +1816,19 @@ function zeichneUpgradeFormular(karte, id, steuer, i) {
     </div>
     <div class="feld" style="margin-top:12px"><span class="label">Nie bauen</span>
       <div class="chips">${upgrade.gebaeude.map(g => `<label><input type="checkbox" data-sperre-geb="${g}" ${steuer.gesperrt.includes(g) ? "checked" : ""}>${gname(g)}</label>`).join("")}</div>
-      <span class="hinweis">gilt für die automatische Reihenfolge; Ausbauten von Hand gehen trotzdem</span></div>`;
+      <span class="hinweis">gilt für die automatische Reihenfolge; Ausbauten von Hand gehen trotzdem</span></div>
+    <div class="feld" style="margin-top:12px"><span class="label">Ausbauziele (der Reihe nach)</span>
+      <div data-teil="ziele-liste">${(steuer.ausbauziele || []).map(z => ausbauzielZeile(z)).join("")}</div>
+      <div><button class="klein" data-ziel-neu="${id}">+ Ziel</button></div>
+      <span class="hinweis">baut nur das erste noch nicht erreichte Ziel und wartet, bis es bezahlbar ist; nicht verfügbare werden übersprungen;
+        gesperrte Gebäude werden hier trotzdem gebaut; sind alle erreicht, baut der Bot wieder automatisch. „Priorisierung“ oben geht vor.</span></div>`;
+}
+function ausbauzielZeile(z = { gebaeude: "hafen", stufe: 1 }) {
+  return `<div class="formular-leiste" data-ausbauziel style="margin:4px 0">
+    <select data-z-geb class="eingabe">${upgrade.gebaeude.map(g => `<option value="${g}" ${z.gebaeude === g ? "selected" : ""}>${gname(g)}</option>`).join("")}</select>
+    <span class="leise">auf Stufe</span>
+    <input type="number" min="1" max="20" step="1" data-z-stufe class="eingabe" style="width:70px" value="${z.stufe}">
+    <button class="klein" data-z-hoch title="nach oben">▲</button><button class="klein" data-z-weg title="entfernen">✕</button></div>`;
 }
 function formularVerwerfen(form) {
   if (form === "fl-settings") $("fl-formular").dataset.gebaut = "";
@@ -1820,6 +1853,15 @@ $("up-inseln").addEventListener("change", async (e) => {
   upgradeHolen();
 });
 $("up-inseln").addEventListener("click", async (e) => {
+  const neu = e.target.closest("[data-ziel-neu]"), hoch = e.target.closest("[data-z-hoch]"), weg = e.target.closest("[data-z-weg]");
+  if (neu || hoch || weg) {
+    const form = e.target.closest("[data-form]");
+    if (neu) form.querySelector('[data-teil="ziele-liste"]').insertAdjacentHTML("beforeend", ausbauzielZeile());
+    if (hoch) { const z = hoch.closest("[data-ausbauziel]"); if (z.previousElementSibling) z.parentNode.insertBefore(z, z.previousElementSibling); }
+    if (weg) weg.closest("[data-ausbauziel]").remove();
+    dirtySetzen(form.dataset.form, true);
+    return;
+  }
   const sp = e.target.closest("[data-up-speichern]");
   if (sp) {
     const id = sp.dataset.upSpeichern, el = document.querySelector(`[data-form="up-form-${id}"]`);
@@ -1827,6 +1869,8 @@ $("up-inseln").addEventListener("click", async (e) => {
       modus: el.querySelector('[data-feld="modus"]').value,
       bis_stufe: el.querySelector('[data-feld="bis_stufe"]').value || null,
       gesperrt: [...el.querySelectorAll("[data-sperre-geb]:checked")].map(x => x.dataset.sperreGeb),
+      ausbauziele: [...el.querySelectorAll("[data-ausbauziel]")].map(z => ({
+        gebaeude: z.querySelector("[data-z-geb]").value, stufe: Number(z.querySelector("[data-z-stufe]").value) })),
     };
     if (nutzlast.modus !== "auto" && nutzlast.gesperrt.includes(nutzlast.modus)) {
       melde(`${gname(nutzlast.modus)} ist gleichzeitig priorisiert und gesperrt – bitte eins von beiden ändern.`, "schlecht");

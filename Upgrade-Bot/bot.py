@@ -87,7 +87,8 @@ def _kolo_reserve(island_id) -> dict:
         if time.time() - float(daten.get("zeit") or 0) > config.KOLO_RESERVE_MAX_ALTER_S:
             return {}
         eintrag = (daten.get("inseln") or {}).get(str(island_id)) or {}
-        return {r: float(eintrag.get(r, 0) or 0) for r in config.RESOURCE_KEYS}
+        reserve = {r: float(eintrag.get(r, 0) or 0) for r in config.RESOURCE_KEYS}
+        return reserve if any(reserve.values()) else {}
     except (OSError, ValueError, TypeError, AttributeError):
         return {}
 
@@ -303,21 +304,50 @@ def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key:
 # ----------------------------------------------------------------------
 
 def _zielgebaeude(einstellung: dict, levels: dict, buildings_by_typ: dict) -> tuple[str | None, str | None]:
-    """Welches Gebaeude die Priorisierung gerade vorgibt - None heisst: die
-    normale Kaskade entscheidet. Der zweite Wert erklaert, warum eine gesetzte
-    Priorisierung nicht (mehr) greift."""
+    """Welches Gebaeude die Priorisierung bzw. die Ausbauziele gerade vorgeben -
+    None heisst: die normale Kaskade entscheidet. Der zweite Wert erklaert,
+    warum eine gesetzte Vorgabe nicht (mehr) greift bzw. wo die Liste steht.
+
+    Eine Priorisierung (modus) geht vor. Sonst gilt die Liste der Ausbauziele:
+    das erste Ziel, dessen Stufe (mit dem, was schon in der Warteschlange
+    steckt) noch nicht erreicht ist. Ziele, deren Gebaeude noch nicht
+    verfuegbar ist oder die Hoechststufe hat, werden uebersprungen. Sind alle
+    erreicht, baut der Bot wieder automatisch. Gesperrte Gebaeude in der Liste
+    werden trotzdem gebaut - die Liste ist ausdruecklich so gewollt."""
     modus = einstellung.get("modus") or "auto"
-    if modus == "auto":
+    if modus != "auto":
+        b = buildings_by_typ.get(modus)
+        if b is None:
+            return None, f"Priorisierung {modus}: Gebaeude unbekannt - baut automatisch"
+        bis = einstellung.get("bis_stufe")
+        if bis and levels.get(modus, 0) >= int(bis):
+            return None, f"Ziel {modus} Stufe {int(bis)} erreicht - baut wieder automatisch"
+        if b.get("naechste_stufe") is None and b.get("verfuegbar", True):
+            return None, f"{modus} hat die Hoechststufe erreicht - baut wieder automatisch"
+        return modus, None
+
+    ziele = einstellung.get("ausbauziele") or []
+    if not ziele:
         return None, None
-    b = buildings_by_typ.get(modus)
-    if b is None:
-        return None, f"Priorisierung {modus}: Gebaeude unbekannt - baut automatisch"
-    bis = einstellung.get("bis_stufe")
-    if bis and levels.get(modus, 0) >= int(bis):
-        return None, f"Ziel {modus} Stufe {int(bis)} erreicht - baut wieder automatisch"
-    if b.get("naechste_stufe") is None and b.get("verfuegbar", True):
-        return None, f"{modus} hat die Hoechststufe erreicht - baut wieder automatisch"
-    return modus, None
+    uebersprungen = []
+    for nr, z in enumerate(ziele, 1):
+        geb, stufe = z.get("gebaeude"), int(z.get("stufe") or 0)
+        if levels.get(geb, 0) >= stufe:
+            continue
+        b = buildings_by_typ.get(geb)
+        if b is None or not b.get("verfuegbar", True):
+            uebersprungen.append(f"{geb} {stufe} (noch nicht verfuegbar)")
+            continue
+        if b.get("naechste_stufe") is None:
+            uebersprungen.append(f"{geb} {stufe} (Hoechststufe)")
+            continue
+        hinweis = f"Ausbauziel {nr}/{len(ziele)}: {geb} auf Stufe {stufe}"
+        if uebersprungen:
+            hinweis += " - uebersprungen: " + ", ".join(uebersprungen)
+        return geb, hinweis
+    if uebersprungen:
+        return None, "Ausbauziele: uebrige nicht baubar (" + ", ".join(uebersprungen) + ") - baut automatisch"
+    return None, "alle Ausbauziele erreicht - baut wieder automatisch"
 
 
 def _waehlen(candidates: dict, current: dict, capacity: float, store, allow_low: bool, ziel: str | None,
@@ -461,9 +491,12 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
         current = _usable_resources(planbar)
         capacity = float(resources.get("kapazitaet", 0) or 0)
         levels = projected_levels(buildings, active_orders)
-        candidates = {n: c for n, c in collect_candidates(buildings, levels).items() if n not in gesperrt}
+        alle = collect_candidates(buildings, levels)
+        candidates = {n: c for n, c in alle.items() if n not in gesperrt}
         by_typ = {b["typ"]: b for b in buildings}
         ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
+        if ziel is not None and ziel in alle:
+            candidates[ziel] = alle[ziel]
 
         now = time.time()
         queue_empty = len(active_orders) == 0
@@ -552,9 +585,12 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
 
     # Fuer den Seekampf-Hub: was als Naechstes kaeme, mit dem Stand nach diesem Durchlauf.
     levels = projected_levels(buildings, active_orders)
-    candidates = {n: c for n, c in collect_candidates(buildings, levels).items() if n not in gesperrt}
+    alle = collect_candidates(buildings, levels)
+    candidates = {n: c for n, c in alle.items() if n not in gesperrt}
     by_typ = {b["typ"]: b for b in buildings}
     ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
+    if ziel is not None and ziel in alle:
+        candidates[ziel] = alle[ziel]
     jetzt_ts = time.time()
     ueberlauf, volle = _ueberlauf(resources, verlauf, island_id, jetzt_ts, active_orders)
     plan = None
