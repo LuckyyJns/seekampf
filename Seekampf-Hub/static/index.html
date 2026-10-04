@@ -2400,9 +2400,10 @@ function zeichneJetzt() {
 
   // Raid-Radius und Ziele (K4)
   if (ka.ebenen.ziele && flotte) {
-    const r = Number(flotte.settings?.scan_radius_sektoren ?? 1);
     ctx.setLineDash([6, 5]); ctx.lineWidth = 1.5; ctx.strokeStyle = f.akzent;
     for (const i of flotte.inseln.filter(x => x.aktiv)) {
+      // Eigener Radius der Insel, sonst der globale.
+      const r = Number(i.einstellungen?.scan_radius_sektoren ?? flotte.settings?.scan_radius_sektoren ?? 1);
       const [sx, sy] = i.koordinaten.split(":").map(Number);
       const [x0, y0] = zuBild((sx - r) * 5, (sy - r) * 5), [x1, y1] = zuBild((sx + r + 1) * 5, (sy + r + 1) * 5);
       ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
