@@ -21,6 +21,8 @@ import logging
 import time
 from datetime import datetime, timezone
 
+import requests
+
 import config
 import geo
 import scanner
@@ -256,6 +258,9 @@ class FlottenManager:
 
         flotten_api = self.client.get_fleets()
         self._flotten_abgleichen(flotten_api, jetzt)
+        # Sicherheit vor allem anderen - auch wenn das Raiden gestoppt ist,
+        # fahren ja noch Flotten.
+        self._unterwegs_pruefen(flotten_api, jetzt)
         self._berichte_aufloesen()
 
         if not self.state.data["laeuft"]:
@@ -440,6 +445,70 @@ class FlottenManager:
             })
         self._dirty = True
 
+    # ------------------------------------------------- Ziel unterwegs pruefen
+    def _unterwegs_pruefen(self, flotten_api: list, jetzt: float) -> None:
+        """Ist das Ziel einer fahrenden Raid-Flotte noch frei?
+
+        Zwischen Abfahrt und Ankunft kann jemand die Insel besiedeln - dann
+        wuerde aus dem Pluenderzug ein Angriff auf einen Mitspieler. Solange
+        die Flotte noch zurueckgerufen werden kann (recallable_until, haengt am
+        Wachturm), wird das Ziel alle `pruef_intervall_s` geprueft und
+        `pruef_vorlauf_s` vor Ende der Rueckrufmoeglichkeit ein letztes Mal.
+        Hat es einen Besitzer: Flotte zurueckrufen, Ziel aus allen Listen.
+        Wird die Insel erst danach besiedelt, laesst sich nichts mehr tun.
+        """
+        intervall = float(self.settings["pruef_intervall_s"])
+        vorlauf = float(self.settings["pruef_vorlauf_s"])
+        frisch: dict[str, bool] = {}  # je Koordinate hoechstens eine Abfrage pro Tick
+        for f in flotten_api:
+            if f.get("mission") != "attack" or f.get("state") != "outbound":
+                continue
+            rec = self.state.data["flotten"].get(str(f.get("id")))
+            if rec is None or rec.get("fremd") or rec.get("zurueckgerufen") or rec.get("angekommen"):
+                continue
+            ende = rec.get("recallable_until")
+            if not ende or jetzt >= ende:
+                continue
+            rest = ende - jetzt
+            letzte = rest <= vorlauf
+            if letzte and rec.get("letzte_pruefung"):
+                continue
+            if not letzte and jetzt - float(rec.get("geprueft_um") or rec.get("depart_at") or 0) < intervall:
+                continue
+            koord = rec["koordinaten"]
+            if koord not in frisch:
+                x, y, z = geo.koord_parse(koord)
+                try:
+                    frisch[koord] = scanner.ist_frei(self.client.get_island_info(x, y, z) or {})
+                except (ApiError, requests.RequestException) as e:
+                    log.warning("Pruefung von %s (Flotte #%s) fehlgeschlagen: %s", koord, rec["id"], e)
+                    continue  # naechster Tick versucht es wieder
+            rec["geprueft_um"] = jetzt
+            if letzte:
+                rec["letzte_pruefung"] = True
+            self._dirty = True
+            if frisch[koord]:
+                continue
+            try:
+                self.client.recall_fleet(f["id"])
+            except ApiError as e:
+                log.error("RUECKRUF   Flotte #%s nach %s fehlgeschlagen: %s - Ziel ist besiedelt!",
+                          rec["id"], koord, e)
+            else:
+                rec["zurueckgerufen"] = True
+                log.warning("RUECKRUF   Flotte #%s zurueckgerufen: %s (%s) wurde unterwegs besiedelt "
+                            "(%s vor Ende der Rueckrufmoeglichkeit)", rec["id"], koord, rec.get("ziel_name"),
+                            fmt_dauer(rest))
+            ziel = self._irgendein_ziel(koord)
+            if ziel is not None:
+                self._ziel_verwerfen(ziel, "wurde besiedelt, waehrend eine Flotte unterwegs war")
+
+    def _irgendein_ziel(self, koord: str) -> dict | None:
+        for insel in self.state.data["inseln"].values():
+            if koord in insel["ziele"]:
+                return insel["ziele"][koord]
+        return None
+
     # -------------------------------------------------------------- Berichte
     def _berichte_aufloesen(self) -> None:
         """Zu jeder angekommenen Flotte den Kampfbericht suchen.
@@ -463,6 +532,7 @@ class FlottenManager:
         for eintrag in offen:
             treffer = self._passender_bericht(nachrichten, eintrag, verbucht)
             if treffer is not None:
+                self._besiedelt_pruefen(eintrag, treffer)
                 self._bericht_verbuchen(eintrag, treffer)
                 verbucht.append(treffer["id"])
                 self._bericht_archivieren(eintrag, treffer)
@@ -477,6 +547,36 @@ class FlottenManager:
 
         self.state.data["offene_berichte"] = uebrig
         del verbucht[:-500]  # nur die juengsten IDs behalten
+
+    def _besiedelt_pruefen(self, eintrag: dict, nachricht: dict) -> None:
+        """Traf die Flotte auf eine inzwischen besiedelte Insel? Der Bericht
+        traegt den Inselnamen zum Zeitpunkt des Kampfes; weicht er vom Namen
+        der freien Insel ab, hat sie jemand uebernommen. Dann: Bericht stehen
+        lassen, Ziel aus allen Listen, Telegram."""
+        p = nachricht.get("payload") or {}
+        koord = eintrag["koordinaten"]
+        ziel = self.state.ziel(eintrag.get("insel_id"), koord)
+        name = p.get("insel_name")
+        if eintrag.get("fremd") or not name or ziel is None or name == ziel.get("name"):
+            return
+        # Nur ein anderer Name? Live nachsehen, bevor Alarm geschlagen wird.
+        try:
+            frei = scanner.ist_frei(self.client.get_island_info(ziel["x"], ziel["y"], ziel["z"]) or {})
+        except (ApiError, requests.RequestException):
+            frei = False  # im Zweifel: Bericht stehen lassen und melden
+        if frei:
+            ziel["name"] = name
+            return
+        eintrag["besiedelt"] = True
+        log.warning("BESIEDELT  Flotte #%s hat %s angegriffen, die unterwegs besiedelt wurde: '%s' -> '%s' "
+                    "(Bericht #%s bleibt im Postfach)", eintrag["flotte"], koord, ziel.get("name"), name,
+                    nachricht.get("id"))
+        if self.notifier is not None and getattr(self.notifier, "aktiv", False):
+            self.notifier.send("Flotten-Manager: Angriff auf besiedelte Insel",
+                               f"Flotte #{eintrag['flotte']} hat {koord} angegriffen. Die Insel wurde unterwegs "
+                               f"besiedelt ('{ziel.get('name')}' -> '{name}'), erst nachdem sie nicht mehr "
+                               f"zurueckgerufen werden konnte. Der Kampfbericht bleibt im Postfach.")
+        self._ziel_verwerfen(ziel, f"wurde besiedelt ('{name}')")
 
     @staticmethod
     def _passender_bericht(nachrichten: list, eintrag: dict, verbucht: list) -> dict | None:
@@ -557,13 +657,21 @@ class FlottenManager:
             verlorengegangen, waehrend die Flotte fuhr -> behalten
           - rolle != "angreifer" (eingehender Angriff auf eine eigene Insel)
             -> behalten
+          - Niederlage -> behalten
+          - Insel war beim Kampf schon besiedelt (anderer Name im Bericht)
+            -> behalten
         """
         if not self.settings["berichte_archivieren"]:
             return
         if eintrag.get("fremd", True):
             return
-        if (nachricht.get("payload") or {}).get("rolle") != "angreifer":
+        p = nachricht.get("payload") or {}
+        if p.get("rolle") != "angreifer":
             return
+        if not p.get("sieg"):
+            return  # Niederlagen bleiben zum Nachlesen im Postfach
+        if eintrag.get("besiedelt"):
+            return  # Angriff auf eine inzwischen bewohnte Insel - bleibt sichtbar
         try:
             self.client.archive_message(nachricht["id"])
         except ApiError as e:

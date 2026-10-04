@@ -65,7 +65,14 @@ Code: `ausgleich.py`; Schnittstelle `GET /api/ausgleich`,
 3. **Gegenpruefen** – unmittelbar vor der Abfahrt wird ueber
    `GET /map/island/{x}/{y}/{z}` noch einmal geprueft, ob die Insel wirklich
    frei ist. Hat sie inzwischen einen Besitzer, fliegt sie aus der Rotation und
-   die Flotte nimmt das naechste Ziel.
+   die Flotte nimmt das naechste Ziel. **Auch unterwegs:** Solange die Flotte
+   noch zurueckgerufen werden kann (`recallable_until`, haengt am Wachturm),
+   wird das Ziel alle `pruef_intervall_s` (60 s) geprueft und
+   `pruef_vorlauf_s` (30 s) vor Ende der Rueckrufmoeglichkeit ein letztes Mal.
+   Ist es besiedelt, wird die Flotte zurueckgerufen. Wird die Insel erst danach
+   besiedelt, erkennt der Manager das am Namen im Kampfbericht, laesst den
+   Bericht stehen und meldet es per Telegram. Die Zielliste wird stuendlich neu
+   gescannt.
    Steht ein Ziel unter Anfaengerschutz (`409 newbie_protection`), ist es fuer
    6 Stunden gesperrt, statt in jeder Runde erneut angefahren zu werden.
 4. **Nachhalten** – Ankunft und Rueckkehr jeder Flotte stehen im Log; sobald
@@ -101,12 +108,15 @@ Alle Einstellungen greifen sofort, ohne Neustart. Die wichtigsten:
 
 Bei zwoelf Raids am Tag ist der Kampfbericht-Ordner nach einer Woche
 unbrauchbar. Steht `berichte_archivieren` an (Standard), blendet der Manager
-jeden Bericht aus, **den er selbst ausgeloest hat** – aber erst, nachdem die
-Beute verbucht ist. Faellt das Ausblenden aus, bleibt der Bericht stehen; die
+jeden **gewonnenen** Bericht aus, **den er selbst ausgeloest hat** – aber erst,
+nachdem die Beute verbucht ist. Faellt das Ausblenden aus, bleibt der Bericht stehen; die
 Statistik stimmt trotzdem.
 
 Unberuehrt bleiben:
 
+* Niederlagen,
+* Angriffe auf Inseln, die unterwegs besiedelt wurden (Name im Bericht weicht
+  ab und die Insel hat live einen Besitzer),
 * Berichte zu von Hand gestarteten Angriffen,
 * Berichte zu Flotten, die der Manager nicht zuordnen kann – das passiert nur,
   wenn `data/state.json` verloren geht, waehrend eine Flotte faehrt; ein

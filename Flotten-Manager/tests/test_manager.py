@@ -37,6 +37,8 @@ class FakeApi:
         self.ov = inseln
         self.fleets, self.created, self.recalled = [], [], []
         self.ziele = ziele or []          # [(koord, anfaengerschutz)]
+        self.besitzer = {}                # koord -> Spielername (besiedelt)
+        self.berichte, self.archiviert, self.abfragen = [], [], []
         self.nid = 1000
 
     def get_me(self):
@@ -53,13 +55,14 @@ class FakeApi:
                             "z": int(k.split(":")[2]), "besitzer": None, "name": k} for k, _ in self.ziele]}
 
     def get_island_info(self, x, y, z):
-        return {"besitzer": None}
+        self.abfragen.append(f"{x}:{y}:{z}")
+        return {"besitzer": self.besitzer.get(f"{x}:{y}:{z}")}
 
     def get_combat_messages(self, limit=50):
-        return []
+        return list(self.berichte)
 
     def archive_message(self, i):
-        pass
+        self.archiviert.append(i)
 
     def recall_fleet(self, i):
         self.recalled.append(i)
@@ -141,6 +144,96 @@ class Raids(Basis):
         ziele = st.insel(447)["ziele"]
         self.assertEqual(ziele["53:48:2"]["blacklist_grund"], "Anfaengerschutz")
         self.assertEqual([p["target"]["z"] for p in api.created], [1])
+
+
+def iso(t):
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+
+
+class Unterwegs(Basis):
+    """Ziel wird waehrend der Fahrt besiedelt."""
+
+    def setUp(self):
+        super().setUp()
+        self.api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000))], ziele=[("53:48:1", False)])
+        self.m, self.st = self.manager(self.api)
+        self.st.data["laeuft"] = False      # nur pruefen, keine neuen Raids
+        self.jetzt = time.time()
+
+    def raid(self, rueckruf_in: float, id_=7):
+        f = {"id": id_, "mission": "attack", "origin_island_id": 447, "state": "outbound",
+             "target": {"x": 53, "y": 48, "z": 1, "name": "53:48:1"}, "ships": {}, "units": {},
+             "depart_at": iso(self.jetzt - 60), "arrive_at": iso(self.jetzt + 600),
+             "recallable_until": iso(self.jetzt + rueckruf_in)}
+        self.api.fleets.append(f)
+        rec = self.m._record(f)
+        rec["fremd"] = False
+        self.st.data["flotten"][str(id_)] = rec
+        return rec
+
+    def test_besiedelt_unterwegs_wird_zurueckgerufen(self):
+        self.raid(300)
+        self.api.besitzer["53:48:1"] = "Puffhausen"
+        self.m.tick()
+        self.assertEqual(self.api.recalled, [7])
+        self.assertNotIn("53:48:1", self.st.insel(447)["ziele"])
+
+    def test_frei_bleibt_unterwegs_und_wird_nicht_dauernd_abgefragt(self):
+        self.raid(300)
+        self.m.tick()
+        self.m.tick()
+        self.assertEqual(self.api.recalled, [])
+        self.assertEqual(self.api.abfragen, ["53:48:1"])   # einmal je pruef_intervall_s
+
+    def test_letzte_pruefung_kurz_vor_ende_der_rueckrufzeit(self):
+        rec = self.raid(20)                                 # nur noch 20 s rueckrufbar
+        rec["geprueft_um"] = self.jetzt                     # Intervall-Pruefung gerade erst gelaufen
+        self.api.besitzer["53:48:1"] = "Puffhausen"
+        self.m.tick()
+        self.assertEqual(self.api.recalled, [7])
+
+    def test_nach_ende_der_rueckrufzeit_nichts_mehr(self):
+        self.raid(-5)
+        self.api.besitzer["53:48:1"] = "Puffhausen"
+        self.m.tick()
+        self.assertEqual(self.api.recalled, [])
+
+
+class Postfach(Basis):
+    def bericht(self, api, mid, sieg, name):
+        api.berichte.append({"id": mid, "created_at": iso(time.time()), "payload": {
+            "rolle": "angreifer", "sieg": sieg, "insel_koordinaten": "53:48:1", "insel_name": name,
+            "loot": {"gold": 5}, "verluste": {"angreifer": {}}}})
+
+    def lauf(self, sieg, name, besitzer=None):
+        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000))], ziele=[("53:48:1", False)])
+        m, st = self.manager(api)
+        st.data["laeuft"] = False
+        if besitzer:
+            api.besitzer["53:48:1"] = besitzer
+        st.data["offene_berichte"] = [{"koordinaten": "53:48:1", "flotte": 9, "insel_id": 447,
+                                       "arrive_at": time.time() - 30, "seit": time.time(), "fremd": False}]
+        self.bericht(api, 500, sieg, name)
+        m.tick()
+        return api, st
+
+    def test_sieg_auf_freier_insel_wird_ausgeblendet(self):
+        api, _ = self.lauf(True, "53:48:1")
+        self.assertEqual(api.archiviert, [500])
+
+    def test_niederlage_bleibt_stehen(self):
+        api, _ = self.lauf(False, "53:48:1")
+        self.assertEqual(api.archiviert, [])
+
+    def test_besiedelte_insel_bleibt_stehen_und_fliegt_raus(self):
+        api, st = self.lauf(True, "Puffhausen 94", besitzer="Puffhausen")
+        self.assertEqual(api.archiviert, [])
+        self.assertNotIn("53:48:1", st.insel(447)["ziele"])
+
+    def test_nur_neuer_name_aber_frei_ist_kein_alarm(self):
+        api, st = self.lauf(True, "Neuer Name")
+        self.assertEqual(api.archiviert, [500])
+        self.assertEqual(st.insel(447)["ziele"]["53:48:1"]["name"], "Neuer Name")
 
 
 class Zustand(Basis):

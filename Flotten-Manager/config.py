@@ -72,7 +72,9 @@ DEFAULT_SETTINGS = {
     # --- Suchbereich ---
     # 0 = nur der eigene Sektor, 1 = 3x3 Sektoren, 2 = 5x5 ...
     "scan_radius_sektoren": 1,
-    "scan_intervall_stunden": 24,
+    # Ein Scan kostet bei Radius 3 nur 9 Abfragen - stuendlich haelt die
+    # Zielliste aktuell, wenn ringsum gerade viel besiedelt wird.
+    "scan_intervall_stunden": 1,
 
     # --- Flottenzusammensetzung (je losgeschickter Flotte) ---
     "flotte_kriegsschiffe": 1,
@@ -101,10 +103,19 @@ DEFAULT_SETTINGS = {
     "niederlagen_bis_blacklist": 2,
     "blacklist_tage": 3,
 
+    # --- Ziel unterwegs pruefen ---
+    # Solange eine Raid-Flotte noch zurueckgerufen werden kann, wird ihr Ziel so
+    # oft geprueft; hat es inzwischen einen Besitzer, wird sie zurueckgerufen.
+    "pruef_intervall_s": 60,
+    # So viele Sekunden vor dem Ende der Rueckrufmoeglichkeit wird ein letztes
+    # Mal geprueft.
+    "pruef_vorlauf_s": 30,
+
     # --- Postfach ---
     # Blendet den Kampfbericht einer selbst losgeschickten Flotte aus, sobald
-    # er verbucht ist. Berichte zu von Hand gestarteten Angriffen und alles
-    # andere im Postfach bleiben unberuehrt.
+    # er verbucht ist - nur Siege auf Inseln, die noch frei waren. Niederlagen,
+    # Angriffe auf inzwischen besiedelte Inseln, Berichte zu von Hand
+    # gestarteten Angriffen und alles andere im Postfach bleiben stehen.
     "berichte_archivieren": True,
 
     # --- Rohstoff-Ausgleich zwischen den eigenen Inseln (siehe ausgleich.py) ---
