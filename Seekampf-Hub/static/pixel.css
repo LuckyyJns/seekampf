@@ -373,3 +373,33 @@ html:root[data-theme="dark"] .bpl{background:#473526;box-shadow:inset 0 -3px 0 #
 .bpl .ict{width:28px;height:28px}
 .bchip{display:inline-flex;align-items:center;gap:4px}
 .bchip .ict{width:28px;height:28px}
+
+/* ---------- Handy / schmale Fenster ---------- */
+@media (max-width:900px){
+  .kopf{gap:10px;padding:8px 12px}
+  .kopf .titelblock{flex:1 1 0;min-width:0}
+  .kopf h1{font-size:19px}
+  .kopf #untertitel{font-size:12px;line-height:1.25}
+  .kopf .rechts{flex:1 1 100%;margin-left:0}
+  #hamburger{width:40px;height:38px}
+  #titel-icon{width:42px;height:42px}
+  #titel-icon .ict{width:32px;height:32px}
+  .kachel .beschriftung{white-space:normal;line-height:1.15}
+  .held .icon{width:34px;height:34px}
+  .held .icon .ict{width:26px;height:26px}
+  .kacheln,.held{gap:10px}
+  .huelle{padding:12px 10px 26px}
+  section.karte{padding:12px 12px}
+  .gkacheln{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+  .dialog{padding:16px 14px}
+  .dialog-kopf .ict{width:52px;height:52px}
+  nav#seite{box-shadow:6px 0 0 var(--ink)}
+}
+@media (max-width:480px){
+  h2{font-size:15px}
+  .kz,.zl-zeile{font-size:12.5px}
+  .insel-kopf{padding:10px 12px}
+  .schalter .spur{transform-origin:right center}
+  .karten-rahmen{min-height:380px}
+  .dialog-zahl button{padding:5px 8px}
+}
