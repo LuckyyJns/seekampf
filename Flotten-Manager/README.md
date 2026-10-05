@@ -63,18 +63,6 @@ die Einstellung der bis dahin neuesten Insel. Hauptschalter: `ausgleich_aktiv`.
 Code: `ausgleich.py`; Schnittstelle `GET /api/ausgleich`,
 `POST /api/inseln/{id}/ausgleich`.
 
-## Ueberlauf in die Allianzkasse
-
-Direkt nach dem Rohstoff-Ausgleich: steht auf irgendeiner eigenen Insel ein
-Rohstoff bei `kasse_ab` (95 %) der Lagerkapazitaet oder darueber - egal
-warum, ob ihn keine Insel braucht, die Insel keine Handelsschiffe hat oder
-nicht abgibt -, wird er bis auf `kasse_bis` (90 %) in die Allianzkasse
-eingezahlt (`POST /alliances/{id}/kasse/deposit`, ohne Schiffe; in der Kasse
-kommt er nach der Transferzeit an). Die Reserve des Kolonisations-Bots bleibt
-immer da, Einzahlungen unter `kasse_min_menge` (200) unterbleiben. Im Hub
-unter **Rohstoff-Ausgleich**, Abschnitt "Ueberlauf → Allianzkasse". Code:
-`kasse.py`. Laeuft nur, solange der Manager laeuft (nicht gestoppt).
-
 ## Was er tut
 
 1. **Scannen** – sucht im eingestellten Radius (in Sektoren) alle freien Inseln,

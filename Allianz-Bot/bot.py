@@ -29,6 +29,7 @@ import logger_setup
 import protokoll
 import steuerung
 from anfrage import Anfrage
+from kasse import Kasse
 from api_client import ApiError, SeekampfClient
 from helfer import Helfer
 from kontext import ABSCHLUSS, ERSETZBAR, Kontext, NichtGesendet, iso, zeit
@@ -51,6 +52,7 @@ class AllianzBot:
         self.verteidiger = Verteidiger(self.k)
         self.helfer = Helfer(self.k)
         self.anfrage = Anfrage(self.k)
+        self.kasse = Kasse(self.k)
         self._faellig: dict[str, float] = {}
         self._frisch_gestartet = True
         self._stop = threading.Event()
@@ -102,6 +104,8 @@ class AllianzBot:
         self._schritt("Helfer", self.helfer.tick)
         if self._ist_faellig("anfrage", config.ANFRAGE_INTERVALL_S):
             self._schritt("Anfrage", self.anfrage.tick)
+        if self._ist_faellig("kasse", config.KASSE_INTERVALL_S):
+            self._schritt("Kasse", self.kasse.tick)
         # Faehigkeit im Seekampf-Hub umgeschaltet oder ein Vorgang ist zu Ende:
         # die Praesenz sofort anpassen, nicht erst beim naechsten Forum-Takt.
         config.FAEHIGKEITEN = steuerung.wirksam(k.state.data)
@@ -226,6 +230,8 @@ class AllianzBot:
                       for v, h in d["hilfe"].items()],
             "mitglieder": mitglieder,
             "befehle": list(self.befehl_ergebnisse),
+            "kasse": {"einstellung": steuerung.kasse_einstellung(), "hinweis": self.kasse.hinweis,
+                      "stand": d.get("kasse") or {}},
             "fehler": self.letzter_fehler,
         }
         text = json.dumps(inhalt, ensure_ascii=False, sort_keys=True, default=str)

@@ -44,13 +44,6 @@ class FakeApi:
     def get_me(self):
         return {"current_island_id": self.ov[0]["id"], "allianz": {"id": 9}}
 
-    def kasse_einzahlen(self, aid, iid, resources):
-        self.einzahlungen = getattr(self, "einzahlungen", []) + [(aid, iid, dict(resources))]
-        i = next(i for i in self.ov if i["id"] == iid)
-        for r, n in resources.items():
-            i["rohstoffe"][r] -= n
-        return {"fertig_at": ZUKUNFT}
-
     def get_islands_overview(self):
         return json.loads(json.dumps(self.ov))
 
@@ -157,54 +150,6 @@ class Raids(Basis):
         ziele = st.insel(447)["ziele"]
         self.assertEqual(ziele["53:48:2"]["blacklist_grund"], "Anfaengerschutz")
         self.assertEqual([p["target"]["z"] for p in api.created], [1])
-
-
-class Allianzkasse(Basis):
-    def test_ueberlauf_geht_in_die_kasse(self):
-        api = FakeApi([insel(447, "GiG", "53:49:8", (49000, 30000, 47600, 50000)),
-                       insel(20, "GiG 2", "46:55:6", (100, 100, 100, 1749))])
-        m, st = self.manager(api)
-        m.tick()
-        self.assertEqual(api.einzahlungen, [(9, 447, {"gold": 4000, "holz": 2600})])
-        self.assertEqual(st.data["kasse"]["eingezahlt"]["gold"], 4000)
-        m._overview_zeit = 0
-        m.tick()
-        self.assertEqual(len(api.einzahlungen), 1)       # jetzt unter der Schwelle
-
-    def test_kolonisations_reserve_bleibt(self):
-        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 49000, 50000))])
-        self.reserve(config.KOLO_RESERVE_PATH, "inseln", {"447": {"holz": 47000}})
-        m, _ = self.manager(api)
-        m.tick()
-        self.assertEqual(api.einzahlungen, [(9, 447, {"holz": 2000})])
-
-    def test_ausgeschaltet_und_mindestmenge(self):
-        api = FakeApi([insel(447, "GiG", "53:49:8", (47600, 0, 0, 50000))])
-        m, st = self.manager(api)
-        st.update_settings({"kasse_min_menge": 5000})
-        m.tick()
-        st.update_settings({"kasse_min_menge": 200, "kasse_aktiv": False})
-        m.tick()
-        self.assertFalse(getattr(api, "einzahlungen", []))
-
-    def test_erst_ausgleich_dann_kasse(self):
-        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 48000, 0, 50000), {"grosses_handelsschiff": 10}),
-                       insel(20, "GiG 2", "46:55:6", (0, 0, 0, 10000))])
-        m, st = self.manager(api)
-        st.settings.update(ausgleich_aktiv=True, ausgleich_ziel=0.5, ausgleich_reserve=0.25, ausgleich_min_menge=200)
-        st.insel(447)["ausgleich"].update(gibt=True)
-        st.insel(20)["ausgleich"].update(bekommt=True)
-        api.create_fleet_orig = api.create_fleet
-
-        def liefern(p):
-            f = api.create_fleet_orig(p)
-            for r, n in (p.get("resources") or {}).items():
-                api.ov[0]["rohstoffe"][r] -= n
-            return f
-        api.create_fleet = liefern
-        m.tick()
-        self.assertTrue(any(p["mission_type"] == "handel" for p in api.created))
-        self.assertFalse(getattr(api, "einzahlungen", []))   # nach der Lieferung nicht mehr voll
 
 
 class InselEinstellungen(Basis):

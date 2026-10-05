@@ -276,10 +276,8 @@ def ausgleich_status():
         "aktiv": s["ausgleich_aktiv"], "laeuft": daten["laeuft"],
         "hinweis": manager.ausgleich.bericht.get("hinweis"),
         "settings": {k: s[k] for k in ("ausgleich_aktiv", "ausgleich_ziel", "ausgleich_reserve",
-                                       "ausgleich_min_menge", "ausgleich_upgrade_bedarf",
-                                       "kasse_aktiv", "kasse_ab", "kasse_bis", "kasse_min_menge")},
+                                       "ausgleich_min_menge", "ausgleich_upgrade_bedarf")},
         "inseln": inseln, "stand": daten.get("ausgleich") or {}, "serverzeit": time.time(),
-        "kasse": {"stand": daten.get("kasse") or {}, "hinweis": manager.kasse.hinweis},
     }
 
 

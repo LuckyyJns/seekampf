@@ -123,6 +123,12 @@ class SeekampfClient:
         return self._request("POST", "/messages",
                              json={"recipient": recipient, "subject": subject, "body": body})
 
+    def kasse_einzahlen(self, alliance_id, island_id, resources):
+        """POST /alliances/{id}/kasse/deposit - zieht die Rohstoffe sofort von
+        der Insel ab, in der Kasse kommen sie nach der Transferzeit an."""
+        return self._request("POST", f"/alliances/{alliance_id}/kasse/deposit",
+                             json={"island_id": island_id, "resources": {r: int(n) for r, n in resources.items()}})
+
     def get_battle(self, battle_id):
         return self._request("GET", f"/battles/{battle_id}")
 

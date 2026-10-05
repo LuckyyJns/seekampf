@@ -602,23 +602,6 @@
         <div class="kopfzeile"><h2>Letzte Lieferungen</h2></div>
         <div id="aus-lieferungen"></div>
       </section>
-      <section class="karte">
-        <div class="kopfzeile"><h2>Überlauf → Allianzkasse</h2>
-          <div class="rechts">
-            <span class="ungespeichert-marke" data-dirty-anzeige="kasse-settings" hidden>● ungespeichert</span>
-            <button class="klein" id="kasse-speichern">Speichern</button></div></div>
-        <div class="formular-leiste" style="margin:0 0 12px">
-          <label class="schalter"><input type="checkbox" id="kasse-aktiv"><span class="spur"></span><b>Überlauf einzahlen</b></label>
-          <span class="leise klein-text" id="kasse-hinweis"></span>
-        </div>
-        <div class="formular" data-form="kasse-settings">
-          <div class="feld"><label for="kasse-ab">Einzahlen ab Füllstand (%)</label><input type="number" min="10" max="100" step="1" id="kasse-ab"><span class="hinweis">je Rohstoff und Insel, Anteil der Lagerkapazität</span></div>
-          <div class="feld"><label for="kasse-bis">Einzahlen bis auf (%)</label><input type="number" min="0" max="100" step="1" id="kasse-bis"><span class="hinweis">so viel bleibt auf der Insel</span></div>
-          <div class="feld"><label for="kasse-min">Kleinste Einzahlung</label><input type="number" min="0" step="50" id="kasse-min"><span class="hinweis">Rohstoffe je Insel und Einzahlung</span></div>
-        </div>
-        <div class="leise klein-text" style="margin-top:10px">Läuft nach dem Ausgleich: was danach auf irgendeiner Insel noch über der Schwelle liegt – egal warum –, geht in die Allianzkasse. Die Reserve des Kolonisations-Bots bleibt immer auf der Insel. Das Spiel zieht die Rohstoffe sofort ab, in der Kasse kommen sie nach der Transferzeit an; Schiffe braucht es nicht.</div>
-        <div id="kasse-einzahlungen" style="margin-top:12px"></div>
-      </section>
     </div>
 
     <!-- ======================= Gesundheit ======================= -->
@@ -774,6 +757,23 @@
           <thead><tr><th>Name</th><th>Bot</th><th>Fähigkeiten</th><th class="zahl">Präsenz</th></tr></thead>
           <tbody id="al-mitglieder"></tbody>
         </table></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Überlauf → Allianzkasse</h2>
+          <div class="rechts">
+            <span class="ungespeichert-marke" data-dirty-anzeige="kasse-settings" hidden>● ungespeichert</span>
+            <button class="klein" id="kasse-speichern">Speichern</button></div></div>
+        <div class="formular-leiste" style="margin:0 0 12px">
+          <label class="schalter"><input type="checkbox" id="kasse-aktiv"><span class="spur"></span><b>Überlauf einzahlen</b></label>
+          <span class="leise klein-text" id="kasse-hinweis"></span>
+        </div>
+        <div class="formular" data-form="kasse-settings">
+          <div class="feld"><label for="kasse-ab">Einzahlen ab Füllstand (%)</label><input type="number" min="10" max="100" step="1" id="kasse-ab"><span class="hinweis">je Rohstoff und Insel, Anteil der Lagerkapazität</span></div>
+          <div class="feld"><label for="kasse-bis">Einzahlen bis auf (%)</label><input type="number" min="0" max="100" step="1" id="kasse-bis"><span class="hinweis">so viel bleibt auf der Insel</span></div>
+          <div class="feld"><label for="kasse-min">Kleinste Einzahlung</label><input type="number" min="0" step="50" id="kasse-min"><span class="hinweis">Rohstoffe je Insel und Einzahlung</span></div>
+        </div>
+        <div class="leise klein-text" style="margin-top:10px">Eigenständige Option des Allianz-Bots (eigener API-Schlüssel, läuft auch, wenn der Flotten-Manager steht): was auf irgendeiner Insel über der Schwelle liegt – egal warum –, geht minütlich in die Allianzkasse. Vorrang haben die Reserve des Kolonisations-Bots (bleibt immer auf der Insel) und der Rohstoff-Ausgleich (hält er Handelsschiffe für eine Lieferung zurück, wird dort erst danach eingezahlt). Das Spiel zieht die Rohstoffe sofort ab, in der Kasse kommen sie nach der Transferzeit an; Schiffe braucht es nicht.</div>
+        <div id="kasse-einzahlungen" style="margin-top:12px"></div>
       </section>
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="allianz"></div></div>
@@ -1947,6 +1947,7 @@ const STRATEGIE_FELDER = [
 ];
 
 function zeichneAllianz() {
+  if (allianz?.status) zeichneKasse(allianz.status);
   if (!allianz) return;
   const st = allianz.status;
   const box = $("al-fehler");
@@ -2886,21 +2887,21 @@ function zeichneAusgleich() {
       <td class="verstecken-schmal klein-text">${mengenText(x.schiffe)}</td>
       <td class="zahl">${x.ankunft && x.ankunft > jetzt() ? `<b>${countdown(x.ankunft, "angekommen")}</b>` : uhrzeit(x.ankunft)}</td></tr>`).join("")}
       </tbody></table></div>` : `<div class="leise klein-text">noch keine Lieferung</div>`;
-  zeichneKasse(a);
 }
 let kasseFormGebaut = "";
-function zeichneKasse(a) {
-  const st = a.settings, k = a.kasse || {}, stand = k.stand || {};
-  $("kasse-aktiv").checked = !!st.kasse_aktiv;
+function zeichneKasse(st) {
+  const k = st.kasse;
+  if (!k) return;
+  const e0 = k.einstellung, stand = k.stand || {};
+  $("kasse-aktiv").checked = !!e0.aktiv;
   const summe = stand.eingezahlt ? ` · bisher eingezahlt: ${beuteText(stand.eingezahlt)}` : "";
-  $("kasse-hinweis").textContent = (!a.laeuft ? "Flotten-Manager ist gestoppt – es wird nichts eingezahlt"
-    : k.hinweis || (st.kasse_aktiv ? "aktiv" : "ausgeschaltet")) + summe;
-  const gebaut = JSON.stringify([st.kasse_ab, st.kasse_bis, st.kasse_min_menge]);
+  $("kasse-hinweis").textContent = (k.hinweis || (e0.aktiv ? "aktiv" : "ausgeschaltet")) + summe;
+  const gebaut = JSON.stringify([e0.ab, e0.bis, e0.min_menge]);
   if (!ungespeichert.has("kasse-settings") && kasseFormGebaut !== gebaut) {
     kasseFormGebaut = gebaut;
-    $("kasse-ab").value = Math.round(st.kasse_ab * 100);
-    $("kasse-bis").value = Math.round(st.kasse_bis * 100);
-    $("kasse-min").value = st.kasse_min_menge;
+    $("kasse-ab").value = Math.round(e0.ab * 100);
+    $("kasse-bis").value = Math.round(e0.bis * 100);
+    $("kasse-min").value = e0.min_menge;
   }
   const e = stand.einzahlungen || [];
   $("kasse-einzahlungen").innerHTML = e.length ? `<div class="tabelle-rahmen"><table><thead><tr><th>Zeit</th><th>Insel</th>
@@ -2910,18 +2911,18 @@ function zeichneKasse(a) {
 }
 $("kasse-aktiv").onchange = async (e) => {
   const an = e.target.checked;
-  await aktion(e.target, () => post("/api/flotte/settings", { kasse_aktiv: an }), `Überlauf in die Allianzkasse ${an ? "eingeschaltet" : "ausgeschaltet"}`);
-  ausgleichHolen();
+  await aktion(e.target, () => post("/api/allianz/kasse", { aktiv: an }), `Überlauf in die Allianzkasse ${an ? "eingeschaltet" : "ausgeschaltet"} – greift in wenigen Sekunden`);
+  allianzHolen();
 };
 $("kasse-speichern").onclick = async (e) => {
   const ab = Number($("kasse-ab").value) / 100, bis = Number($("kasse-bis").value) / 100;
   if (!(ab > 0 && ab <= 1) || !(bis >= 0 && bis < ab)) return melde("„bis auf“ muss kleiner sein als „ab Füllstand“ (beides 0–100 %)", "schlecht");
-  const r = await aktion(e.target, () => post("/api/flotte/settings", {
-    kasse_ab: ab, kasse_bis: bis, kasse_min_menge: Math.max(0, Math.round(Number($("kasse-min").value) || 0)) }), "Gespeichert");
+  const r = await aktion(e.target, () => post("/api/allianz/kasse", {
+    ab, bis, min_menge: Math.max(0, Math.round(Number($("kasse-min").value) || 0)) }), "Gespeichert – greift in wenigen Sekunden");
   if (!r) return;
   dirtySetzen("kasse-settings", false);
   kasseFormGebaut = "";
-  ausgleichHolen();
+  setTimeout(allianzHolen, 3000);
 };
 /** Menüpunkt: grün = liefert, gelb = an, aber blockiert, grau = aus, rot = nicht erreichbar. */
 function ausgleichPunkt(a, fehler) {

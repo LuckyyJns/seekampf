@@ -102,7 +102,6 @@ class State:
             "verbuchte_berichte": [],  # message_ids, damit nichts doppelt zaehlt
             "pause_grund": None,
             "ausgleich": None,       # Rohstoff-Ausgleich: Fahrten, Summen, letzte Lieferungen
-            "kasse": None,           # Ueberlauf in die Allianzkasse: Summen, letzte Einzahlungen
         }
         daten.update({k: v for k, v in roh.items() if k in daten})
         # Aus der Ein-Insel-Zeit: Zielliste und Rotation lagen oben. Sie gehoeren

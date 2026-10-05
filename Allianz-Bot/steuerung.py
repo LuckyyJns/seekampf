@@ -36,6 +36,10 @@ STRATEGIE = {
     "ANFRAGE_ZIEL": (float, 0.0, 1.0),
     "RUECKRUF_ERLAUBT": (bool, None, None),
 }
+# Ueberlauf in die Allianzkasse: eigener Abschnitt "kasse" in steuerung.json.
+KASSE = {"aktiv": ("KASSE_AKTIV", bool, None, None), "ab": ("KASSE_AB", float, 0.0, 1.0),
+         "bis": ("KASSE_BIS", float, 0.0, 1.0), "min_menge": ("KASSE_MIN_MENGE", int, 0, 1000000)}
+KASSE_STANDARD = {schluessel: getattr(config, name) for schluessel, (name, *_r) in KASSE.items()}
 # Werte aus config.py, bevor der Seekampf-Hub etwas ueberschreibt.
 STANDARD = {name: getattr(config, name) for name in STRATEGIE}
 STANDARD_FAEHIGKEITEN = tuple(config.FAEHIGKEITEN)
@@ -82,6 +86,24 @@ def laden() -> None:
         setattr(config, name, _wert(name, strategie[name]) if name in strategie else STANDARD[name])
     if config.ANFRAGE_ZIEL < config.ANFRAGE_SCHWELLE:
         config.ANFRAGE_ZIEL = config.ANFRAGE_SCHWELLE
+    kasse = daten.get("kasse") or {}
+    for schluessel, (name, typ, lo, hi) in KASSE.items():
+        wert = KASSE_STANDARD[schluessel]
+        roh = kasse.get(schluessel)
+        if typ is bool and isinstance(roh, bool):
+            wert = roh
+        elif typ is not bool and roh is not None:
+            try:
+                wert = min(max(typ(roh), lo), hi)
+            except (TypeError, ValueError):
+                pass
+        setattr(config, name, wert)
+    if config.KASSE_BIS > config.KASSE_AB:
+        config.KASSE_BIS = config.KASSE_AB
+
+
+def kasse_einstellung() -> dict:
+    return {schluessel: getattr(config, name) for schluessel, (name, *_r) in KASSE.items()}
 
 
 def will(faehigkeit: str) -> bool:

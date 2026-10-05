@@ -2,7 +2,9 @@
 
     .venv/bin/python -m unittest discover -s tests -v
 """
+import json
 import logging
+import time
 import os
 import sys
 import tempfile
@@ -29,6 +31,11 @@ steuerung.STEUERUNG_PATH = os.path.join(_TEST_DATA, "steuerung.json")
 steuerung.STATUS_PATH = os.path.join(_TEST_DATA, "status.json")
 if hasattr(steuerung, "BEFEHLE_DIR"):
     steuerung.BEFEHLE_DIR = os.path.join(_TEST_DATA, "befehle")
+import config as _config  # noqa: E402
+import kasse as kasse_modul  # noqa: E402
+# Nie die echte Kolonisations-Reserve oder den echten Flotten-Manager fragen.
+_config.KOLO_RESERVE_PATH = os.path.join(_TEST_DATA, "kolo-reserve.json")
+kasse_modul.ausgleich_wartet = lambda: set()
 steuerung._mtime = -1.0  # erzwingt Neuladen -> Standardwerte aus config.py
 steuerung.laden()
 
@@ -127,6 +134,13 @@ class FakeClient:
     def list_messages(self, folder, limit=50, archiv=False):
         return list(self.inbox) if folder == "inbox" else list(self.combat)
 
+    def kasse_einzahlen(self, aid, iid, resources):
+        self.einzahlungen = getattr(self, "einzahlungen", []) + [(aid, iid, dict(resources))]
+        topf = self.rohstoffe if iid == 447 else self.zweite["rohstoffe"]
+        for r, n in resources.items():
+            topf[r] -= n
+        return {"fertig_at": None}
+
     def send_message(self, empfaenger, betreff, text):
         self.gesendet.append((empfaenger, betreff, text))
 
@@ -224,6 +238,45 @@ class Merker:
     def send(self, titel, text):
         self.gesendet.append((titel, text))
         return True
+
+
+class Allianzkasse(Basis):
+    def test_ueberlauf_wird_eingezahlt(self):
+        self.api.rohstoffe = {"gold": 42000, "stein": 32000, "holz": 41400, "kapazitaet": 43480}
+        self.lauf()
+        aid = self.bot.k.allianz_id
+        self.assertEqual(self.api.einzahlungen, [(aid, 447, {"gold": 2868, "holz": 2268})])
+        self.assertEqual(self.bot.state.data["kasse"]["eingezahlt"]["gold"], 2868)
+        self.lauf()
+        self.assertEqual(len(self.api.einzahlungen), 1)
+
+    def test_kolo_reserve_bleibt(self):
+        with open(_config.KOLO_RESERVE_PATH, "w") as f:
+            json.dump({"zeit": time.time(), "inseln": {"447": {"holz": 42000}}}, f)
+        try:
+            self.api.rohstoffe = {"gold": 0, "stein": 0, "holz": 43000, "kapazitaet": 43480}
+            self.lauf()
+            self.assertEqual(self.api.einzahlungen[0][2], {"holz": 1000})
+        finally:
+            os.remove(_config.KOLO_RESERVE_PATH)
+
+    def test_ausgeschaltet(self):
+        self.api.rohstoffe = {"gold": 43000, "stein": 0, "holz": 0, "kapazitaet": 43480}
+        _config.KASSE_AKTIV = False
+        try:
+            self.lauf()
+        finally:
+            _config.KASSE_AKTIV = True
+        self.assertFalse(getattr(self.api, "einzahlungen", []))
+
+    def test_wartet_auf_ausgleich(self):
+        self.api.rohstoffe = {"gold": 43000, "stein": 0, "holz": 0, "kapazitaet": 43480}
+        kasse_modul.ausgleich_wartet = lambda: {447}
+        try:
+            self.lauf()
+        finally:
+            kasse_modul.ausgleich_wartet = lambda: set()
+        self.assertFalse(getattr(self.api, "einzahlungen", []))
 
 
 class PnWeiterleiten(Basis):

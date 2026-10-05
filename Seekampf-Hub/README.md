@@ -51,6 +51,13 @@ und wartet, bis es bezahlbar ist; nicht verfügbare oder ausgebaute werden
 übersprungen, gesperrte trotzdem gebaut; danach baut er wieder automatisch.
 Eine Priorisierung geht vor.
 
+## Allianzkasse
+
+Im Bereich **Allianz-Bot**: Abschnitt „Überlauf → Allianzkasse“ mit
+eigenem Schalter, Schwellen und den letzten Einzahlungen
+(`POST /api/allianz/kasse` schreibt den Abschnitt `kasse` in die
+`steuerung.json` des Allianz-Bots).
+
 ## Karte
 
 Menüpunkt **Karte**: die ganze Welt (100 × 100 Sektoren) statt der 3 × 3

@@ -409,6 +409,37 @@ def allianz_strategie(payload: dict = Body(...)):
     return {"ok": True, "strategie": daten["strategie"]}
 
 
+@app.post("/api/allianz/kasse")
+def allianz_kasse(payload: dict = Body(...)):
+    """Ueberlauf in die Allianzkasse (Allianz-Bot): {aktiv, ab, bis, min_menge}."""
+    neu = {}
+    if "aktiv" in payload:
+        neu["aktiv"] = bool(payload["aktiv"])
+    for name in ("ab", "bis"):
+        if name in payload:
+            try:
+                wert = float(payload[name])
+            except (TypeError, ValueError):
+                raise HTTPException(400, f"{name} muss eine Zahl sein") from None
+            if not 0 <= wert <= 1:
+                raise HTTPException(400, f"{name} muss zwischen 0 und 100 % liegen")
+            neu[name] = wert
+    if "min_menge" in payload:
+        try:
+            neu["min_menge"] = max(0, int(payload["min_menge"]))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Kleinste Einzahlung muss eine Zahl sein") from None
+
+    def aendern(daten):
+        kasse = {**daten.get("kasse", {}), **neu}
+        if "ab" in kasse and "bis" in kasse and kasse["bis"] >= kasse["ab"]:
+            raise HTTPException(400, "„bis auf“ muss kleiner sein als „ab Füllstand“")
+        daten["kasse"] = kasse
+
+    daten = _steuerung_aendern("allianz", aendern)
+    return {"ok": True, "kasse": daten["kasse"]}
+
+
 @app.post("/api/allianz/befehl")
 def allianz_befehl(payload: dict = Body(...)):
     typ = payload.get("typ")

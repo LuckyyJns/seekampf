@@ -31,6 +31,7 @@ LEER = {
     "berichte": {},          # battle_id -> ausgewerteter Verteidigungsbericht
     "gemeldet": {},          # Schluessel einmaliger Telegram-Meldungen -> Zeitpunkt
     "eile_bis": None,        # bis wann auf zurueckgerufene Schiffe gewartet wird
+    "kasse": None,           # Ueberlauf in die Allianzkasse: Summen, letzte Einzahlungen
 }
 
 

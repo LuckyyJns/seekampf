@@ -28,7 +28,6 @@ import geo
 import scanner
 from api_client import ApiError
 from ausgleich import Ausgleich, reserve_lesen
-from kasse import Kasse
 from state import neue_insel
 
 log = logging.getLogger("seekampf_flotten_manager")
@@ -118,7 +117,6 @@ class FlottenManager:
         self._dirty = False
         self._letzte_speicherung = 0.0
         self.ausgleich = Ausgleich(self)
-        self.kasse = Kasse(self)
 
     # ------------------------------------------------------------------ Basis
     @property
@@ -287,8 +285,6 @@ class FlottenManager:
         self._report_wenn_faellig(jetzt)
         # Vor den Raids: eine faellige Lieferung bekommt die Handelsschiffe zuerst.
         self.ausgleich.tick(alles, flotten_api, jetzt)
-        # Was danach noch ueberlaeuft, geht in die Allianzkasse.
-        self.kasse.tick(alles, jetzt)
         aktiv = set(self.aktive_inseln())
         for iid_text, insel in self.state.data["inseln"].items():
             iid = int(iid_text)
