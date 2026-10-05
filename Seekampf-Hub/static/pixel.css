@@ -422,3 +422,5 @@ nav#seite a:hover .plate .ict,.gkachel:not(:disabled):hover .gk-kopf .ict,.rkach
 body.ohne-anim *,body.ohne-anim *::before,body.ohne-anim *::after{animation:none !important;transition:none !important}
 #anim{margin-left:0}
 nav#seite .fuss{flex-wrap:wrap;row-gap:8px}
+
+.zl-key.startet{width:11px;height:11px;margin:0 2px;background:var(--wood);transform:rotate(45deg)}
