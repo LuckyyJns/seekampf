@@ -181,7 +181,16 @@ def startseite():
 
 
 # Stylesheet und Pixel-Icons der Seite (static/pixel.css, static/icons/*.png)
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+class _StaticNeuPruefen(StaticFiles):
+    """Stylesheet und Icons immer beim Server nachfragen (ETag), damit nach einer
+    Aenderung nicht noch die alte Fassung aus dem Browser-Cache kommt."""
+    async def get_response(self, path, scope):
+        antwort = await super().get_response(path, scope)
+        antwort.headers["Cache-Control"] = "no-cache"
+        return antwort
+
+
+app.mount("/static", _StaticNeuPruefen(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
 # ------------------------------------------------------------------ Dienste

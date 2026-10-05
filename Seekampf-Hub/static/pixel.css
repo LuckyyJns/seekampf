@@ -284,20 +284,20 @@ html:root[data-theme="dark"] .dialog-kopf .ict{background:#473526}
 #titel-icon{width:46px;height:46px;flex:none}
 #titel-icon .ict{width:36px;height:36px;vertical-align:0}
 
-/* ---------- An/Aus-Schalter: eckiger Kasten, Knopf im Stil der Buttons, mit AN/AUS ---------- */
-.schalter .spur{width:64px;height:34px;background:#d6c08a;border:3px solid var(--ink);box-shadow:inset 0 3px 0 #b9a46f;overflow:visible}
-.schalter .spur::before{content:"AUS";position:absolute;right:7px;top:50%;margin-top:-7px;font:700 10px/14px var(--px);letter-spacing:.06em;color:#7a6440}
-.schalter .spur::after{content:"";box-sizing:border-box;position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:0;background:#e4d2a6;
-  border:2px solid var(--ink);box-shadow:inset 0 3px 0 #f6ead0,inset 0 -3px 0 #c4ad78;transform:none}
-.schalter input:checked + .spur{background:#9fd8e0;box-shadow:inset 0 3px 0 #6fb9c4}
-.schalter input:checked + .spur::before{content:"AN";right:auto;left:8px;color:#0b4a54}
-.schalter input:checked + .spur::after{transform:translateX(28px);background:var(--teal);box-shadow:inset 0 3px 0 #6fd6e2,inset 0 -3px 0 #1d7f8b}
-.schalter:hover input:not(:disabled) + .spur::after{filter:brightness(1.08)}
+/* ---------- An/Aus-Schalter: eckiger Kasten, rechteckiger Knopf (an = hell beige, aus = dunkel) ---------- */
+.schalter .spur{width:72px;height:34px;background:#c9b27a;border:3px solid var(--ink);box-shadow:inset 0 3px 0 #a8935f;overflow:visible}
+.schalter .spur::before{content:"AUS";position:absolute;right:8px;top:50%;margin-top:-7px;font:700 10px/14px var(--px);letter-spacing:.06em;color:#6a5236}
+.schalter .spur::after{content:"";box-sizing:border-box;position:absolute;top:2px;left:2px;width:30px;height:24px;border-radius:0;background:#5a3a1c;
+  border:2px solid var(--ink);box-shadow:inset 0 3px 0 #8a6a48,inset 0 -3px 0 #3a2614;transform:none}
+.schalter input:checked + .spur{background:#e9d9ad;box-shadow:inset 0 3px 0 #c9b78c}
+.schalter input:checked + .spur::before{content:"AN";right:auto;left:10px;color:#6a5236}
+.schalter input:checked + .spur::after{transform:translateX(32px);background:#f6ead0;box-shadow:inset 0 3px 0 #fffaf0,inset 0 -3px 0 #d3bd8b}
+.schalter:hover input:not(:disabled) + .spur::after{filter:brightness(1.1)}
 .schalter input:focus-visible + .spur{outline:3px solid var(--teal);outline-offset:2px}
 .schalter input:disabled + .spur{opacity:.5}
 html:root[data-theme="dark"] .schalter .spur{background:#1b140c;box-shadow:inset 0 3px 0 #0d0905}
 html:root[data-theme="dark"] .schalter .spur::before{color:#a08a60}
-html:root[data-theme="dark"] .schalter .spur::after{background:#6a4a30;box-shadow:inset 0 3px 0 #8a6a48,inset 0 -3px 0 #4a3220}
-html:root[data-theme="dark"] .schalter input:checked + .spur{background:#16414a;box-shadow:inset 0 3px 0 #0d2a30}
-html:root[data-theme="dark"] .schalter input:checked + .spur::before{color:#7ad6e2}
-html:root[data-theme="dark"] .schalter input:checked + .spur::after{background:var(--teal);box-shadow:inset 0 3px 0 #6fd6e2,inset 0 -3px 0 #1d7f8b}
+html:root[data-theme="dark"] .schalter .spur::after{background:#4a3220;box-shadow:inset 0 3px 0 #6a4a30,inset 0 -3px 0 #2a1b0e}
+html:root[data-theme="dark"] .schalter input:checked + .spur{background:#3a2a1a;box-shadow:inset 0 3px 0 #241a11}
+html:root[data-theme="dark"] .schalter input:checked + .spur::before{color:#f1e3bf}
+html:root[data-theme="dark"] .schalter input:checked + .spur::after{background:#e4d2a6;box-shadow:inset 0 3px 0 #f6ead0,inset 0 -3px 0 #b9a46f}
