@@ -456,3 +456,21 @@ html:root[data-theme="dark"] .stepper-b{box-shadow:inset 0 3px 0 #6a4a30}
 html:root[data-theme="dark"] ::-webkit-scrollbar,html:root[data-theme="dark"] ::-webkit-scrollbar-track,html:root[data-theme="dark"] ::-webkit-scrollbar-corner{background:#1b140c}
 html:root[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#6a4a30;box-shadow:inset 0 3px 0 #8a6a48,inset 0 -3px 0 #4a3220}
 @supports (-moz-appearance:none){*{scrollbar-color:#8a5a2b #d6c08a;scrollbar-width:auto}html:root[data-theme="dark"] *{scrollbar-color:#6a4a30 #1b140c}}
+
+/* ---------- Logbuch ---------- */
+.logbuch{max-height:440px;overflow:auto;background:var(--flaeche-2);border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring);padding:0;font:14px/1.4 var(--body);color:var(--text)}
+.lz{display:grid;grid-template-columns:62px 22px minmax(0,1fr);gap:9px;align-items:start;padding:4px 10px;border-bottom:2px dashed var(--ivory-d)}
+html:root[data-theme="dark"] .lz{border-bottom-color:var(--rand)}
+.lz time{font:12.5px var(--mono);color:var(--gedaempft);padding-top:2px}
+.lz .ict{width:22px;height:22px}
+.lz-text{overflow-wrap:anywhere;white-space:pre-line}
+.lz.WARNING{background:#f6e2b0;box-shadow:inset 6px 0 0 var(--warn)}
+.lz.ERROR,.lz.CRITICAL{background:#f3c9c3;box-shadow:inset 6px 0 0 var(--schlecht)}
+html:root[data-theme="dark"] .lz.WARNING{background:#4a3818}
+html:root[data-theme="dark"] .lz.ERROR,html:root[data-theme="dark"] .lz.CRITICAL{background:#4d2420}
+.lz.routine{opacity:.65;font-size:13px}
+.lz-tag{position:sticky;top:0;z-index:1;background:var(--flaeche-3);border-bottom:3px solid var(--ink);font:700 12px var(--px);letter-spacing:.1em;padding:2px 10px}
+.lz-leer{padding:14px;color:var(--gedaempft)}
+.logbuch.roh{background:var(--log-bg);color:var(--log-text);white-space:pre-wrap;word-break:break-word;font:12.5px/1.6 var(--mono);padding:14px 16px}
+.kopfzeile .segment button{font-size:12.5px;padding:2px 9px}
+@media (max-width:640px){.lz{grid-template-columns:52px 20px minmax(0,1fr);gap:6px;padding:4px 6px}.kopfzeile .rechts .segment{flex-wrap:wrap}}
