@@ -89,6 +89,8 @@
   nav#seite a.aktiv::before { content: ""; position: absolute; left: -14px; top: 9px; bottom: 9px; width: 3px;
                               border-radius: 0 3px 3px 0; background: #2ec5d3; }
   nav#seite a .symbol { flex: none; opacity: .85; }
+  .px { display: block; flex: none; image-rendering: pixelated; }
+  .res-key .px { margin: -6px -2px -6px -4px; }
   nav#seite a.aktiv .symbol { opacity: 1; color: #2ec5d3; }
   nav#seite a .dot { margin-left: auto; box-shadow: 0 0 0 3px #ffffff0d; }
   nav#seite .fuss { margin-top: auto; padding: 12px 8px 2px; display: flex; align-items: center; gap: 10px;
@@ -789,6 +791,51 @@
 // ======================================================================
 // Hilfen
 // ======================================================================
+// Pixel-Art-Symbole: 12x12, '#' = Textfarbe, '+' = Textfarbe halbtransparent, Buchstaben = feste Farben je Symbol
+const PXI = {
+  uebersicht: ["............",".#####.####.",".#####.####.",".#####.####.",".#####.####.",".#####.####.",".#####......",".#####.####.",".#####.####.",".#####.####.",".#####.####.","............"],
+  karte: ["............",".##########.",".#++++++++#.",".#++#++#++#.",".#+++##+++#.",".#+++##+++#.",".#++#++#++#.",".#++++++++#.",".##########.","............","............","............"],
+  gesundheit: ["............","..###..###..",".####..####.",".##########.",".##########.","..########..","...######...","....####....",".....##.....","............","............","............"],
+  flotte: ["......#.....","......##....","......###...","......####..","......#####.","......######","......#.....","......#.....",".##########.","..########..","...######...","++.++.++.++."],
+  ausgleich: ["............","........#...","........##..",".##########.","........##..","........#...","...#........","..##........",".##########.","..##........","...#........","............"],
+  upgrade: ["............",".....##.....","....####....","...######...","..########..",".....##.....",".....##.....",".....##.....","............",".##########.",".##########.","............"],
+  allianz: ["............","..##....##..","..##....##..",".####..####.",".####++####.",".####..####.",".####..####.",".#..#..#..#.",".#..#..#..#.","............","............","............"],
+  kolonie: ["..#######...","..########..","..#######...","..#.........","..#.........","..#.........","..#.........","..#.........",".+++++++++..","+++++++++++.","............","............"],
+  ausbildung: [".....##.....",".....##.....",".....##.....",".....##.....",".....##.....",".....##.....",".....##.....","...######...",".....##.....",".....##.....","....####....","............"],
+  anker: ["....####....","....#..#....","....####....",".....##.....","..########..",".....##.....",".....##.....","#....##....#","##...##...##",".##..##..##.","..########..","............"],
+  gold: ["............","...oooooo...","..oYYYYYYo..",".oYWWYYYYYo.",".oYWYssYYYo.",".oYYYssYYYo.",".oYYYssYYYo.",".oYYYssYYYo.",".oYYYssYYYo.","..oYYYYYYo..","...oooooo...","............"],
+  stein: ["............","............","....oooo....","..ooSSSSoo..",".oSWWSSSSSo.",".oSWSSSSDSo.","oSSSSSDDSSSo","oSSSSSSDDSSo","oSDSSSSSSDDo",".oDDDDDDDDo.","..oooooooo..","............"],
+  holz: ["............",".....oo.....","....oLlo....","....oLLo....",".....oo.....","...oo..oo...","..oLlooLlo..","..oLLooLLo..","...oo..oo...","............","............","............"],
+};
+const PXF = {
+  gold: {o:"#7a5a0a",Y:"#e9b824",W:"#fbe58a",s:"#b8860b"},
+  stein: {o:"#3a4654",S:"#8d9db0",W:"#c3cfdc",D:"#677789"},
+  holz: {o:"#4a2c14",B:"#a8703c",b:"#8a5a2e",L:"#d9a566",l:"#b8823f"},
+};
+function px(name, s = 2, cls = "") {
+  const g = PXI[name]; if (!g) return "";
+  const pal = PXF[name] || {};
+  let r = "";
+  g.forEach((row, y) => {
+    let x = 0;
+    while (x < row.length) {
+      const c = row[x];
+      if (c === ".") { x++; continue; }
+      let e = x; while (e < row.length && row[e] === c) e++;
+      const fill = c === "#" ? "currentColor" : c === "+" ? "currentColor\" fill-opacity=\".5" : pal[c] || "currentColor";
+      r += `<rect x="${x}" y="${y}" width="${e - x}" height="1" fill="${fill}"/>`;
+      x = e;
+    }
+  });
+  return `<svg class="px ${cls}" viewBox="0 0 12 12" width="${12 * s}" height="${12 * s}" shape-rendering="crispEdges" aria-hidden="true">${r}</svg>`;
+}
+
+// Pixel-Art-Symbole in Navigation und Logo einsetzen
+document.querySelectorAll("nav#seite a[data-tab] svg.symbol").forEach((el) => {
+  el.outerHTML = px(el.closest("a").dataset.tab, 2, "symbol");
+});
+document.querySelector("nav#seite .logo svg").outerHTML = px("anker", 2);
+
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 let zeitVersatz = 0;               // Serverzeit - Browserzeit
@@ -1300,7 +1347,7 @@ function diagramm(id, reihe) {
   svg += `</svg>`;
 
   const legende = `<div class="legende" style="margin-bottom:8px">${ROHSTOFFE.map(([k, name]) =>
-    `<span><i class="swatch" style="background:var(--${k})"></i>${name}</span>`).join("")}
+    `<span>${px(k, 2)}${name}</span>`).join("")}
     <span class="leise" style="margin-left:auto">Summe ${zahl(reihe.reduce((a, d) => a + summe(d), 0))} · ${zahl(reihe.reduce((a, d) => a + d.raids, 0))} Raids</span></div>`;
   el.innerHTML = `${legende}<div class="diagramm">${svg}<div class="tooltip"></div></div>`;
 
@@ -1310,7 +1357,7 @@ function diagramm(id, reihe) {
       const d = reihe[+r.dataset.i];
       const [j, m, t] = d.datum.split("-");
       tip.innerHTML = `<div style="margin-bottom:4px"><b>${t}.${m}.${j}</b></div>` +
-        ROHSTOFFE.map(([k, name]) => `<div class="zeile"><span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${name}</span><b>${zahl(d[k])}</b></div>`).join("") +
+        ROHSTOFFE.map(([k, name]) => `<div class="zeile"><span class="res-key">${px(k, 2)}${name}</span><b>${zahl(d[k])}</b></div>`).join("") +
         `<div class="zeile" style="border-top:1px solid var(--rand);margin-top:4px;padding-top:4px"><span>Summe</span><b>${zahl(summe(d))}</b></div>` +
         `<div class="zeile"><span>Raids</span><b>${zahl(d.raids)}</b></div>`;
       tip.style.display = "block";
@@ -1756,7 +1803,7 @@ function zeichneUpgrade() {
     // Lager
     const r = i.rohstoffe || {}, kap = r.kapazitaet || 1, prod = r.produktion_pro_h || {};
     karte.querySelector('[data-teil="lager"]').innerHTML = `<div class="res">${ROHSTOFFE.map(([k, n]) => `
-      <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+      <span class="res-key">${px(k, 2)}${n}</span>
       <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
       <span class="mono">${zahl(r[k])} <span class="leise">+${zahl(prod[k])}/h</span></span>`).join("")}</div>
       <div class="leise klein-text" style="margin-top:6px">Kapazität ${zahl(kap)} je Rohstoff</div>`;
@@ -2118,15 +2165,10 @@ function zeichneUebersichtDienste() {
       <div class="dienst"><span class="knoepfe">${dienstKnoepfe(name, d)}</span></div>
     </section>`).join("");
 }
-const HELD_ICONS = {
-  loot: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
-  flotte: '<path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/>',
-  bau: '<path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/>',
-  allianz: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><circle cx="17" cy="9" r="2.6"/>',
-};
+const HELD_ICONS = { loot: "gold", flotte: "flotte", bau: "upgrade", allianz: "allianz" };
 function heldKachel(icon, farbe, label, wert, unter) {
   return `<div class="kachel" style="--kachel-farbe:${farbe}">
-    <div class="beschriftung"><span class="icon"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${HELD_ICONS[icon]}</svg></span>${label}</div>
+    <div class="beschriftung"><span class="icon">${px(HELD_ICONS[icon], 2)}</span>${label}</div>
     <div class="wert">${wert}</div><div class="unter">${unter}</div></div>`;
 }
 function zeichneUebersichtHeld() {
@@ -2182,7 +2224,7 @@ function zeichneUebersichtInseln() {
         <span class="namenblock"><b>${esc(x.name)}</b><span class="leise mono klein-text">${esc(x.koord)}</span></span></div>
       <div class="chips-zeile">${chips}</div>
       <div class="res">${ROHSTOFFE.map(([k, n]) => `
-        <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+        <span class="res-key">${px(k, 2)}${n}</span>
         <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
         <span class="mono klein-text">${kompakt(r[k])}${prod[k] ? ` <span class="leise">+${kompakt(prod[k])}/h</span>` : ""}</span>`).join("")}</div>
       <div class="fakten">
@@ -2830,7 +2872,7 @@ function zeichneAusgleichInsel(i, st) {
     return teile.join(" ");
   };
   k.querySelector('[data-teil="balken"]').innerHTML = `<div class="res" style="grid-template-columns:56px 1fr auto">${ROHSTOFFE.map(([x, n]) => `
-      <span class="res-key"><i class="swatch" style="background:var(--${x})"></i>${n}</span>
+      <span class="res-key">${px(x, 2)}${n}</span>
       ${ausgleichLeiste(r, x, kap, i.unterwegs?.[x], e.bekommt ? i.soll?.[x] / kap : null, e.gibt ? i.grenze?.[x] / kap : null)}
       <span class="mono klein-text">${zahlen(x)}</span>`).join("")}</div>`;
 
