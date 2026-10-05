@@ -106,6 +106,13 @@ class SeekampfClient:
         """POST /fleets/{id}/recall - geht nur bis recallable_until."""
         return self._request("POST", f"/fleets/{fleet_id}/recall")
 
+    # ---------------------------------------------------------------- Kasse
+    def kasse_einzahlen(self, alliance_id, island_id, resources):
+        """POST /alliances/{id}/kasse/deposit - zieht die Rohstoffe sofort von
+        der Insel ab, in der Kasse kommen sie nach der Transferzeit an."""
+        return self._request("POST", f"/alliances/{alliance_id}/kasse/deposit",
+                             json={"island_id": island_id, "resources": {r: int(n) for r, n in resources.items()}})
+
     # ------------------------------------------------------------- Berichte
     def get_combat_messages(self, limit=50):
         """GET /messages?folder=combat -> Kampf- und Spionageberichte.

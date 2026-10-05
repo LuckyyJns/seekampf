@@ -138,6 +138,15 @@ DEFAULT_SETTINGS = {
     # Fehlt dem Upgrade-Bot fuer den naechsten Ausbau mehr, wird das mitgeliefert.
     "ausgleich_upgrade_bedarf": True,
 
+    # --- Ueberlauf in die Allianzkasse (siehe kasse.py) ---
+    "kasse_aktiv": True,
+    # Ab diesem Fuellstand eines Rohstoffs (Anteil der Lagerkapazitaet) ...
+    "kasse_ab": 0.95,
+    # ... wird er bis auf diesen Anteil eingezahlt.
+    "kasse_bis": 0.90,
+    # Kleinste Einzahlung je Insel.
+    "kasse_min_menge": 200,
+
     # --- Takt ---
     "tick_sekunden": 5,
 
