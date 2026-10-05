@@ -1609,7 +1609,7 @@ function diagramm(id, reihe) {
   const summe = (d) => d.gold + d.stein + d.holz;
   const max = niceMax(Math.max(...reihe.map(summe), 1));
   const schritt = innenB / n;
-  const saeule = Math.min(24, Math.max(3, schritt * 0.62));
+  const saeule = Math.round(Math.min(24, Math.max(4, schritt * 0.62)) / 2) * 2;
   const y = (v) => oben + innenH - (v / max) * innenH;
   const farben = { gold: "var(--gold)", stein: "var(--stein)", holz: "var(--holz)" };
   const flaeche = "var(--flaeche)";
@@ -1631,22 +1631,16 @@ function diagramm(id, reihe) {
     svg += `<text x="${x}" y="${hoehe - 6}" text-anchor="middle">${t}.${m}.</text>`;
   });
   svg += `</g>`;
-  // Saeulen: Segmente von unten nach oben, 2px Flaechen-Luecke, oberstes mit 4px Rundung
+  // Saeulen: Segmente von unten nach oben, eckig mit dunkler Pixelkontur
   reihe.forEach((d, i) => {
-    const x = links + schritt * i + (schritt - saeule) / 2;
+    const x = Math.round(links + schritt * i + (schritt - saeule) / 2);
     let basis = 0;
-    const segmente = ["gold", "stein", "holz"].filter(k => d[k] > 0);
-    segmente.forEach((k, idx) => {
+    ["gold", "stein", "holz"].filter(k => d[k] > 0).forEach((k) => {
       const y0 = y(basis), y1 = y(basis + d[k]);
       basis += d[k];
-      let h = y0 - y1 - (idx > 0 ? 2 : 0);            // Luecke zum Segment darunter
-      if (h <= 0.5) return;
-      const oberstes = idx === segmente.length - 1;
-      const r = oberstes ? Math.min(4, h, saeule / 2) : 0;
-      const yt = y1;
-      svg += r
-        ? `<path fill="${farben[k]}" d="M${x},${yt + h} V${yt + r} Q${x},${yt} ${x + r},${yt} H${x + saeule - r} Q${x + saeule},${yt} ${x + saeule},${yt + r} V${yt + h} Z"/>`
-        : `<rect fill="${farben[k]}" x="${x}" y="${yt}" width="${saeule}" height="${h}"/>`;
+      const h = Math.round(y0 - y1);
+      if (h < 1) return;
+      svg += `<rect fill="${farben[k]}" stroke="var(--ink)" stroke-width="2" x="${x}" y="${Math.round(y1)}" width="${saeule}" height="${h}"/>`;
     });
   });
   // Direkte Beschriftung an der letzten Saeule, nur wo das Segment hoch genug ist
@@ -1660,7 +1654,7 @@ function diagramm(id, reihe) {
       basis += letzte[k];
     }
   }
-  svg += `<line x1="${links}" x2="${links + innenB}" y1="${y(0)}" y2="${y(0)}" stroke="var(--gedaempft)" stroke-width="1" opacity=".5"/>`;
+  svg += `<line x1="${links}" x2="${links + innenB}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink)" stroke-width="3"/>`;
   // Trefferflaechen: ganze Spaltenbreite, volle Hoehe
   reihe.forEach((d, i) => {
     svg += `<rect class="treffer" data-i="${i}" x="${links + schritt * i}" y="${oben}" width="${schritt}" height="${innenH}"/>`;
@@ -1808,6 +1802,16 @@ function avatar(name, id) {
   const [a1, a2] = AVATAR_FARBEN[Math.abs(Number(id) || 0) % AVATAR_FARBEN.length];
   return `<span class="avatar" title="${esc(name)}">${IK("eigene_insel", 34)}</span>`;
 }
+const BESTAND_REIHE = ["spaehschiff", "kleines_handelsschiff", "grosses_handelsschiff", "kleines_kriegsschiff", "grosses_kriegsschiff", "kolonisationsschiff", "steinewerfer", "speerkaempfer", "bogenschuetze"];
+const BESTAND_ICON = { kolonisationsschiff: "koloschiff" };
+/** Schiffe und Truppen einer Insel als Plättchen: Icon + Anzahl */
+function bestandPlaettchen(i) {
+  const alle = { ...(i.schiffe || {}), ...(i.truppen || {}) };
+  const liste = [...BESTAND_REIHE, ...Object.keys(alle).filter(k => !BESTAND_REIHE.includes(k))].filter(k => alle[k] > 0);
+  return liste.length
+    ? `<div class="bestand">${liste.map(k => `<span class="bpl" title="${esc(sname(k))}">${gico(BESTAND_ICON[k] || k, 28) || ""}<b>${zahl(alle[k])}</b>${gico(BESTAND_ICON[k] || k) ? "" : `<span class="leise klein-text">${esc(sname(k))}</span>`}</span>`).join("")}</div>`
+    : `<span class="leise klein-text">kein Bestand im Hafen</span>`;
+}
 function flottenBestand(i) {
   const s = i.schiffe || {}, t = i.truppen || {};
   const krieg = (s.kleines_kriegsschiff || 0) + (s.grosses_kriegsschiff || 0);
@@ -1909,9 +1913,9 @@ function zeichneFlotte() {
       <span class="namenblock"><span class="titel">${esc(i.name)}</span><span class="koord mono">${esc(i.koordinaten)}</span></span>
       ${flotteInselStatus(i)}
       <span class="info">
-        <span>Kriegsschiffe <b class="mono">${b.krieg}</b></span>
-        <span>Handelsschiffe <b class="mono">${b.handel}</b></span>
-        <span>Steinewerfer <b class="mono">${b.werfer}</b></span>
+        <span class="bchip" title="Kriegsschiffe">${gico("kleines_kriegsschiff", 28)}<b class="mono">${b.krieg}</b></span>
+        <span class="bchip" title="Handelsschiffe">${gico("kleines_handelsschiff", 28)}<b class="mono">${b.handel}</b></span>
+        <span class="bchip" title="Steinewerfer">${gico("steinewerfer", 28)}<b class="mono">${b.werfer}</b></span>
         <span><b class="mono">${fl.length}</b> unterwegs</span>
         <span class="verstecken-schmal">${zahl(i.stats.raids)} Raids · ${zahl(i.stats.loot_pro_stunde)}/h</span>
       </span>
@@ -1922,7 +1926,7 @@ function zeichneFlotte() {
     karte.querySelector('[data-teil="stats"]').innerHTML = kachelnHtml(i.stats);
     const hafen = Object.entries({ ...(i.schiffe || {}), ...(i.truppen || {}) }).filter(([, n]) => n > 0);
     karte.querySelector('[data-teil="hafen"]').innerHTML = hafen.length
-      ? hafen.map(([k, n]) => `<span style="margin-right:14px">${zahl(n)}× ${esc(sname(k))}</span>`).join("")
+      ? bestandPlaettchen(i)
         + `<div class="leise" style="margin-top:4px">reicht für ${i.freie_flotten} weitere Flotte(n) nach den Einstellungen</div>`
       : `<span class="leise">nichts daheim</span>`;
     karte.querySelector('[data-teil="flotten"]').innerHTML = flottenTabelle(fl);
@@ -2603,6 +2607,7 @@ function zeichneUebersichtInseln() {
         <span class="res-key">${ROHSTOFF_ICON(k)}${n}</span>
         <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
         <span class="mono klein-text">${kompakt(r[k])}${prod[k] ? ` <span class="leise">+${kompakt(prod[k])}/h</span>` : ""}</span>`).join("")}</div>
+      ${x.fl ? bestandPlaettchen(x.fl) : ""}
       <div class="fakten">
         <div><span class="etikett">Baut gerade</span><b>${bau ? `${gico(bau.gebaeude, 20)} ${esc(gname(bau.gebaeude))} → ${bau.ziel_stufe}` : "–"}</b>${bau ? `<div class="leise klein-text">${countdown(bau.finish_at)}</div>` : ""}</div>
         <div><span class="etikett">Flotten</span><b>${fl} unterwegs</b><div class="leise klein-text">Lager ${kompakt(kap)}</div></div>
@@ -3548,16 +3553,16 @@ function linienDiagramm(el, daten, serien) {
     let pfad = "", stift = false;
     s.werte.forEach((v, i) => {
       if (v == null) { stift = false; return; }
-      pfad += `${stift ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+      pfad += stift ? `H${x(i).toFixed(1)} V${y(v).toFixed(1)} ` : `M${x(i).toFixed(1)},${y(v).toFixed(1)} `;
       stift = true;
     });
-    if (pfad) svg += `<path d="${pfad}" fill="none" stroke="${s.farbe}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    if (pfad) svg += `<path d="${pfad}" fill="none" stroke="${s.farbe}" stroke-width="3" stroke-linejoin="miter" stroke-linecap="square"/>`;
     s.werte.forEach((v, i) => {   // einzelne Punkte ohne Nachbarn sichtbar machen
       const allein = v != null && s.werte[i - 1] == null && s.werte[i + 1] == null;
-      if (allein) svg += `<circle cx="${x(i)}" cy="${y(v)}" r="4" fill="${s.farbe}" stroke="var(--flaeche)" stroke-width="2"/>`;
+      if (allein) svg += `<rect x="${x(i) - 4}" y="${y(v) - 4}" width="8" height="8" fill="${s.farbe}" stroke="var(--ink)" stroke-width="2"/>`;
     });
   });
-  svg += `<line class="vl-faden" x1="0" x2="0" y1="${oben}" y2="${oben + innenH}" stroke="var(--gedaempft)" stroke-width="1" opacity="0"/>`;
+  svg += `<line class="vl-faden" x1="0" x2="0" y1="${oben}" y2="${oben + innenH}" stroke="var(--ink)" stroke-width="2" stroke-dasharray="3 3" opacity="0"/>`;
   svg += `<g class="vl-punkte"></g><rect class="vl-treffer" x="${links}" y="${oben}" width="${innenB}" height="${innenH}" fill="transparent" tabindex="0"/></svg>`;
 
   el.innerHTML = `<div class="linien-legende"></div><div class="diagramm">${svg}<div class="tooltip"></div></div>`;
@@ -3573,7 +3578,7 @@ function linienDiagramm(el, daten, serien) {
   const zeige = (i) => {
     faden.setAttribute("x1", x(i)); faden.setAttribute("x2", x(i)); faden.setAttribute("opacity", ".6");
     punkte.innerHTML = serien.map(s => s.werte[i] == null ? "" :
-      `<circle cx="${x(i)}" cy="${y(s.werte[i])}" r="4" fill="${s.farbe}" stroke="var(--flaeche)" stroke-width="2"/>`).join("");
+      `<rect x="${x(i) - 5}" y="${y(s.werte[i]) - 5}" width="10" height="10" fill="${s.farbe}" stroke="var(--ink)" stroke-width="2"/>`).join("");
     const [j, m, t] = daten[i].split("-");
     tip.replaceChildren();
     const kopf = document.createElement("div");

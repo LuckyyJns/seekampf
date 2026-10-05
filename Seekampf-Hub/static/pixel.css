@@ -357,3 +357,18 @@ html:root[data-theme="dark"] .zl-spur{background:repeating-linear-gradient(90deg
 .dialog button.stop{background:#f0645a;color:#2a0a08}
 .dialog-schleier{animation:schleier-ein .12s steps(3) both}
 @keyframes schleier-ein{from{opacity:0}}
+
+/* ---------- Diagramme: kantig, ohne Glaettung ---------- */
+.diagramm svg *{shape-rendering:crispEdges}
+.diagramm .achse text{font:500 11px var(--mono);text-rendering:optimizeSpeed}
+.linien-legende i:not(.zl-key){width:14px;height:10px;border:2px solid var(--ink);border-radius:0}
+.tooltip .linie{width:12px;height:8px;border:2px solid var(--ink);border-radius:0}
+.diagramm .treffer:hover{fill:color-mix(in srgb,var(--teal) 14%,transparent)}
+
+/* ---------- Bestand als Plaettchen (Schiffe und Truppen mit Icon) ---------- */
+.bestand{display:flex;flex-wrap:wrap;gap:8px}
+.bpl{display:inline-flex;align-items:center;gap:5px;background:#e4d2a6;border:2px solid var(--ink);padding:1px 8px 1px 3px;box-shadow:inset 0 -3px 0 #d3bd8b;font:600 13px var(--mono)}
+html:root[data-theme="dark"] .bpl{background:#473526;box-shadow:inset 0 -3px 0 #35281d}
+.bpl .ict{width:28px;height:28px}
+.bchip{display:inline-flex;align-items:center;gap:4px}
+.bchip .ict{width:28px;height:28px}
