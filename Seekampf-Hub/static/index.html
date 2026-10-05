@@ -2637,6 +2637,15 @@ async function logsHolen() {
 // ======================================================================
 // Ozeankarte
 // ======================================================================
+const brett = new Image();   // Holzbrett als Karten-Hintergrund (liegt in der Welt, bewegt sich mit)
+brett.src = "/static/karte-brett.jpg";
+brett.addEventListener("load", () => { if (tab === "karte") zeichneKarte(); });
+/** Text mit hellem Rand, damit er auf dem Holz lesbar bleibt */
+function pixText(ctx, text, x, y) {
+  const f = ka.farben, fill = ctx.fillStyle;
+  ctx.save(); ctx.lineJoin = "round"; ctx.lineWidth = 3; ctx.strokeStyle = f["text-halo"] || "rgba(255,255,255,.8)"; ctx.strokeText(text, x, y); ctx.restore();
+  ctx.fillStyle = fill; ctx.fillText(text, x, y);
+}
 const ka = {
   daten: null, inseln: [], nachKoord: new Map(), allianzen: new Map(),
   modus: "spieler", spieler: null, auswahl: null,
@@ -2664,7 +2673,7 @@ function fahrzeitS(a, b, knoten) {
 function farbenLesen() {
   const cs = getComputedStyle(document.documentElement);
   for (const n of ["meer", "meer-welt", "meer-gitter", "meer-gitter-stark", "insel-neutral", "insel-frei", "insel-hervor",
-                   "insel-rand", "al1", "al2", "al3", "al4", "al5", "al6", "al7", "al8", "al9", "al10", "al11", "al12", "gildenlos", "glow", "feind", "karte-text", "warn", "akzent", "gedaempft"])
+                   "insel-rand", "brett-schleier", "text-halo", "al1", "al2", "al3", "al4", "al5", "al6", "al7", "al8", "al9", "al10", "al11", "al12", "gildenlos", "glow", "feind", "karte-text", "warn", "akzent", "gedaempft"])
     ka.farben[n] = cs.getPropertyValue(`--${n}`).trim();
 }
 
@@ -2813,7 +2822,17 @@ function zeichneJetzt() {
   ctx.fillStyle = f.meer; ctx.fillRect(0, 0, b, h);
   const w = ka.daten?.welt || { min: 1, max: 100 };
   const [wx0, wy0] = zuBild(w.min * 5, w.min * 5), [wx1, wy1] = zuBild((w.max + 1) * 5, (w.max + 1) * 5);
-  ctx.fillStyle = f["meer-welt"]; ctx.fillRect(wx0, wy0, wx1 - wx0, wy1 - wy0);
+  const bw = wx1 - wx0, bh = wy1 - wy0;
+  if (brett.complete && brett.naturalWidth) {
+    // nur den sichtbaren Ausschnitt des Bretts zeichnen (bei starkem Zoom sonst riesig)
+    const vx0 = Math.max(0, wx0), vy0 = Math.max(0, wy0), vx1 = Math.min(b, wx1), vy1 = Math.min(h, wy1);
+    if (vx1 > vx0 && vy1 > vy0) {
+      const nw = brett.naturalWidth, nh = brett.naturalHeight;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(brett, (vx0 - wx0) / bw * nw, (vy0 - wy0) / bh * nh, (vx1 - vx0) / bw * nw, (vy1 - vy0) / bh * nh, vx0, vy0, vx1 - vx0, vy1 - vy0);
+      ctx.fillStyle = f["brett-schleier"] || "rgba(246,234,208,.4)"; ctx.fillRect(vx0, vy0, vx1 - vx0, vy1 - vy0);
+    }
+  } else { ctx.fillStyle = f["meer-welt"]; ctx.fillRect(wx0, wy0, bw, bh); }
 
   // Sektorgitter (alle 5 Felder), staerker alle 10 Sektoren
   if (ka.ebenen.gitter && m * 5 >= 6) {
@@ -2822,20 +2841,20 @@ function zeichneJetzt() {
     const s0y = Math.max(w.min, Math.floor(fy0 / 5)), s1y = Math.min(w.max + 1, Math.ceil(fy1 / 5));
     ctx.lineWidth = 1;
     for (let s = s0x; s <= s1x; s++) {
-      ctx.strokeStyle = s % 10 === 0 ? f["meer-gitter-stark"] : f["meer-gitter"];
+      ctx.strokeStyle = s % 10 === 0 ? f["meer-gitter-stark"] : f["meer-gitter"]; ctx.lineWidth = s % 10 === 0 ? 2 : 1;
       const x = Math.round(zuBild(s * 5, 0)[0]) + .5;
       ctx.beginPath(); ctx.moveTo(x, Math.max(0, wy0)); ctx.lineTo(x, Math.min(h, wy1)); ctx.stroke();
     }
     for (let s = s0y; s <= s1y; s++) {
-      ctx.strokeStyle = s % 10 === 0 ? f["meer-gitter-stark"] : f["meer-gitter"];
+      ctx.strokeStyle = s % 10 === 0 ? f["meer-gitter-stark"] : f["meer-gitter"]; ctx.lineWidth = s % 10 === 0 ? 2 : 1;
       const y = Math.round(zuBild(0, s * 5)[1]) + .5;
       ctx.beginPath(); ctx.moveTo(Math.max(0, wx0), y); ctx.lineTo(Math.min(b, wx1), y); ctx.stroke();
     }
     if (m * 5 >= 60) {
-      ctx.fillStyle = f.gedaempft; ctx.font = "11px Inter, system-ui, sans-serif"; ctx.textBaseline = "top";
+      ctx.fillStyle = f.gedaempft; ctx.font = "11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textBaseline = "top";
       for (let sx = s0x; sx < s1x; sx++) for (let sy = s0y; sy < s1y; sy++) {
         const [x, y] = zuBild(sx * 5, sy * 5);
-        ctx.globalAlpha = .7; ctx.fillText(`${sx}:${sy}`, x + 4, y + 3); ctx.globalAlpha = 1;
+        ctx.globalAlpha = .7; pixText(ctx, `${sx}:${sy}`, x + 4, y + 3); ctx.globalAlpha = 1;
       }
     }
   }
@@ -2853,11 +2872,11 @@ function zeichneJetzt() {
       rahmen.get(schluessel).namen.push(i.name);
     }
     ctx.lineWidth = 1.5; ctx.strokeStyle = f.akzent; ctx.fillStyle = f.akzent;
-    ctx.font = "600 11px Inter, system-ui, sans-serif"; ctx.textBaseline = "bottom";
+    ctx.font = "600 11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textBaseline = "bottom";
     for (const { sx, sy, r, namen } of rahmen.values()) {
       const [x0, y0] = zuBild((sx - r) * 5, (sy - r) * 5), [x1, y1] = zuBild((sx + r + 1) * 5, (sy + r + 1) * 5);
       ctx.setLineDash([6, 5]); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.setLineDash([]);
-      ctx.fillText(`${namen.join(", ")} · Radius ${r}`, x0 + 2, y0 - 3);
+      pixText(ctx, `${namen.join(", ")} · Radius ${r}`, x0 + 2, y0 - 3);
     }
   }
 
@@ -2865,11 +2884,11 @@ function zeichneJetzt() {
   const auswahl = ka.auswahl && ka.nachKoord.get(ka.auswahl);
   if (auswahl && auswahl.b === ka.daten?.ich?.name) {
     const [cx, cy] = zuBild(...auswahl.f), knoten = KNOTEN[ka.ringSchiff];
-    ctx.lineWidth = 1.5; ctx.font = "600 11px Inter, system-ui, sans-serif"; ctx.textBaseline = "bottom";
+    ctx.lineWidth = 1.5; ctx.font = "600 11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textBaseline = "bottom";
     for (const min of RINGE_MIN) {
       const rad = knoten * min / 10 * m;
       ctx.strokeStyle = f.akzent; ctx.globalAlpha = .55; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.fillStyle = f["karte-text"]; ctx.fillText(`${min} min`, cx + 4, cy - rad - 2);
+      ctx.globalAlpha = 1; ctx.fillStyle = f["karte-text"]; pixText(ctx, `${min} min`, cx + 4, cy - rad - 2);
     }
   }
 
@@ -2882,29 +2901,30 @@ function zeichneJetzt() {
     const farbe = inselFarbe(i), hervor = hervorgehoben(i);
     const al = ka.modus === "allianz" && i.a ? ka.allianzen.get(i.a) : null;
     const leuchtet = !!al || hervor;
-    ctx.beginPath(); ctx.arc(x, y, hervor ? r * 1.2 : (farbe ? r : r * .8), 0, Math.PI * 2);
+    const rr = Math.max(2, Math.round(hervor ? r * 1.2 : (farbe ? r : r * .8)));
+    ctx.beginPath(); ctx.rect(Math.round(x) - rr, Math.round(y) - rr, rr * 2, rr * 2);
     if (farbe) {
       // Leuchtende Punkte wie auf map.seekampf.brckr.de; im hellen Thema dezenter
       if (leuchtet) { ctx.shadowColor = farbe; ctx.shadowBlur = Math.max(5, r * 1.5) * Number(f.glow || 1); }
       ctx.fillStyle = farbe; ctx.globalAlpha = ka.modus === "spieler" && !hervor ? .55 : 1;
-      ctx.fill(); ctx.globalAlpha = 1; ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
+      ctx.fill(); ctx.globalAlpha = 1; ctx.lineWidth = 2; ctx.strokeStyle = f["insel-rand"]; ctx.stroke(); ctx.shadowBlur = 0; ctx.shadowColor = "transparent";
     } else {
       // Frei/Ruine: dunkler, kaum sichtbarer Punkt - mit Ebene "Freie Inseln" als heller Ring
       ctx.fillStyle = f["insel-frei"]; ctx.globalAlpha = ka.ebenen.frei ? .25 : .14; ctx.fill();
       ctx.lineWidth = ka.ebenen.frei ? 2 : 1; ctx.strokeStyle = f["insel-frei"];
       ctx.globalAlpha = ka.ebenen.frei ? 1 : .3; ctx.setLineDash(i.r ? [2, 2] : []); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
     }
-    if (hervor) { ctx.beginPath(); ctx.arc(x, y, r * 1.25 + 3.5, 0, Math.PI * 2); ctx.lineWidth = 2; ctx.strokeStyle = f["insel-hervor"]; ctx.globalAlpha = .45; ctx.stroke(); ctx.globalAlpha = 1; }
-    if (i.k === ka.auswahl) { ctx.beginPath(); ctx.arc(x, y, r * 1.25 + 7, 0, Math.PI * 2); ctx.lineWidth = 2.5; ctx.strokeStyle = f["karte-text"]; ctx.stroke(); }
+    if (hervor) { { const q = Math.round(r * 1.25 + 3.5); ctx.beginPath(); ctx.rect(Math.round(x) - q, Math.round(y) - q, q * 2, q * 2); } ctx.lineWidth = 2; ctx.strokeStyle = f["insel-hervor"]; ctx.globalAlpha = .45; ctx.stroke(); ctx.globalAlpha = 1; }
+    if (i.k === ka.auswahl) { { const q = Math.round(r * 1.25 + 7); ctx.beginPath(); ctx.rect(Math.round(x) - q, Math.round(y) - q, q * 2, q * 2); } ctx.lineWidth = 2.5; ctx.strokeStyle = f["karte-text"]; ctx.stroke(); }
     if (labels) {
-      ctx.font = "500 11px Inter, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = f["karte-text"];
+      ctx.font = "500 11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = f["karte-text"];
       // Allianz-Modus: nur das Kuerzel (passt immer); sonst der Besitzer.
       // Auf die Feldbreite kuerzen, damit Nachbarn sich nicht ueberschreiben.
       let text = ka.modus === "allianz"
         ? (i.a ? (ka.allianzen.get(i.a)?.tag || "?") : (i.b ? "–" : (i.r ? "Ruine" : "frei")))
         : (i.b || (i.r ? "Ruine" : "frei"));
       while (text.length > 3 && ctx.measureText(text).width > m * 0.94) text = text.slice(0, -2) + "…";
-      ctx.globalAlpha = hervor || ka.modus === "allianz" ? 1 : .75; ctx.fillText(text, x, y + r + 3); ctx.globalAlpha = 1; ctx.textAlign = "start";
+      ctx.globalAlpha = hervor || ka.modus === "allianz" ? 1 : .75; pixText(ctx, text, x, y + r + 3); ctx.globalAlpha = 1; ctx.textAlign = "start";
     }
   }
 
@@ -2963,8 +2983,8 @@ function zeichneJetzt() {
       ctx.lineTo(zx - Math.cos(wink - .45) * (r + 16), zy - Math.sin(wink - .45) * (r + 16));
       ctx.lineTo(zx - Math.cos(wink + .45) * (r + 16), zy - Math.sin(wink + .45) * (r + 16)); ctx.closePath(); ctx.fill();
       const eta = ts(a.arrive_at);
-      ctx.font = "700 12px Inter, system-ui, sans-serif"; ctx.fillStyle = f.feind; ctx.textBaseline = "bottom";
-      ctx.fillText(`⚠ ${a.absender || "Angriff"}${eta ? " · " + dauer(eta - t) : ""}`, sx + 6, sy - 4);
+      ctx.font = "700 12px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.fillStyle = f.feind; ctx.textBaseline = "bottom";
+      pixText(ctx, `⚠ ${a.absender || "Angriff"}${eta ? " · " + dauer(eta - t) : ""}`, sx + 6, sy - 4);
       ka.angriffsPunkte.push({ x: sx, y: sy, a });
     }
   }
