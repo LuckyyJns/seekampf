@@ -490,7 +490,7 @@
         <div id="ue-zeitleiste"></div>
       </section>
       <div class="kopfzeile abschnitt-kopf" style="margin-top:0"><h2>Inseln</h2><div class="rechts leise klein-text" id="ue-inseln-info"></div></div>
-      <div class="insel-raster" id="ue-inseln"><div class="leise">wird geladen …</div></div>
+      <div class="insel-raster" id="ue-inseln"><div class="leise laden">wird geladen<i></i><i></i><i></i></div></div>
       <section class="karte" style="margin-top:18px">
         <div class="kopfzeile"><h2>Beute der letzten Tage</h2>
           <div class="rechts"><button class="klein" data-tabelle-fuer="ue-diagramm">Tabelle</button></div></div>
@@ -582,7 +582,7 @@
       </section>
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="flotte"></div></div>
-        <div class="log logbuch" data-log="flotte">…</div>
+        <div class="log logbuch" data-log="flotte"><span class="laden">lädt<i></i><i></i><i></i></span></div>
       </section>
     </div>
 
@@ -661,7 +661,7 @@
       </section>
       <div class="kacheln" id="aus-kacheln"></div>
       <div class="kopfzeile abschnitt-kopf"><h2>Inseln</h2><div class="rechts leise klein-text">durchgezogener Strich = auffüllen bis · gestrichelt = gibt erst darüber ab · blass = unterwegs</div></div>
-      <div class="ausgleich-raster" id="aus-inseln"><div class="leise">wird geladen …</div></div>
+      <div class="ausgleich-raster" id="aus-inseln"><div class="leise laden">wird geladen<i></i><i></i><i></i></div></div>
       <section class="karte" style="margin-top:16px">
         <div class="kopfzeile"><h2>Letzte Lieferungen</h2></div>
         <div id="aus-lieferungen"></div>
@@ -702,7 +702,7 @@
             </div>
             <button class="klein" id="vl-tabelle">Tabelle</button>
           </div></div>
-        <div id="vl-diagramm"><div class="leise klein-text">wird geladen …</div></div>
+        <div id="vl-diagramm"><div class="leise klein-text laden">wird geladen<i></i><i></i><i></i></div></div>
         <div class="leise klein-text" id="vl-hinweis" style="margin-top:8px"></div>
       </section>
       <section class="karte">
@@ -711,7 +711,7 @@
       </section>
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="upgrade"></div></div>
-        <div class="log logbuch" data-log="upgrade">…</div>
+        <div class="log logbuch" data-log="upgrade"><span class="laden">lädt<i></i><i></i><i></i></span></div>
       </section>
     </div>
 
@@ -749,7 +749,7 @@
       </section>
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="kolonie"></div></div>
-        <div class="log logbuch" data-log="kolonie">…</div>
+        <div class="log logbuch" data-log="kolonie"><span class="laden">lädt<i></i><i></i><i></i></span></div>
       </section>
     </div>
 
@@ -777,7 +777,7 @@
       </section>
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="ausbildung"></div></div>
-        <div class="log logbuch" data-log="ausbildung">…</div>
+        <div class="log logbuch" data-log="ausbildung"><span class="laden">lädt<i></i><i></i><i></i></span></div>
       </section>
     </div>
 
@@ -875,7 +875,7 @@
       </section>
       <section class="karte">
         <div class="kopfzeile"><h2>Log</h2><div class="rechts leise klein-text" data-log-datei="allianz"></div></div>
-        <div class="log logbuch" data-log="allianz">…</div>
+        <div class="log logbuch" data-log="allianz"><span class="laden">lädt<i></i><i></i><i></i></span></div>
       </section>
     </div>
   </div>
@@ -1500,6 +1500,7 @@ function zeigeTab(ziel) {
 const TAB_ICON_NAME = { uebersicht: "eigene_insel", karte: "hinterland", gesundheit: "gesundheit", upgrade: "haupthaus", flotte: "kleines_kriegsschiff", ausbildung: "kaserne", ausgleich: "rohstoffausgleich", kolonie: "koloschiff", allianz: "allianz_hilfe" };
 function zeigeTabJetzt(neu) {
   tab = neu;
+  for (const k of [...blitzMerker.keys()]) if (k.startsWith(`${tab}|`)) blitzMerker.delete(k);   // beim Betreten kein Aufblitzen
   document.querySelectorAll(".tab").forEach(el => el.classList.toggle("sichtbar", el.id === `tab-${tab}`));
   document.querySelectorAll("nav#seite a").forEach(a => a.classList.toggle("aktiv", a.dataset.tab === tab));
   $("titel").textContent = TABS[tab];
@@ -2726,15 +2727,15 @@ const LOG_THEMEN = [[/BEUTE/, "gold"], [/AUSGLEICH|Lieferung/i, "rohstoffausglei
   [/Ausbau|gestartet|Bauauftrag/i, "haupthaus"], [/Flotte|ANKUNFT|Raid|ABFAHRT/i, "kleines_kriegsschiff"]];
 let logModus = "ereignisse";
 try { logModus = localStorage.getItem("logmodus") || "ereignisse"; } catch (e) { /* egal */ }
-const logRoh = {};
+const logRoh = {}, logGesehen = {};
 /** Logzeilen "2026-10-05 15:02:46 [INFO] Text" zerlegen; Zeilen ohne Zeitstempel (z. B. Fehlerdetails) gehoeren zur vorigen. */
 function logParsen(zeilen) {
   const liste = [];
   for (const z of zeilen) {
     const m = /^(\d{4})-(\d\d)-(\d\d) (\d\d:\d\d:\d\d) \[(\w+)\] (.*)$/.exec(z);
-    if (m) liste.push({ datum: `${m[3]}.${m[2]}.${m[1]}`, zeit: m[4], stufe: m[5].toUpperCase(), text: m[6] });
-    else if (liste.length) liste[liste.length - 1].text += "\n" + z;
-    else liste.push({ datum: "", zeit: "", stufe: "INFO", text: z });
+    if (m) liste.push({ datum: `${m[3]}.${m[2]}.${m[1]}`, zeit: m[4], stufe: m[5].toUpperCase(), text: m[6], roh: z });
+    else if (liste.length) { liste[liste.length - 1].text += "\n" + z; liste[liste.length - 1].roh += "\n" + z; }
+    else liste.push({ datum: "", zeit: "", stufe: "INFO", text: z, roh: z });
   }
   return liste;
 }
@@ -2749,6 +2750,9 @@ function logZeichnen(bot) {
   } else {
     let liste = logParsen(d.zeilen || []);
     liste.forEach(e => { e.routine = e.stufe === "INFO" && /^Insel \d+ \| /.test(e.text); });
+    const gesehen = logGesehen[bot];                      // was schon einmal da war, leuchtet nicht
+    liste.forEach(e => { e.neu = !!gesehen && !gesehen.has(e.roh); });
+    logGesehen[bot] = new Set(liste.map(e => e.roh));
     if (logModus === "ereignisse") liste = liste.filter(e => !e.routine);
     else if (logModus === "probleme") liste = liste.filter(e => ["ERROR", "WARNING", "CRITICAL"].includes(e.stufe));
     let tag = "";
@@ -2756,7 +2760,7 @@ function logZeichnen(bot) {
       const kopf = e.datum && e.datum !== tag ? `<div class="lz-tag">${e.datum}</div>` : "";
       tag = e.datum || tag;
       const thema = (LOG_THEMEN.find(([re]) => re.test(e.text)) || [])[1] || LOG_ICON_BOT[bot];
-      return `${kopf}<div class="lz ${e.stufe} ${e.routine ? "routine" : ""}"><time title="${esc(e.datum)}">${esc(e.zeit)}</time>${IK(thema, 22)}<span class="lz-text">${esc(e.text)}</span></div>`;
+      return `${kopf}<div class="lz ${e.stufe} ${e.routine ? "routine" : ""} ${e.neu ? "neu" : ""}"><time title="${esc(e.datum)}">${esc(e.zeit)}</time>${IK(thema, 22)}<span class="lz-text">${esc(e.text)}</span></div>`;
     });
     el.innerHTML = zeilen.join("") || `<div class="lz-leer">${(d.zeilen || []).length ? "Nichts dabei – oben auf „Alles“ umschalten." : "noch nichts geloggt"}</div>`;
   }
@@ -3028,13 +3032,14 @@ function zeichneJetzt() {
   // Kleine Wellen auf dem Brett (feste Plaetze, nur beim Heranzoomen)
   if (m >= 5) {
     const u = Math.max(2, Math.round(m * .22));
+    const wellenVersatz = document.body.classList.contains("ohne-anim") ? 0 : (Math.floor(t / 2.5) % 2) * u;
     const [fx0, fy0] = zuFeld(0, 0), [fx1, fy1] = zuFeld(b, h);
     ctx.fillStyle = f["karte-text"]; ctx.globalAlpha = .16;
     for (let cx = Math.floor(fx0 / 3); cx <= Math.ceil(fx1 / 3); cx++) for (let cy = Math.floor(fy0 / 3); cy <= Math.ceil(fy1 / 3); cy++) {
       const hash = (Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663)) >>> 0;
       if (hash % 9 !== 0) continue;
       const [wxp, wyp] = zuBild(cx * 3 + (hash >> 8) % 3, cy * 3 + (hash >> 12) % 3);
-      const x0 = Math.round(wxp), y0 = Math.round(wyp);
+      const x0 = Math.round(wxp) + wellenVersatz, y0 = Math.round(wyp);
       for (const [dx, dy] of [[0, 1], [1, 0], [2, 0], [3, 1], [4, 2], [5, 2], [6, 1]]) ctx.fillRect(x0 + dx * u, y0 + dy * u, u, u);
     }
     ctx.globalAlpha = 1;
@@ -3152,8 +3157,12 @@ function zeichneJetzt() {
         const gr = Math.round(Math.max(20, Math.min(34, 16 + m * .9)));
         const [tx, ty] = lage.rueck ? [ax, ay] : [zx, zy];
         const wink = Math.atan2(ty - py, tx - px), ex = Math.cos(wink), ey = Math.sin(wink), d = gr * .55;
+        const wippen = document.body.classList.contains("ohne-anim") ? 0 : (Math.floor(t * 1.4) + (Number(fl.id) || 0)) % 2;
+        ctx.fillStyle = f["karte-text"];                        // Kielwasser: drei Pixel hinter dem Schiff
+        for (let k = 1; k <= 3; k++) { ctx.globalAlpha = .6 - k * .15; ctx.fillRect(Math.round(px - ex * (gr * .4 + k * 6)) - 2, Math.round(py - ey * (gr * .4 + k * 6)) + 4, 4, 4); }
+        ctx.globalAlpha = 1;
         ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(bild, Math.round(px - gr / 2), Math.round(py - gr / 2), gr, gr);
+        ctx.drawImage(bild, Math.round(px - gr / 2), Math.round(py - gr / 2) - wippen, gr, gr);
         ctx.beginPath();
         ctx.moveTo(px + ex * (d + 9), py + ey * (d + 9));
         ctx.lineTo(px + ex * d - ey * 5, py + ey * d + ex * 5); ctx.lineTo(px + ex * d + ey * 5, py + ey * d - ex * 5); ctx.closePath();
@@ -3907,6 +3916,7 @@ function sekundentakt() {
   document.querySelectorAll("[data-bis]").forEach(el => {
     const rest = Number(el.dataset.bis) - t;
     el.textContent = rest > 0 ? dauer(rest) : el.dataset.fertig;
+    el.classList.toggle("bald", rest > 0 && rest <= 60);
   });
   $("uhr").textContent = new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
@@ -3943,8 +3953,22 @@ function stepperBauen(wurzel) {
   });
 }
 stepperBauen(document);
+/** Kennzahlen (".kachel .wert") blitzen kurz auf, wenn sich der Wert gegenueber dem letzten Zeichnen geaendert hat. */
+const blitzMerker = new Map();
+function blitzPruefen(el) {
+  const label = el.closest(".kachel")?.querySelector(".beschriftung")?.textContent.trim();
+  if (!label) return;
+  const schluessel = `${tab}|${label}`, neu = el.textContent.trim(), alt = blitzMerker.get(schluessel);
+  blitzMerker.set(schluessel, neu);
+  if (alt !== undefined && alt !== neu) el.classList.add("blitz");
+}
 new MutationObserver((liste) => {
-  for (const m of liste) for (const n of m.addedNodes) if (n.nodeType === 1) stepperBauen(n.matches?.('input[type="number"]') ? n.parentNode || document : n);
+  for (const m of liste) for (const n of m.addedNodes) {
+    if (n.nodeType !== 1) continue;
+    stepperBauen(n.matches?.('input[type="number"]') ? n.parentNode || document : n);
+    if (n.matches?.(".kachel .wert")) blitzPruefen(n);
+    n.querySelectorAll?.(".kachel .wert").forEach(blitzPruefen);
+  }
 }).observe(document.body, { childList: true, subtree: true });
 
 /** Hinweise (title) als Pixel-Kaestchen statt des grauen Browser-Hinweises. */

@@ -483,3 +483,28 @@ a,button,select,summary,[data-insel],.insel-kopf,.schalter,.schalter *,.chips la
 button:disabled,input:disabled,.gkachel:disabled,.schalter input:disabled + .spur{cursor:not-allowed}
 input[type=text],input[type=number],input:not([type]),textarea{cursor:text}
 .karten-rahmen canvas{cursor:grab}.karten-rahmen canvas.zieht{cursor:grabbing}
+
+/* ---------- Mehr kleine Bewegungen (alle am Schalter "Bewegung") ---------- */
+/* 1) Schalter gleiten in Stufen */
+.schalter .spur::after{transition:transform .15s steps(3,end)}
+/* 2) Kacheln heben sich beim Draufzeigen */
+.insel-kachel,.kachel,.dienst-karte{transition:transform .12s steps(2,end)}
+.insel-kachel:hover,.kachel:hover,.dienst-karte:hover{transform:translate(-2px,-2px);box-shadow:0 0 0 2px var(--ring),5px 5px 0 var(--ink)}
+.insel-karte:not(.offen):hover{box-shadow:0 0 0 2px var(--teal),4px 4px 0 var(--ink)}
+/* 3) Seitenwechsel in drei Stufen */
+@keyframes seite-ein{from{transform:translateY(14px);opacity:0}}
+.tab.sichtbar{animation:seite-ein .22s steps(3,end) both}
+/* 4) "wird geladen" mit laufenden Pixeln */
+@keyframes punkt{0%{opacity:.15}33%{opacity:1}}
+.laden i{display:inline-block;width:5px;height:5px;margin-left:4px;background:currentColor;vertical-align:1px;animation:punkt 1s steps(1) infinite}
+.laden i:nth-of-type(2){animation-delay:.25s}.laden i:nth-of-type(3){animation-delay:.5s}
+/* 5) Kennzahl blitzt bei Aenderung */
+@keyframes blitz{0%,40%{background:#f2b705;color:#2a1b0e}100%{background:transparent}}
+.kachel .wert.blitz{animation:blitz .9s steps(4,end) 1;box-shadow:-4px 0 0 #f2b705,4px 0 0 #f2b705}
+/* 6) neue Logzeilen leuchten kurz */
+@keyframes zeile-neu{0%{background:#f2d56a}100%{background:transparent}}
+.lz.neu:not(.WARNING):not(.ERROR):not(.CRITICAL){animation:zeile-neu 2.4s steps(6,end) 1}
+/* 7) Countdown in der letzten Minute */
+.bald{animation:blinken 1s steps(1) infinite;color:var(--warn);font-weight:700}
+/* 10) "jetzt"-Linie der Zeitleiste pulsiert leicht */
+.zl-spur::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--teal);animation:blinken 2s steps(1) infinite}
