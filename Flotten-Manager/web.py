@@ -324,6 +324,21 @@ def ausgleich_einstellen(insel_id: int, payload: dict = Body(...)):
     return {"id": insel_id, "einstellung": ergebnis}
 
 
+@app.post("/api/ausgleich/liefern")
+def ausgleich_liefern(payload: dict = Body(...)):
+    """Lieferung von Hand: {von, nach, rohstoffe: {gold, stein, holz}}."""
+    try:
+        r = manager.ausgleich.liefern_von_hand(payload.get("von"), payload.get("nach"), payload.get("rohstoffe") or {})
+    except (TypeError, ValueError) as e:
+        raise HTTPException(400, str(e)) from e
+    except ApiError as e:
+        raise HTTPException(409, f"Das Spiel lehnt ab: {e.message}") from e
+    except requests.RequestException as e:
+        raise HTTPException(502, f"Spiel nicht erreichbar: {type(e).__name__}") from e
+    log.info("Seekampf-Hub: Lieferung von Hand %s -> %s", payload.get("von"), payload.get("nach"))
+    return r
+
+
 @app.post("/api/stats/reset")
 def stats_reset():
     state.stats_zuruecksetzen()

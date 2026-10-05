@@ -477,7 +477,15 @@
   <div class="huelle">
     <!-- ======================= Übersicht ======================= -->
     <div class="tab" id="tab-uebersicht">
+      <div id="ue-alarm"></div>
       <div class="held" id="ue-held"></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Nächste 4 Stunden</h2>
+          <div class="rechts linien-legende" id="ue-zeit-legende">
+            <span><i class="zl-key bau"></i>Bau</span><span><i class="zl-key ausb"></i>Ausbildung</span>
+            <span><i class="zl-key hin"></i>Flotte hin</span><span><i class="zl-key rueck"></i>Flotte zurück</span></div></div>
+        <div id="ue-zeitleiste"></div>
+      </section>
       <div class="kopfzeile abschnitt-kopf" style="margin-top:0"><h2>Inseln</h2><div class="rechts leise klein-text" id="ue-inseln-info"></div></div>
       <div class="insel-raster" id="ue-inseln"><div class="leise">wird geladen …</div></div>
       <section class="karte" style="margin-top:18px">
@@ -596,6 +604,57 @@
           <div class="feld check"><input type="checkbox" id="aus-upgrade"><label for="aus-upgrade">Bedarf des Upgrade-Bots mitliefern</label></div>
         </div>
         <div class="leise klein-text" style="margin-top:10px">Jede Insel kann abgeben, bekommen oder beides – so gleichen sich alle gegenseitig aus. Eine Insel, die selbst auch bekommt, gibt nur ab, was über ihrem eigenen Auffüllziel liegt, und nie, was ihr für den nächsten Ausbau fehlt; ein Hin- und Herschicken gibt es also nicht. Es liefert die Insel, die am meisten liefern kann (bei Gleichstand die nächste), mit ihren eigenen Handelsschiffen. Reichen die im Hafen nicht, hält der Flotten-Manager sie bis zu 30 Minuten zurück (keine Raids von dort) – danach fährt, was da ist. Bedrohte Inseln liefern nicht und bekommen nichts.</div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Lieferung von Hand</h2>
+          <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="aus-liefern" hidden>● nicht abgeschickt</span></div></div>
+        <div data-form="aus-liefern">
+          <div class="liefer-route">
+            <div class="feld"><label for="aus-l-von">Von</label><select id="aus-l-von" class="eingabe"></select></div>
+            <div class="liefer-pfeil" aria-hidden="true"><img class="ict" src="/static/icons/handelsroute.png" width="48" height="48" alt=""></div>
+            <div class="feld"><label for="aus-l-nach">Nach</label><select id="aus-l-nach" class="eingabe"></select></div>
+          </div>
+          <div class="rkacheln" id="aus-l-kacheln">
+              <div class="rkachel">
+                <div class="rk-kopf"><img class="ict" src="/static/icons/gold.png" width="48" height="48" alt="" aria-hidden="true">
+                  <div><b>Gold</b><span class="leise" data-rk-bestand="aus-l-gold">–</span></div></div>
+                <input type="number" min="0" step="100" class="eingabe" id="aus-l-gold" placeholder="0" aria-label="Gold">
+                <div class="rk-knoepfe">
+                  <button type="button" class="klein" data-rk-add="aus-l-gold" data-n="500">+500</button>
+                  <button type="button" class="klein" data-rk-add="aus-l-gold" data-n="1000">+1.000</button>
+                  <button type="button" class="klein" data-rk-add="aus-l-gold" data-n="5000">+5.000</button>
+                  <button type="button" class="klein" data-rk-max="aus-l-gold" data-k="gold">Max</button>
+                  <button type="button" class="klein" data-rk-null="aus-l-gold">0</button></div>
+              </div>
+              <div class="rkachel">
+                <div class="rk-kopf"><img class="ict" src="/static/icons/stein.png" width="48" height="48" alt="" aria-hidden="true">
+                  <div><b>Stein</b><span class="leise" data-rk-bestand="aus-l-stein">–</span></div></div>
+                <input type="number" min="0" step="100" class="eingabe" id="aus-l-stein" placeholder="0" aria-label="Stein">
+                <div class="rk-knoepfe">
+                  <button type="button" class="klein" data-rk-add="aus-l-stein" data-n="500">+500</button>
+                  <button type="button" class="klein" data-rk-add="aus-l-stein" data-n="1000">+1.000</button>
+                  <button type="button" class="klein" data-rk-add="aus-l-stein" data-n="5000">+5.000</button>
+                  <button type="button" class="klein" data-rk-max="aus-l-stein" data-k="stein">Max</button>
+                  <button type="button" class="klein" data-rk-null="aus-l-stein">0</button></div>
+              </div>
+              <div class="rkachel">
+                <div class="rk-kopf"><img class="ict" src="/static/icons/holz.png" width="48" height="48" alt="" aria-hidden="true">
+                  <div><b>Holz</b><span class="leise" data-rk-bestand="aus-l-holz">–</span></div></div>
+                <input type="number" min="0" step="100" class="eingabe" id="aus-l-holz" placeholder="0" aria-label="Holz">
+                <div class="rk-knoepfe">
+                  <button type="button" class="klein" data-rk-add="aus-l-holz" data-n="500">+500</button>
+                  <button type="button" class="klein" data-rk-add="aus-l-holz" data-n="1000">+1.000</button>
+                  <button type="button" class="klein" data-rk-add="aus-l-holz" data-n="5000">+5.000</button>
+                  <button type="button" class="klein" data-rk-max="aus-l-holz" data-k="holz">Max</button>
+                  <button type="button" class="klein" data-rk-null="aus-l-holz">0</button></div>
+              </div>
+          </div>
+          <div class="klein-text" id="aus-l-summe" style="margin:10px 0 0"></div>
+          <div class="formular-leiste">
+            <button class="haupt" id="aus-l-senden" disabled>Lieferung losschicken</button>
+            <span class="leise klein-text">Fährt sofort mit den Handelsschiffen der Start-Insel (kleine zuerst), unabhängig vom automatischen Ausgleich.</span>
+          </div>
+        </div>
       </section>
       <div class="kacheln" id="aus-kacheln"></div>
       <div class="kopfzeile abschnitt-kopf"><h2>Inseln</h2><div class="rechts leise klein-text">durchgezogener Strich = auffüllen bis · gestrichelt = gibt erst darüber ab · blass = unterwegs</div></div>
@@ -730,12 +789,43 @@
           <div class="kopfzeile"><h2>Rohstoffe anfragen</h2>
             <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="al-anfrage" hidden>● nicht abgeschickt</span></div></div>
           <div data-form="al-anfrage">
-            <div class="formular">
-              <div class="feld"><label for="al-anfrage-insel">Insel</label><select id="al-anfrage-insel"></select></div>
-              <div class="feld"><label for="al-anfrage-gold">Gold</label><input type="number" min="0" step="100" id="al-anfrage-gold" placeholder="0"></div>
-              <div class="feld"><label for="al-anfrage-stein">Stein</label><input type="number" min="0" step="100" id="al-anfrage-stein" placeholder="0"></div>
-              <div class="feld"><label for="al-anfrage-holz">Holz</label><input type="number" min="0" step="100" id="al-anfrage-holz" placeholder="0"></div>
+            <div class="formular"><div class="feld"><label for="al-anfrage-insel">Insel</label><select id="al-anfrage-insel"></select></div></div>
+            <div class="rkacheln" id="al-anfrage-kacheln">
+              <div class="rkachel">
+                <div class="rk-kopf"><img class="ict" src="/static/icons/gold.png" width="48" height="48" alt="" aria-hidden="true">
+                  <div><b>Gold</b><span class="leise" data-rk-bestand="al-anfrage-gold">–</span></div></div>
+                <input type="number" min="0" step="100" class="eingabe" id="al-anfrage-gold" placeholder="0" aria-label="Gold">
+                <div class="rk-knoepfe">
+                  <button type="button" class="klein" data-rk-add="al-anfrage-gold" data-n="500">+500</button>
+                  <button type="button" class="klein" data-rk-add="al-anfrage-gold" data-n="1000">+1.000</button>
+                  <button type="button" class="klein" data-rk-add="al-anfrage-gold" data-n="5000">+5.000</button>
+                  <button type="button" class="klein" data-rk-max="al-anfrage-gold" data-k="gold">Max</button>
+                  <button type="button" class="klein" data-rk-null="al-anfrage-gold">0</button></div>
+              </div>
+              <div class="rkachel">
+                <div class="rk-kopf"><img class="ict" src="/static/icons/stein.png" width="48" height="48" alt="" aria-hidden="true">
+                  <div><b>Stein</b><span class="leise" data-rk-bestand="al-anfrage-stein">–</span></div></div>
+                <input type="number" min="0" step="100" class="eingabe" id="al-anfrage-stein" placeholder="0" aria-label="Stein">
+                <div class="rk-knoepfe">
+                  <button type="button" class="klein" data-rk-add="al-anfrage-stein" data-n="500">+500</button>
+                  <button type="button" class="klein" data-rk-add="al-anfrage-stein" data-n="1000">+1.000</button>
+                  <button type="button" class="klein" data-rk-add="al-anfrage-stein" data-n="5000">+5.000</button>
+                  <button type="button" class="klein" data-rk-max="al-anfrage-stein" data-k="stein">Max</button>
+                  <button type="button" class="klein" data-rk-null="al-anfrage-stein">0</button></div>
+              </div>
+              <div class="rkachel">
+                <div class="rk-kopf"><img class="ict" src="/static/icons/holz.png" width="48" height="48" alt="" aria-hidden="true">
+                  <div><b>Holz</b><span class="leise" data-rk-bestand="al-anfrage-holz">–</span></div></div>
+                <input type="number" min="0" step="100" class="eingabe" id="al-anfrage-holz" placeholder="0" aria-label="Holz">
+                <div class="rk-knoepfe">
+                  <button type="button" class="klein" data-rk-add="al-anfrage-holz" data-n="500">+500</button>
+                  <button type="button" class="klein" data-rk-add="al-anfrage-holz" data-n="1000">+1.000</button>
+                  <button type="button" class="klein" data-rk-add="al-anfrage-holz" data-n="5000">+5.000</button>
+                  <button type="button" class="klein" data-rk-max="al-anfrage-holz" data-k="holz">Max</button>
+                  <button type="button" class="klein" data-rk-null="al-anfrage-holz">0</button></div>
+              </div>
             </div>
+            <div class="klein-text" id="al-anfrage-summe" style="margin:10px 0 0"></div>
             <div class="formular-leiste">
               <button class="haupt" id="al-anfrage-senden">Anfrage stellen</button>
               <span class="leise klein-text" id="al-anfrage-info">Der Bot postet [ANFRAGE] ins Allianz-Forum und sagt Angebote automatisch zu.</span>
@@ -861,7 +951,7 @@ const SCHIFF_NAMEN = {
   steinewerfer: "Steinewerfer", speerkaempfer: "Speerkämpfer", bogenschuetze: "Bogenschütze",
 };
 const sname = (t) => SCHIFF_NAMEN[t] || t;
-const ICONS_VORHANDEN = new Set(["haupthaus","goldmine","steingrube","saegewerk","lagerhaus","steinmauer","wachturm","kaserne","hafen","gold","stein","holz","steinewerfer","speerkaempfer","bogenschuetze","kleines_kriegsschiff","grosses_kriegsschiff","kleines_handelsschiff","grosses_handelsschiff","spaehschiff","koloschiff","handelsroute","allianz_hilfe","eigene_insel","hinterland"]);
+const ICONS_VORHANDEN = new Set(["invasions_verband","haupthaus","goldmine","steingrube","saegewerk","lagerhaus","steinmauer","wachturm","kaserne","hafen","gold","stein","holz","steinewerfer","speerkaempfer","bogenschuetze","kleines_kriegsschiff","grosses_kriegsschiff","kleines_handelsschiff","grosses_handelsschiff","spaehschiff","koloschiff","handelsroute","allianz_hilfe","eigene_insel","hinterland"]);
 const IK = (n, s = 22) => `<img class="ict" src="/static/icons/${n}.png" width="${s}" height="${s}" alt="" aria-hidden="true">`;
 const gico = (t, s = 24) => ICONS_VORHANDEN.has(t) ? IK(t, s) : "";
 const ROHSTOFF_ICON = (k) => IK(k, 24);
@@ -1012,6 +1102,7 @@ async function ausbildungHolen() {
   try { ausbildung = await hole("/api/ausbildung/status"); ausbildungFehler = null; }
   catch (e) { ausbildungFehler = `Ausbildungs-Bot nicht erreichbar: ${e.message}`; }
   if (tab === "ausbildung") zeichneAusbildung();
+  if (tab === "uebersicht") zeichneUebersichtInseln();
 }
 const abName = (t) => ausbildung?.katalog?.[t]?.name || EINHEIT_NAME[t] || t;
 const abIst = (i, t) => i.ist ? (i.ist[t] || 0) : (i.bestand[t] || 0) + (i.in_ausbildung[t] || 0);
@@ -1196,6 +1287,112 @@ $("ab-laeuft").onchange = async (e) => {
   const an = e.target.checked;
   await aktion(e.target, () => post("/api/ausbildung/control", { aktion: an ? "start" : "stop" }), `Ausbildungs-Bot ${an ? "aktiv" : "angehalten"}`);
   ausbildungHolen();
+};
+
+
+// ======================================================================
+// Rohstoff-Kacheln (Allianz-Anfrage, Lieferung von Hand): Mengen per Klick wählen
+// ======================================================================
+function rkKlick(e, maxFuer) {
+  const add = e.target.closest("[data-rk-add]"), mx = e.target.closest("[data-rk-max]"), nul = e.target.closest("[data-rk-null]");
+  const knopf = add || mx || nul;
+  if (!knopf) return false;
+  const feld = $(knopf.dataset.rkAdd || knopf.dataset.rkMax || knopf.dataset.rkNull);
+  if (add) feld.value = (Number(feld.value) || 0) + Number(add.dataset.n);
+  else if (mx) feld.value = Math.max(0, Math.floor(maxFuer(mx.dataset.k)));
+  else feld.value = "";
+  feld.dispatchEvent(new Event("input", { bubbles: true }));
+  return true;
+}
+function zeichneAnfrageKacheln() {
+  const i = anfrageInsel();
+  if (!i) return;
+  for (const [k] of ROHSTOFFE) {
+    const el = document.querySelector(`[data-rk-bestand="al-anfrage-${k}"]`);
+    if (el) el.textContent = `${zahl(i.rohstoffe[k])} von ${zahl(i.rohstoffe.kapazitaet)} im Lager`;
+  }
+  anfrageSumme();
+}
+const anfrageInsel = () => allianz?.status?.inseln?.find(x => x.koordinaten === $("al-anfrage-insel").value) || allianz?.status?.inseln?.[0];
+function anfrageSumme() {
+  const i = anfrageInsel(), el = $("al-anfrage-summe");
+  if (!i || !el) return;
+  const kap = i.rohstoffe.kapazitaet || 0, teile = [], warn = [];
+  for (const [k, n] of ROHSTOFFE) {
+    const v = Number($(`al-anfrage-${k}`).value || 0);
+    if (v > 0) { teile.push(`${zahl(v)} ${n}`); if ((i.rohstoffe[k] || 0) + v > kap) warn.push(`${n}: passt nicht ins Lager (frei ${zahl(Math.max(0, kap - i.rohstoffe[k]))})`); }
+  }
+  el.innerHTML = teile.length ? `Anfrage für ${esc(i.name)}: <b>${teile.join(", ")}</b>${warn.length ? ` <span class="fehlt">· ${warn.join("; ")}</span>` : ""}`
+    : `<span class="leise">Kacheln anklicken oder Mengen eintippen.</span>`;
+}
+$("al-anfrage-kacheln").addEventListener("click", (e) => {
+  rkKlick(e, (k) => { const i = anfrageInsel(); return i ? Math.max(0, (i.rohstoffe.kapazitaet || 0) - (i.rohstoffe[k] || 0)) : 0; });
+});
+$("al-anfrage-kacheln").addEventListener("input", anfrageSumme);
+$("al-anfrage-insel").addEventListener("change", zeichneAnfrageKacheln);
+
+// ======================================================================
+// Rohstoff-Ausgleich: Lieferung von Hand
+// ======================================================================
+const HANDEL_LADUNG = { kleines_handelsschiff: 75, grosses_handelsschiff: 460 };
+const lieferInsel = (id) => ausgleich?.inseln?.find(x => String(x.id) === String(id));
+const lieferKapazitaet = (i) => Object.entries(HANDEL_LADUNG).reduce((n, [t, v]) => n + (i?.handelsschiffe?.[t] || 0) * v, 0);
+function zeichneAusLieferung() {
+  if (!ausgleich) return;
+  const eigene = ausgleich.inseln.filter(i => i.gehoert_uns);
+  const von = $("aus-l-von"), nach = $("aus-l-nach");
+  const optionen = eigene.map(i => `<option value="${i.id}">${esc(i.name)} · ${esc(i.koordinaten)}</option>`).join("");
+  if (von.dataset.stand !== optionen) {
+    const v0 = von.value, n0 = nach.value;
+    von.innerHTML = nach.innerHTML = optionen; von.dataset.stand = optionen;
+    von.value = v0 || (eigene[0] && eigene[0].id);
+    nach.value = n0 || (eigene.find(i => String(i.id) !== String(von.value)) || {}).id;
+  }
+  const i = lieferInsel(von.value);
+  for (const [k] of ROHSTOFFE) {
+    const el = document.querySelector(`[data-rk-bestand="aus-l-${k}"]`);
+    if (el && i) el.textContent = `${zahl(i.rohstoffe[k])} im Lager`;
+  }
+  ausLieferSumme();
+}
+function ausLieferSumme() {
+  const i = lieferInsel($("aus-l-von").value), ziel = lieferInsel($("aus-l-nach").value), el = $("aus-l-summe"), knopf = $("aus-l-senden");
+  if (!i || !ziel) return;
+  const kap = lieferKapazitaet(i);
+  const menge = {}; let summe = 0; const probleme = [];
+  for (const [k, n] of ROHSTOFFE) {
+    const v = Math.max(0, Number($(`aus-l-${k}`).value || 0)); menge[k] = v; summe += v;
+    if (v > (i.rohstoffe[k] || 0)) probleme.push(`${n}: nur ${zahl(i.rohstoffe[k])} im Lager`);
+  }
+  if (String(i.id) === String(ziel.id)) probleme.push("Start und Ziel sind dieselbe Insel");
+  if (summe > kap) probleme.push(`mehr als die Handelsschiffe tragen (${zahl(kap)})`);
+  if (i.bedrohung) probleme.push("Start-Insel wird bedroht");
+  const schiffe = Object.entries(HANDEL_LADUNG).filter(([t]) => i.handelsschiffe?.[t]).map(([t]) => `${i.handelsschiffe[t]} ${t.startsWith("kleines") ? "klein" : "groß"}`).join(", ") || "keine";
+  el.innerHTML = `<div>${summe ? `<b>${zahl(summe)}</b> Ladung von ${esc(i.name)} nach ${esc(ziel.name)}` : `<span class="leise">Kacheln anklicken oder Mengen eintippen.</span>`}</div>
+    <div class="leise">Handelsschiffe im Hafen von ${esc(i.name)}: ${schiffe} – tragen bis ${zahl(kap)}${probleme.length ? "" : ""}</div>
+    ${probleme.length ? `<div class="fehlt">${probleme.map(esc).join(" · ")}</div>` : ""}`;
+  knopf.disabled = !summe || probleme.length > 0;
+  knopf._menge = menge;
+}
+$("aus-l-kacheln").addEventListener("click", (e) => {
+  rkKlick(e, (k) => { const i = lieferInsel($("aus-l-von").value); if (!i) return 0;
+    const schon = ROHSTOFFE.reduce((n, [r]) => n + (r === k ? 0 : Number($(`aus-l-${r}`).value || 0)), 0);
+    return Math.min(i.rohstoffe[k] || 0, Math.max(0, lieferKapazitaet(i) - schon)); });
+});
+$("aus-l-kacheln").addEventListener("input", ausLieferSumme);
+$("aus-l-von").addEventListener("change", zeichneAusLieferung);
+$("aus-l-nach").addEventListener("change", ausLieferSumme);
+$("aus-l-senden").onclick = async (e) => {
+  const von = lieferInsel($("aus-l-von").value), nach = lieferInsel($("aus-l-nach").value), menge = e.target._menge || {};
+  const text = ROHSTOFFE.filter(([k]) => menge[k] > 0).map(([k, n]) => `${zahl(menge[k])} ${n}`).join(", ");
+  if (!confirm(`${text} von ${von.name} nach ${nach.name} jetzt losschicken?`)) return;
+  const rohstoffe = Object.fromEntries(Object.entries(menge).filter(([, v]) => v > 0));
+  const r = await aktion(e.target, () => post("/api/flotte/ausgleich/liefern", { von: von.id, nach: nach.id, rohstoffe }),
+    `Lieferung ${von.name} → ${nach.name} losgeschickt`);
+  if (!r) return;
+  ROHSTOFFE.forEach(([k]) => $(`aus-l-${k}`).value = "");
+  dirtySetzen("aus-liefern", false);
+  setTimeout(ausgleichHolen, 2000);
 };
 
 // ======================================================================
@@ -2117,6 +2314,7 @@ function zeichneAllianz() {
   if (sel.dataset.stand !== optionen) { sel.innerHTML = optionen; sel.dataset.stand = optionen; if (wahl) sel.value = wahl; }
   const anfrageAn = f.gewuenscht.includes("anfrage");
   $("al-anfrage-senden").disabled = !anfrageAn;
+  zeichneAnfrageKacheln();
   $("al-anfrage-info").textContent = anfrageAn ? "Der Bot postet [ANFRAGE] ins Allianz-Forum und sagt Angebote automatisch zu."
     : "Rohstoff-Anfrage ist oben abgeschaltet – so darf der Bot nichts anfragen.";
 
@@ -2214,6 +2412,7 @@ $("al-anfrage-senden").onclick = async (e) => {
   melde("Anfrage an den Bot übergeben …");
   dirtySetzen("al-anfrage", false);
   ROHSTOFFE.forEach(([k]) => $(`al-anfrage-${k}`).value = "");
+  anfrageSumme();
   setTimeout(allianzHolen, 3000);
 };
 $("al-vorgaenge").addEventListener("click", async (e) => {
@@ -2279,9 +2478,61 @@ function zeichneUebersichtHeld() {
       st ? (st.notrufe.length ? `${st.notrufe.length} Notruf aktiv` : `${st.anfragen.length} Anfragen offen`) : ""),
   ].join("");
 }
+
+// ---------- Alarmband und Zeitleiste der Übersicht ----------
+function zeichneAlarme() {
+  const a = [];
+  for (const i of flotte?.inseln || []) if (i.bedrohung && i.gehoert_uns !== false)
+    a.push({ text: `${esc(i.name)} wird bedroht${flotte.settings?.rueckruf_bei_bedrohung ? " – Flotten werden zurückgerufen" : ""}`, ziel: `flotte/${i.id}` });
+  for (const n of allianz?.status?.notrufe || [])
+    a.push({ text: `Notruf in der Allianz${n.insel_name || n.insel ? `: ${esc(n.insel_name || n.insel)}` : ""}`, ziel: "allianz" });
+  for (const [name, d] of Object.entries(dienste || {}))
+    if (d && d.installiert && d.zustand !== "active") a.push({ text: `${esc(d.titel)} läuft nicht (${esc(d.zustand)})`, ziel: name === "hub" ? "gesundheit" : name });
+  $("ue-alarm").innerHTML = a.map(x => `<a class="alarmband" href="#${x.ziel}">${IK("invasions_verband", 32)}<span>${x.text}</span><span class="mehr">ansehen →</span></a>`).join("");
+}
+const ZEIT_H = 4 * 3600;
+function zeichneZeitleiste() {
+  const el = $("ue-zeitleiste");
+  if (!el) return;
+  const t0 = jetzt(), t1 = t0 + ZEIT_H;
+  const pos = (t) => Math.max(0, Math.min(100, 100 * (t - t0) / ZEIT_H));
+  const zeilen = [];
+  const ausb = new Map((ausbildung?.inseln || []).map(i => [String(i.id), i]));
+  for (const i of Object.values(upgrade?.status?.inseln || {}).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
+    const balken = [];
+    for (const o of i.warteschlange || []) {
+      const ende = o.finish_at ? Date.parse(o.finish_at) / 1000 : null;
+      if (o.status === "aktiv" && ende && ende < t1)
+        balken.push({ von: t0, bis: ende, art: "bau", icon: gico(o.gebaeude, 20), text: `${gname(o.gebaeude)} → ${o.ziel_stufe}`, rest: ende - t0 });
+      else if (o.status !== "aktiv" && o.start_at) {
+        const start = Date.parse(o.start_at) / 1000;
+        if (start < t1) balken.push({ von: Math.max(start, t0), bis: Math.max(start, t0), art: "wartet", text: `${gname(o.gebaeude)} → ${o.ziel_stufe} startet`, rest: start - t0 });
+      }
+    }
+    for (const a of ausb.get(String(i.id))?.auftraege || []) {
+      const ende = a.finish_at ? Date.parse(a.finish_at) / 1000 : null;
+      if (ende && ende < t1) balken.push({ von: t0, bis: ende, art: "ausb", icon: gico(a.item, 20), text: `${a.anzahl - a.abgeschlossen}× ${abName(a.item)}`, rest: ende - t0 });
+    }
+    if (balken.length) zeilen.push({ label: i.name, balken });
+  }
+  const ticks = (flotte?.flotten || []).map(f => {
+    const hin = f.state === "outbound", t = hin ? f.arrive_at : (f.return_at || f.arrive_at);
+    return { t, hin, text: `${f.ziel_name || f.koordinaten}: ${hin ? "Ankunft" : "Rückkehr"} in ${dauer(t - t0)}` };
+  }).filter(x => x.t && x.t < t1 && x.t > t0 - 60);
+  if (!zeilen.length && !ticks.length) { el.innerHTML = `<div class="leise klein-text">In den nächsten 4 Stunden läuft nichts aus.</div>`; return; }
+  const zeile = (label, inhalt) => `<div class="zl-zeile"><div class="zl-label">${label}</div><div class="zl-spur">${inhalt}</div></div>`;
+  const balkenHtml = (b) => b.art === "wartet"
+    ? `<span class="zl-marke" style="left:${pos(b.von)}%" title="${esc(b.text)} in ${dauer(b.rest)}"></span>`
+    : `<span class="zl-balken ${b.art}" style="left:${pos(b.von)}%;width:${Math.max(1.5, pos(b.bis) - pos(b.von))}%" title="${esc(b.text)} – fertig in ${dauer(b.rest)}">${pos(b.bis) - pos(b.von) > 9 ? `${b.icon}<span>${esc(b.text)}</span>` : ""}</span>`;
+  el.innerHTML = `<div class="zl-zeile zl-achse"><div class="zl-label"></div><div class="zl-skala">${["jetzt", "+1 h", "+2 h", "+3 h", "+4 h"].map(t => `<span>${t}</span>`).join("")}</div></div>`
+    + zeilen.map(z => zeile(esc(z.label), z.balken.map(balkenHtml).join(""))).join("")
+    + (ticks.length ? zeile(`Flotten <span class="leise">${ticks.length}</span>`, ticks.map(x => `<span class="zl-tick ${x.hin ? "hin" : "rueck"}" style="left:${pos(x.t)}%" title="${esc(x.text)}"></span>`).join("")) : "");
+}
 function zeichneUebersichtInseln() {
   if (tab !== "uebersicht") return;
   zeichneUebersichtHeld();
+  zeichneAlarme();
+  zeichneZeitleiste();
   const inseln = new Map();
   const eintrag = (id, name, koord) => {
     if (!inseln.has(id)) inseln.set(id, { id, name, koord });
@@ -3079,7 +3330,7 @@ async function ausgleichHolen() {
     return;
   }
   ausgleichPunkt(ausgleich, false);
-  if (tab === "ausgleich") zeichneAusgleich();
+  if (tab === "ausgleich") { zeichneAusgleich(); zeichneAusLieferung(); }
 }
 $("aus-inseln").addEventListener("change", async (e) => {
   const cb = e.target.closest('input[type=checkbox][data-aus-feld]');
@@ -3381,7 +3632,7 @@ function aktualisieren() {
   if (tab === "kolonie") kolonieHolen();
   if (tab === "ausbildung") ausbildungHolen();
   if (tab === "uebersicht") {
-    flotteHolen(); upgradeHolen(); allianzHolen();
+    flotteHolen(); upgradeHolen(); allianzHolen(); ausbildungHolen();
     if (!verlauf) verlaufHolen(); else diagramm("ue-diagramm", verlauf.gesamt);
     zeichneUebersichtDienste();
   }

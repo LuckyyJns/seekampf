@@ -301,3 +301,50 @@ html:root[data-theme="dark"] .schalter .spur::after{background:#4a3220;box-shado
 html:root[data-theme="dark"] .schalter input:checked + .spur{background:#3a2a1a;box-shadow:inset 0 3px 0 #241a11}
 html:root[data-theme="dark"] .schalter input:checked + .spur::before{color:#f1e3bf}
 html:root[data-theme="dark"] .schalter input:checked + .spur::after{background:#e4d2a6;box-shadow:inset 0 3px 0 #f6ead0,inset 0 -3px 0 #b9a46f}
+
+/* ---------- Rohstoff-Kacheln (Allianz-Anfrage, Lieferung von Hand) ---------- */
+.rkacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:14px;padding:2px}
+.rkachel{display:flex;flex-direction:column;gap:9px;padding:10px 12px;background:#f7ecd0;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring),inset 0 -4px 0 #e4d2a6}
+html:root[data-theme="dark"] .rkachel{background:var(--flaeche-2);box-shadow:0 0 0 2px var(--ring),inset 0 -4px 0 var(--flaeche-3)}
+.rk-kopf{display:flex;gap:10px;align-items:center}
+.rk-kopf b{display:block;font:700 16px var(--px)}
+.rk-kopf .leise{font-size:12.5px}
+.rk-kopf .ict{width:48px;height:48px;background:#e4d2a6;border:3px solid var(--ink);padding:2px;box-shadow:0 0 0 2px var(--wood)}
+html:root[data-theme="dark"] .rk-kopf .ict{background:#473526}
+.rkachel input{width:100%;font:600 17px var(--mono);text-align:right}
+.rk-knoepfe{display:flex;flex-wrap:wrap;gap:6px}
+.rk-knoepfe button{padding:2px 8px}
+.liefer-route{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:14px;align-items:end}
+.liefer-pfeil .ict{width:48px;height:48px;margin-bottom:0}
+@media (max-width:640px){.liefer-route{grid-template-columns:1fr}.liefer-pfeil{display:none}}
+.fehlt{color:var(--schlecht);font-weight:600}
+
+/* ---------- Übersicht: Alarmband ---------- */
+.alarmband{display:flex;align-items:center;gap:12px;background:#f0645a;color:#2a0a08;border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);
+  padding:6px 14px;margin:0 4px 16px;font:500 16px var(--px);text-decoration:none}
+.alarmband:hover{filter:brightness(1.08)}
+.alarmband .mehr{margin-left:auto;font-size:13px;white-space:nowrap}
+html:root[data-theme="dark"] .alarmband{background:#c8463e;color:#fff}
+
+/* ---------- Übersicht: Zeitleiste der nächsten 4 Stunden ---------- */
+.zl-zeile{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;align-items:center;padding:3px 0;border-bottom:2px dashed var(--ivory-d)}
+html:root[data-theme="dark"] .zl-zeile{border-color:var(--rand)}
+.zl-zeile:last-child{border-bottom:0}
+.zl-label{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zl-spur{position:relative;height:28px;background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 2px),var(--ivory-d) calc(25% - 2px) 25%)}
+html:root[data-theme="dark"] .zl-spur{background:repeating-linear-gradient(90deg,transparent 0 calc(25% - 2px),var(--rand) calc(25% - 2px) 25%)}
+.zl-achse{border-bottom:3px solid var(--wood)}
+.zl-skala{display:flex;justify-content:space-between;font:500 11px var(--mono);color:var(--gedaempft)}
+.zl-skala span:first-child{margin-left:0}
+.zl-balken{position:absolute;top:3px;height:22px;display:flex;align-items:center;gap:5px;padding:0 5px;border:2px solid var(--ink);overflow:hidden;white-space:nowrap;font-size:12.5px;color:#06242a}
+.zl-balken .ict{width:18px;height:18px;vertical-align:0}
+.zl-balken.bau,.zl-key.bau{background:var(--teal)}
+.zl-balken.ausb,.zl-key.ausb{background:#f2b705}
+.zl-marke{position:absolute;top:8px;width:12px;height:12px;margin-left:-6px;background:var(--wood);border:2px solid var(--ink);transform:rotate(45deg)}
+.zl-tick{position:absolute;top:5px;width:6px;height:18px;margin-left:-3px;border:2px solid var(--ink)}
+.zl-tick.hin,.zl-key.hin{background:var(--gut)}
+.zl-tick.rueck,.zl-key.rueck{background:#c9b78c}
+.zl-key{display:inline-block;width:14px;height:14px;border:2px solid var(--ink)}
+@media (max-width:640px){.zl-zeile{grid-template-columns:70px minmax(0,1fr)}}
+.linien-legende i.zl-key{width:14px;height:14px;display:inline-block}
+.rkacheln{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}

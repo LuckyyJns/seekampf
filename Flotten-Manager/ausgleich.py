@@ -168,6 +168,71 @@ class Ausgleich:
                        for f in flotten_api if f.get("origin_island_id") == insel_id)
         return hafen, hafen + draussen
 
+    # --------------------------------------------- Lieferung von Hand (Hub)
+    def liefern_von_hand(self, von, nach, rohstoffe: dict) -> dict:
+        """Rohstoffe sofort von einer eigenen Insel zu einer anderen schicken,
+        unabhaengig vom automatischen Ausgleich. Faehrt mit den Handelsschiffen
+        im Hafen der Start-Insel (kleine zuerst). ValueError bei ungueltigen
+        Angaben, ApiError wenn das Spiel ablehnt."""
+        m = self.m
+        try:
+            von, nach = int(von), int(nach)
+        except (TypeError, ValueError):
+            raise ValueError("von und nach muessen Insel-IDs sein") from None
+        if von == nach:
+            raise ValueError("Start und Ziel sind dieselbe Insel")
+        menge: dict[str, int] = {}
+        for r in config.RESOURCE_KEYS:
+            n = (rohstoffe or {}).get(r) or 0
+            if isinstance(n, bool) or int(n) != n or n < 0:
+                raise ValueError(f"{r}: erwartet eine ganze Zahl ab 0")
+            if n:
+                menge[r] = int(n)
+        if not menge:
+            raise ValueError("keine Menge angegeben")
+        alle = m.overview(max_alter=0)
+        if von not in alle or nach not in alle:
+            raise ValueError("Start und Ziel muessen eigene Inseln sein")
+        ov = alle[von]
+        if ov.get("bedrohung_im_anflug"):
+            raise ValueError(f"{ov.get('name')} wird bedroht - keine Lieferung")
+        lager = ov.get("rohstoffe") or {}
+        for r, n in menge.items():
+            if n > float(lager.get(r, 0) or 0):
+                raise ValueError(f"{r.capitalize()}: nur {float(lager.get(r, 0) or 0):.0f} im Lager von {ov.get('name')}")
+        hafen = {t: int((ov.get("schiffe") or {}).get(t, 0) or 0) for t in config.HANDELSSCHIFF_TYPEN}
+        fracht = _summe(menge)
+        tragen = geo.ladevolumen(hafen)
+        if fracht > tragen:
+            raise ValueError(f"Die Handelsschiffe im Hafen von {ov.get('name')} tragen nur {tragen:.0f}")
+        schiffe = schiffe_fuer(fracht, hafen)
+        ziel = m.state.insel(nach) or {"name": alle[nach].get("name"), "koordinaten": alle[nach].get("koordinaten")}
+        x, y, z = geo.koord_parse(ziel.get("koordinaten") or alle[nach]["koordinaten"])
+        antwort = m.client.create_fleet({"origin_island_id": von, "mission_type": "handel",
+                                         "target": {"x": x, "y": y, "z": z}, "ships": schiffe,
+                                         "units": {}, "resources": menge})
+        jetzt = time.time()
+        rec = m._record(antwort or {})
+        rec.update(insel_id=von, fremd=False, art="ausgleich")
+        with m.state.lock:
+            if rec.get("id") is not None:
+                m.state.data["flotten"][str(rec["id"])] = rec
+            stand = self.stand()
+            stand["fahrten"] += 1
+            for r, n in menge.items():
+                stand["geliefert"][r] = stand["geliefert"].get(r, 0.0) + n
+            stand["lieferungen"].insert(0, {
+                "zeit": jetzt, "von": von, "nach": nach, "von_name": ov.get("name"),
+                "nach_name": ziel.get("name") or alle[nach].get("name"), "rohstoffe": menge, "schiffe": schiffe,
+                "ankunft": rec.get("arrive_at"), "flotte": rec.get("id"), "von_hand": True})
+            del stand["lieferungen"][LIEFERUNGEN_MERKEN:]
+        m._dirty = True
+        log.info("AUSGLEICH  von Hand: Flotte #%s %s -> %s: %s, %s", rec.get("id"), ov.get("name"),
+                 ziel.get("name") or alle[nach].get("name"),
+                 ", ".join(f"{n} {r.capitalize()}" for r, n in menge.items()),
+                 ", ".join(f"{n}x {t}" for t, n in schiffe.items()))
+        return {"flotte": rec.get("id"), "rohstoffe": menge, "schiffe": schiffe, "ankunft": rec.get("arrive_at")}
+
     # --------------------------------------------------------------- Tick
     def tick(self, alles: dict[int, dict], flotten_api: list, jetzt: float) -> None:
         self.reserviert = set()

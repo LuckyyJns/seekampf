@@ -408,6 +408,40 @@ class Ausgleich(Basis):
         m.tick()
         self.assertEqual(self.lieferungen(api), {})
 
+    def test_lieferung_von_hand(self):
+        api = self.drei_inseln()
+        m, st = self.manager(api)
+        r = m.ausgleich.liefern_von_hand(447, 20, {"stein": 500, "holz": 100})
+        p = api.created[-1]
+        self.assertEqual((p["origin_island_id"], p["mission_type"]), (447, "handel"))
+        self.assertEqual((p["target"]["x"], p["target"]["y"], p["target"]["z"]), (46, 55, 6))
+        self.assertEqual(p["resources"], {"stein": 500, "holz": 100})
+        self.assertEqual(p["ships"], {"kleines_handelsschiff": 8})      # 600 Ladung / 75
+        self.assertEqual(r["rohstoffe"], {"stein": 500, "holz": 100})
+        eintrag = m.ausgleich.stand()["lieferungen"][0]
+        self.assertTrue(eintrag["von_hand"])
+        self.assertEqual((eintrag["von"], eintrag["nach"]), (447, 20))
+        self.assertEqual(m.ausgleich.stand()["geliefert"]["stein"], 500)
+
+    def test_lieferung_von_hand_nimmt_grosse_schiffe_wenn_noetig(self):
+        api = self.drei_inseln()
+        m, _ = self.manager(api)
+        m.ausgleich.liefern_von_hand(447, 20, {"stein": 1600})
+        self.assertEqual(api.created[-1]["ships"], {"kleines_handelsschiff": 10, "grosses_handelsschiff": 2})
+
+    def test_lieferung_von_hand_lehnt_unsinn_ab(self):
+        api = self.drei_inseln()
+        api.ov[2]["bedrohung_im_anflug"] = True
+        m, _ = self.manager(api)
+        for von, nach, menge in ((447, 447, {"stein": 10}), (447, 20, {}), (447, 20, {"stein": -5}),
+                                 (447, 20, {"stein": 1.5}), (447, 20, {"gold": 99999}),   # mehr als im Lager
+                                 (447, 20, {"stein": 5000}),                               # mehr als die Schiffe tragen
+                                 (447, 9999, {"stein": 10}), (581, 20, {"gold": 1}),       # Ziel unbekannt / Start bedroht
+                                 ("abc", 20, {"stein": 10})):
+            with self.assertRaises(ValueError, msg=(von, nach, menge)):
+                m.ausgleich.liefern_von_hand(von, nach, menge)
+        self.assertEqual([p for p in api.created if p["mission_type"] == "handel"], [])
+
     def test_wartet_auf_schiffe_und_haelt_sie_zurueck(self):
         api = self.drei_inseln()
         api.ov[0]["schiffe"] = {"kleines_handelsschiff": 1}
