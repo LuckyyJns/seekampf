@@ -6,6 +6,7 @@
 <title>Seekampf-Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jersey+15&text=0123456789.%2C%3A%2B-%25%2F%C2%B7&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -956,6 +957,29 @@ const IK = (n, s = 22) => `<img class="ict" src="/static/icons/${n}.png" width="
 const gico = (t, s = 24) => ICONS_VORHANDEN.has(t) ? IK(t, s) : "";
 const ROHSTOFF_ICON = (k) => IK(k, 24);
 const ROHSTOFFE = [["gold", "Gold"], ["stein", "Stein"], ["holz", "Holz"]];
+/** Rückfrage im Pixel-Stil (statt des grauen Browser-Fensters). Liefert true/false. */
+function bestaetigen({ titel = "Bist du sicher?", text = "", html = "", icon = null, ok = "OK", abbrechen = "Abbrechen", gefahr = false } = {}) {
+  return new Promise((fertig) => {
+    document.getElementById("bestaetigung")?.remove();
+    const d = document.createElement("div");
+    d.id = "bestaetigung"; d.className = "dialog-schleier";
+    d.innerHTML = `<div class="dialog dialog-klein" role="alertdialog" aria-modal="true" aria-label="${esc(titel)}">
+      <div class="dialog-kopf">${icon ? IK(icon, 64) : ""}<div><h3>${esc(titel)}</h3>${text ? `<div class="dialog-text">${esc(text)}</div>` : ""}</div></div>
+      ${html}
+      <div class="dialog-leiste"><button type="button" data-n>${esc(abbrechen)}</button><button type="button" class="${gefahr ? "stop" : "haupt"}" data-j>${esc(ok)}</button></div></div>`;
+    document.body.appendChild(d);
+    const taste = (e) => { if (e.key === "Escape") zu(false); };
+    const zu = (wert) => { d.remove(); document.removeEventListener("keydown", taste); fertig(wert); };
+    d.addEventListener("click", (e) => {
+      if (e.target === d || e.target.closest("[data-n]")) zu(false);
+      else if (e.target.closest("[data-j]")) zu(true);
+    });
+    document.addEventListener("keydown", taste);
+    d.querySelector("[data-j]").focus();
+  });
+}
+const mengenHtml = (m) => `<div class="dialog-summe"><div class="gk-kosten">${ROHSTOFFE.filter(([k]) => m[k] > 0).map(([k]) => `<span>${ROHSTOFF_ICON(k)}${zahl(m[k])}</span>`).join("")}</div></div>`;
+
 function beuteText(b) {
   if (!b) return "–";
   const teile = ROHSTOFFE.filter(([k]) => (b[k] ?? 0) > 0).map(([k, n]) => `${zahl(b[k])} ${n}`);
@@ -1069,7 +1093,7 @@ $("ko-hinzu").onclick = (e) => kolonieHinzu($("ko-koord").value.trim(), e.target
 $("ko-koord").addEventListener("keydown", (e) => { if (e.key === "Enter") kolonieHinzu(e.target.value.trim(), $("ko-hinzu")); });
 $("ko-laeuft").onchange = async (e) => {
   const an = e.target.checked;
-  if (!an && !confirm("Kolonisations-Bot anhalten? Er baut keine Schiffe mehr und schickt keine los; die Reservierung wird freigegeben.")) { e.target.checked = true; return; }
+  if (!an && !(await bestaetigen({ titel: "Kolonisations-Bot anhalten?", text: "Er baut keine Schiffe mehr und schickt keine los; die Reservierung wird freigegeben.", icon: "koloschiff", ok: "Anhalten", gefahr: true }))) { e.target.checked = true; return; }
   await aktion(e.target, () => post("/api/kolonie/control", { aktion: an ? "start" : "stop" }), `Kolonisations-Bot ${an ? "aktiv" : "angehalten"}`);
   kolonieHolen();
 };
@@ -1083,7 +1107,7 @@ $("ko-liste").addEventListener("click", async (e) => {
   if (weg) {
     const eintrag = kolonie.warteschlange.find(x => String(x.id) === weg.dataset.koWeg);
     const zusatz = eintrag?.status === "unterwegs" ? " Das Schiff wird zurückgerufen, solange das noch geht." : "";
-    if (!confirm(`${eintrag?.koordinaten} aus der Warteschlange nehmen?${zusatz}`)) return;
+    if (!(await bestaetigen({ titel: `${eintrag?.koordinaten} aus der Warteschlange nehmen?`, text: zusatz.trim(), icon: "koloschiff", ok: "Entfernen", gefahr: true }))) return;
     await aktion(weg, () => post(`/api/kolonie/warteschlange/${weg.dataset.koWeg}/entfernen`), (r) => r.text);
     kolonieHolen();
   }
@@ -1385,8 +1409,8 @@ $("aus-l-nach").addEventListener("change", ausLieferSumme);
 $("aus-l-senden").onclick = async (e) => {
   const von = lieferInsel($("aus-l-von").value), nach = lieferInsel($("aus-l-nach").value), menge = e.target._menge || {};
   const text = ROHSTOFFE.filter(([k]) => menge[k] > 0).map(([k, n]) => `${zahl(menge[k])} ${n}`).join(", ");
-  if (!confirm(`${text} von ${von.name} nach ${nach.name} jetzt losschicken?`)) return;
   const rohstoffe = Object.fromEntries(Object.entries(menge).filter(([, v]) => v > 0));
+  if (!(await bestaetigen({ titel: `Von ${von.name} nach ${nach.name} liefern?`, text: "Die Handelsschiffe der Start-Insel fahren sofort los.", icon: "rohstoffausgleich", html: mengenHtml(rohstoffe), ok: "Losschicken" }))) return;
   const r = await aktion(e.target, () => post("/api/flotte/ausgleich/liefern", { von: von.id, nach: nach.id, rohstoffe }),
     `Lieferung ${von.name} → ${nach.name} losgeschickt`);
   if (!r) return;
@@ -1454,13 +1478,21 @@ function zeigeTab(ziel) {
   if (insel && offeneInseln[neu]) offeneInseln[neu].add(insel);
   if (tab && neu !== tab) {
     const offen = ungespeichertIn(tab);
-    if (offen.length && !confirm("Es gibt ungespeicherte Änderungen in diesem Bereich. Trotzdem wechseln? Die Änderungen gehen verloren.")) {
-      history.replaceState(null, "", `#${tab}`);
+    if (offen.length) {
+      bestaetigen({ titel: "Ungespeicherte Änderungen", text: "In diesem Bereich gibt es Änderungen, die noch nicht gespeichert sind. Trotzdem wechseln? Sie gehen verloren.", icon: TAB_ICON_NAME[tab], ok: "Trotzdem wechseln", abbrechen: "Hierbleiben", gefahr: true })
+        .then((wechseln) => {
+          if (!wechseln) { history.replaceState(null, "", `#${tab}`); return; }
+          // Verworfen: Formulare beim naechsten Besuch frisch aus dem Stand bauen.
+          offen.forEach(f => { dirtySetzen(f, false); formularVerwerfen(f); });
+          zeigeTabJetzt(neu);
+        });
       return;
     }
-    // Verworfen: Formulare beim naechsten Besuch frisch aus dem Stand bauen.
-    offen.forEach(f => { dirtySetzen(f, false); formularVerwerfen(f); });
   }
+  zeigeTabJetzt(neu);
+}
+const TAB_ICON_NAME = { uebersicht: "eigene_insel", karte: "hinterland", gesundheit: "gesundheit", upgrade: "haupthaus", flotte: "kleines_kriegsschiff", ausbildung: "kaserne", ausgleich: "rohstoffausgleich", kolonie: "koloschiff", allianz: "allianz_hilfe" };
+function zeigeTabJetzt(neu) {
   tab = neu;
   document.querySelectorAll(".tab").forEach(el => el.classList.toggle("sichtbar", el.id === `tab-${tab}`));
   document.querySelectorAll("nav#seite a").forEach(a => a.classList.toggle("aktiv", a.dataset.tab === tab));
@@ -1518,7 +1550,7 @@ document.addEventListener("click", async (e) => {
   if (!b) return;
   const name = b.dataset.dienst, a = b.dataset.dienstAktion;
   const titel = dienste?.[name]?.titel || name;
-  if (a === "stop" && !confirm(`${titel} wirklich stoppen? Der Dienst bleibt aus, bis du ihn wieder startest.`)) return;
+  if (a === "stop" && !(await bestaetigen({ titel: `${titel} stoppen?`, text: "Der Dienst bleibt aus, bis du ihn wieder startest.", icon: ({ flotte: "kleines_kriegsschiff", upgrade: "haupthaus", allianz: "allianz_hilfe", kolonie: "koloschiff", ausbildung: "kaserne" })[name] || "wachturm", ok: "Stoppen", gefahr: true }))) return;
   await aktion(b, () => post(`/api/dienste/${name}/${a}`), `${titel}: ${AKTION_TEXT[a]} ausgeführt`);
   if (name === "hub") { melde("Seekampf-Hub startet neu – die Seite lädt gleich neu …"); setTimeout(() => location.reload(), 4000); }
   dienstHolen();
@@ -1907,7 +1939,7 @@ $("fl-inseln").addEventListener("change", async (e) => {
   const cb = e.target.closest("[data-fl-aktiv]");
   if (!cb) return;
   const i = flotte.inseln.find(x => String(x.id) === cb.dataset.flAktiv);
-  if (!cb.checked && !confirm(`Raiden von ${i.name} ausschalten? Laufende Flotten fahren zu Ende, neue werden nicht mehr losgeschickt.`)) { cb.checked = true; return; }
+  if (!cb.checked && !(await bestaetigen({ titel: `Raiden von ${i.name} ausschalten?`, text: "Laufende Flotten fahren zu Ende, neue werden nicht mehr losgeschickt.", icon: "kleines_kriegsschiff", ok: "Ausschalten", gefahr: true }))) { cb.checked = true; return; }
   await aktion(cb, () => post(`/api/flotte/inseln/${cb.dataset.flAktiv}/aktiv`, { aktiv: cb.checked }),
     `${i.name}: Raiden ${cb.checked ? "eingeschaltet" : "ausgeschaltet"}`);
   flotteHolen();
@@ -1929,8 +1961,8 @@ $("fl-inseln").addEventListener("click", async (e) => {
   }
 });
 $("fl-blacklist").onclick = (e) => aktion(e.target, () => post("/api/flotte/blacklist/clear"), "Blacklist geleert").then(flotteHolen);
-$("fl-stats-reset").onclick = (e) => {
-  if (confirm("Gesamt- und Inselstatistik wirklich auf null setzen? Der Beute-Verlauf bleibt erhalten."))
+$("fl-stats-reset").onclick = async (e) => {
+  if (await bestaetigen({ titel: "Statistik zurücksetzen?", text: "Gesamt- und Inselstatistik gehen auf null. Der Beute-Verlauf bleibt erhalten.", icon: "kampfbericht", ok: "Zurücksetzen", gefahr: true }))
     aktion(e.target, () => post("/api/flotte/stats/reset"), "Statistik zurückgesetzt").then(flotteHolen);
 };
 
@@ -2238,7 +2270,9 @@ $("up-inseln").addEventListener("click", async (e) => {
     const id = kachel.dataset.upKachel, geb = kachel.dataset.geb;
     const name = upgrade.status.inseln[id]?.name;
     const stufe = kachel.dataset.stufe ? ` auf Stufe ${kachel.dataset.stufe}` : "";
-    if (!confirm(`${gname(geb)}${stufe} auf ${name} jetzt in die Warteschlange stellen?`)) return;
+    const g = (upgrade.status.inseln[id]?.gebaeude || []).find(x => x.typ === geb);
+    if (!(await bestaetigen({ titel: `${gname(geb)}${stufe} einreihen?`, text: `auf ${name} – die Kosten zieht das Spiel sofort ab.`, icon: geb,
+        html: g?.kosten ? `${mengenHtml(g.kosten)}<div class="leise klein-text" style="margin-top:6px">Bauzeit ${dauer(g.bauzeit_s)}</div>` : "", ok: "Einreihen" }))) return;
     const r = await aktion(kachel, () => post("/api/upgrade/befehl", { typ: "auftrag", insel_id: id, gebaeude: geb }));
     if (r) { wartendeBefehle.set(r.id, `${gname(geb)} auf ${name}`); melde("Auftrag an den Bot übergeben …"); setTimeout(upgradeHolen, 4000); }
   }
@@ -2385,7 +2419,7 @@ $("al-faehigkeiten").addEventListener("change", async (e) => {
   const cb = e.target.closest("[data-faehigkeit]");
   if (!cb) return;
   const name = FAEHIGKEITEN.find(x => x[0] === cb.dataset.faehigkeit)[1];
-  if (!cb.checked && !confirm(`${name} abschalten? Laufende Vorgänge werden noch zu Ende geführt, danach meldet der Bot die Fähigkeit im Forum ab.`)) { cb.checked = true; return; }
+  if (!cb.checked && !(await bestaetigen({ titel: `${name} abschalten?`, text: "Laufende Vorgänge werden noch zu Ende geführt, danach meldet der Bot die Fähigkeit im Forum ab.", icon: "allianz_hilfe", ok: "Abschalten", gefahr: true }))) { cb.checked = true; return; }
   await aktion(cb, () => put("/api/allianz/faehigkeiten", { [cb.dataset.faehigkeit]: cb.checked }),
     `${name} ${cb.checked ? "eingeschaltet" : "abgeschaltet"}`);
   allianzHolen();
@@ -2406,7 +2440,7 @@ $("al-anfrage-senden").onclick = async (e) => {
   const sel = $("al-anfrage-insel");
   const ziel = sel.options[sel.selectedIndex]?.text.split(" · ")[0];
   const text = ROHSTOFFE.filter(([k]) => rohstoffe[k] > 0).map(([k, n]) => `${zahl(rohstoffe[k])} ${n}`).join(", ");
-  if (!confirm(`Im Allianz-Forum ${text} für ${ziel} anfragen?`)) return;
+  if (!(await bestaetigen({ titel: `Für ${ziel} anfragen?`, text: "Der Bot postet die Anfrage ins Allianz-Forum.", icon: "allianz_hilfe", html: mengenHtml(rohstoffe), ok: "Anfragen" }))) return;
   const r = await aktion(e.target, () => post("/api/allianz/befehl", { typ: "anfrage", insel: sel.value, rohstoffe }));
   if (!r) return;
   wartendeBefehle.set(r.id, "Anfrage");
@@ -2419,7 +2453,7 @@ $("al-anfrage-senden").onclick = async (e) => {
 $("al-vorgaenge").addEventListener("click", async (e) => {
   const b = e.target.closest("[data-anfrage-beenden]");
   if (!b) return;
-  if (!confirm("Anfrage beenden? Der Bot postet [ERLEDIGT]; bereits zugesagte Lieferungen kommen trotzdem an.")) return;
+  if (!(await bestaetigen({ titel: "Anfrage beenden?", text: "Der Bot postet [ERLEDIGT]; bereits zugesagte Lieferungen kommen trotzdem an.", icon: "allianz_hilfe", ok: "Beenden", gefahr: true }))) return;
   const r = await aktion(b, () => post("/api/allianz/befehl", { typ: "anfrage_beenden", insel_id: Number(b.dataset.anfrageBeenden) }));
   if (r) { wartendeBefehle.set(r.id, "Anfrage beenden"); melde("Wird beendet …"); setTimeout(allianzHolen, 3000); }
 });
@@ -3359,7 +3393,7 @@ $("aus-inseln").addEventListener("click", async (e) => {
 });
 $("aus-aktiv").addEventListener("change", async (e) => {
   const an = e.target.checked;
-  if (an && !confirm("Rohstoff-Ausgleich einschalten? Der Flotten-Manager schickt dann selbständig Handelsfahrten von den Spender- zu den Empfänger-Inseln.")) {
+  if (an && !(await bestaetigen({ titel: "Rohstoff-Ausgleich einschalten?", text: "Der Flotten-Manager schickt dann selbständig Handelsfahrten von den Spender- zu den Empfänger-Inseln.", icon: "rohstoffausgleich", ok: "Einschalten" }))) {
     e.target.checked = false; return;
   }
   await aktion(e.target, () => post("/api/flotte/settings", { ausgleich_aktiv: an }), `Rohstoff-Ausgleich ${an ? "eingeschaltet" : "ausgeschaltet"}`);

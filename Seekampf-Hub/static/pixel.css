@@ -5,7 +5,7 @@
 :root{
   --ink:#07090b; --ivory:#f1e3bf; --ivory-d:#c9b78c; --wood:#8a5a2b; --wood-d:#5a3a1c; --wood-l:#b57a3e;
   --teal:#2fb3c2; --teal-d:#1d7f8b;
-  --px:'Pixelify Sans','IBM Plex Mono',monospace; --body:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --px:'Jersey 15','Pixelify Sans','IBM Plex Mono',monospace; --body:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
 }
 /* ---------- Farbwerte: Pergament (hell) ---------- */
 html:root:not([data-theme="dark"]){
@@ -350,3 +350,10 @@ html:root[data-theme="dark"] .zl-spur{background:repeating-linear-gradient(90deg
 .rkacheln{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
 
 .gk-pips i.q{background:repeating-linear-gradient(45deg,var(--teal) 0 3px,#8fdce6 3px 6px)}
+
+/* ---------- Rueckfrage-Dialog ---------- */
+.dialog-klein{width:min(460px,100%)}
+.dialog-text{color:var(--gedaempft);margin-top:4px}
+.dialog button.stop{background:#f0645a;color:#2a0a08}
+.dialog-schleier{animation:schleier-ein .12s steps(3) both}
+@keyframes schleier-ein{from{opacity:0}}
