@@ -2713,6 +2713,14 @@ async function logsHolen() {
 const brett = new Image();   // Holzbrett als Karten-Hintergrund (liegt in der Welt, bewegt sich mit)
 brett.src = "/static/karte-brett.jpg";
 brett.addEventListener("load", () => { if (tab === "karte") zeichneKarte(); });
+// Pixelschiffe fuer Flotten und feindliche Verbaende
+const schiffBild = {};
+for (const n of ["kleines_kriegsschiff", "kleines_handelsschiff", "koloschiff", "invasions_verband"]) {
+  const bild = new Image(); bild.src = `/static/icons/${n}.png`;
+  bild.addEventListener("load", () => { if (tab === "karte") zeichneKarte(); });
+  schiffBild[n] = bild;
+}
+const MISSION_SCHIFF = { attack: "kleines_kriegsschiff", handel: "kleines_handelsschiff", transport: "kleines_handelsschiff", colonize: "koloschiff" };
 /** Text mit hellem Rand, damit er auf dem Holz lesbar bleibt */
 function pixText(ctx, text, x, y) {
   const f = ka.farben, fill = ctx.fillStyle;
@@ -2932,6 +2940,21 @@ function zeichneJetzt() {
     }
   }
 
+  // Kleine Wellen auf dem Brett (feste Plaetze, nur beim Heranzoomen)
+  if (m >= 5) {
+    const u = Math.max(2, Math.round(m * .22));
+    const [fx0, fy0] = zuFeld(0, 0), [fx1, fy1] = zuFeld(b, h);
+    ctx.fillStyle = f["karte-text"]; ctx.globalAlpha = .16;
+    for (let cx = Math.floor(fx0 / 3); cx <= Math.ceil(fx1 / 3); cx++) for (let cy = Math.floor(fy0 / 3); cy <= Math.ceil(fy1 / 3); cy++) {
+      const hash = (Math.imul(cx, 73856093) ^ Math.imul(cy, 19349663)) >>> 0;
+      if (hash % 9 !== 0) continue;
+      const [wxp, wyp] = zuBild(cx * 3 + (hash >> 8) % 3, cy * 3 + (hash >> 12) % 3);
+      const x0 = Math.round(wxp), y0 = Math.round(wyp);
+      for (const [dx, dy] of [[0, 1], [1, 0], [2, 0], [3, 1], [4, 2], [5, 2], [6, 1]]) ctx.fillRect(x0 + dx * u, y0 + dy * u, u, u);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // Raid-Radius und Ziele (K4): je raidender Insel ihr eigener Radius (sonst
   // der globale). Deckungsgleiche Rahmen (gleicher Sektor, gleicher Radius)
   // werden einmal gezeichnet und tragen alle Inselnamen.
@@ -3038,8 +3061,22 @@ function zeichneJetzt() {
       const [ax, ay] = zuBild(...lage.start), [zx, zy] = zuBild(...lage.ziel), [px, py] = zuBild(...lage.pos);
       ctx.strokeStyle = f["karte-text"]; ctx.globalAlpha = .35; ctx.lineWidth = 1.5; ctx.setLineDash(lage.rueck ? [4, 4] : []);
       ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(zx, zy); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
-      missionForm(ctx, px, py, 4.5, fl.mission);
-      ctx.fillStyle = f["karte-text"]; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = f.meer; ctx.stroke();
+      const bild = schiffBild[MISSION_SCHIFF[fl.mission] || "kleines_kriegsschiff"];
+      if (m >= 2.2 && bild.complete && bild.naturalWidth) {
+        // Pixelschiff mit Pfeilspitze in Fahrtrichtung
+        const gr = Math.round(Math.max(20, Math.min(34, 16 + m * .9)));
+        const [tx, ty] = lage.rueck ? [ax, ay] : [zx, zy];
+        const wink = Math.atan2(ty - py, tx - px), ex = Math.cos(wink), ey = Math.sin(wink), d = gr * .55;
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(bild, Math.round(px - gr / 2), Math.round(py - gr / 2), gr, gr);
+        ctx.beginPath();
+        ctx.moveTo(px + ex * (d + 9), py + ey * (d + 9));
+        ctx.lineTo(px + ex * d - ey * 5, py + ey * d + ex * 5); ctx.lineTo(px + ex * d + ey * 5, py + ey * d - ex * 5); ctx.closePath();
+        ctx.fillStyle = f["insel-rand"]; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = f["text-halo"] || "#fff"; ctx.stroke();
+      } else {
+        missionForm(ctx, px, py, 4.5, fl.mission);
+        ctx.fillStyle = f["karte-text"]; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = f["insel-rand"]; ctx.stroke();
+      }
       ka.flottenPunkte.push({ x: px, y: py, fl, lage });
     }
   }
@@ -3064,6 +3101,7 @@ function zeichneJetzt() {
       ctx.moveTo(zx - Math.cos(wink) * (r + 4), zy - Math.sin(wink) * (r + 4));
       ctx.lineTo(zx - Math.cos(wink - .45) * (r + 16), zy - Math.sin(wink - .45) * (r + 16));
       ctx.lineTo(zx - Math.cos(wink + .45) * (r + 16), zy - Math.sin(wink + .45) * (r + 16)); ctx.closePath(); ctx.fill();
+      if (m >= 2.2 && schiffBild.invasions_verband.complete) { ctx.imageSmoothingEnabled = false; ctx.drawImage(schiffBild.invasions_verband, Math.round(sx - 15), Math.round(sy - 15), 30, 30); }
       const eta = ts(a.arrive_at);
       ctx.font = "700 12px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.fillStyle = f.feind; ctx.textBaseline = "bottom";
       pixText(ctx, `⚠ ${a.absender || "Angriff"}${eta ? " · " + dauer(eta - t) : ""}`, sx + 6, sy - 4);
@@ -3251,7 +3289,7 @@ function inselBei(px, py) {
 function tooltipAn(px, py) {
   const tip = $("ka-tip"), t = jetzt();
   let html = null;
-  const fp = (ka.flottenPunkte || []).find(p => Math.hypot(p.x - px, p.y - py) < 9);
+  const fp = (ka.flottenPunkte || []).find(p => Math.hypot(p.x - px, p.y - py) < 15);
   const ap = (ka.angriffsPunkte || []).find(p => Math.hypot(p.x - px, p.y - py) < 14);
   if (fp) {  // K7
     const fl = fp.fl;
