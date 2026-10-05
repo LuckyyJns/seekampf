@@ -453,12 +453,12 @@
   <a href="#karte" data-tab="karte"><span class="plate k"><img class="ict" src="/static/icons/hinterland.png" width="26" height="26" alt="" aria-hidden="true"></span>Karte</a>
   <a href="#gesundheit" data-tab="gesundheit"><span class="plate k"><img class="ict" src="/static/icons/gesundheit.png" width="26" height="26" alt="" aria-hidden="true"></span>Gesundheit<span class="dot" id="nav-dot-gesundheit"></span></a>
   <div class="rubrik">Bots</div>
-  <a href="#flotte" data-tab="flotte"><span class="plate k"><img class="ict" src="/static/icons/kleines_kriegsschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
-  <a href="#ausgleich" data-tab="ausgleich"><span class="plate k"><img class="ict" src="/static/icons/rohstoffausgleich.png" width="26" height="26" alt="" aria-hidden="true"></span>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
   <a href="#upgrade" data-tab="upgrade"><span class="plate k"><img class="ict" src="/static/icons/haupthaus.png" width="26" height="26" alt="" aria-hidden="true"></span>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
-  <a href="#allianz" data-tab="allianz"><span class="plate k"><img class="ict" src="/static/icons/allianz_hilfe.png" width="26" height="26" alt="" aria-hidden="true"></span>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
-  <a href="#kolonie" data-tab="kolonie"><span class="plate k"><img class="ict" src="/static/icons/koloschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Kolonisation<span class="dot" id="nav-dot-kolonie"></span></a>
+  <a href="#flotte" data-tab="flotte"><span class="plate k"><img class="ict" src="/static/icons/kleines_kriegsschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
   <a href="#ausbildung" data-tab="ausbildung"><span class="plate k"><img class="ict" src="/static/icons/kaserne.png" width="26" height="26" alt="" aria-hidden="true"></span>Ausbildung<span class="dot" id="nav-dot-ausbildung"></span></a>
+  <a href="#ausgleich" data-tab="ausgleich"><span class="plate k"><img class="ict" src="/static/icons/rohstoffausgleich.png" width="26" height="26" alt="" aria-hidden="true"></span>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
+  <a href="#kolonie" data-tab="kolonie"><span class="plate k"><img class="ict" src="/static/icons/koloschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Kolonisation<span class="dot" id="nav-dot-kolonie"></span></a>
+  <a href="#allianz" data-tab="allianz"><span class="plate k"><img class="ict" src="/static/icons/allianz_hilfe.png" width="26" height="26" alt="" aria-hidden="true"></span>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
   <div class="fuss">
     <button class="klein" id="thema" title="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>Thema</button>
     <span id="uhr" class="mono"></span>
@@ -469,6 +469,7 @@
 <main>
   <div class="kopf">
     <button id="hamburger" aria-label="Menü" aria-controls="seite"><span></span></button>
+    <span class="plate" id="titel-icon"><img class="ict" src="/static/icons/eigene_insel.png" width="36" height="36" alt="" aria-hidden="true"></span>
     <div class="titelblock"><h1 id="titel">Übersicht</h1><div id="untertitel"></div></div>
     <div class="rechts" id="kopf-rechts"></div>
   </div>
@@ -1267,6 +1268,8 @@ function zeigeTab(ziel) {
   document.querySelectorAll(".tab").forEach(el => el.classList.toggle("sichtbar", el.id === `tab-${tab}`));
   document.querySelectorAll("nav#seite a").forEach(a => a.classList.toggle("aktiv", a.dataset.tab === tab));
   $("titel").textContent = TABS[tab];
+  const navIcon = document.querySelector(`nav#seite a[data-tab="${tab}"] img`);
+  if (navIcon) $("titel-icon").firstElementChild.src = navIcon.getAttribute("src");
   $("untertitel").textContent = UNTERTITEL[tab];
   document.title = `${TABS[tab]} – Seekampf-Hub`;
   document.body.classList.remove("nav-offen");
