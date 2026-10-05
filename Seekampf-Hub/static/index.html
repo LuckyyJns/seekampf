@@ -1500,7 +1500,6 @@ function zeigeTab(ziel) {
 const TAB_ICON_NAME = { uebersicht: "eigene_insel", karte: "hinterland", gesundheit: "gesundheit", upgrade: "haupthaus", flotte: "kleines_kriegsschiff", ausbildung: "kaserne", ausgleich: "rohstoffausgleich", kolonie: "koloschiff", allianz: "allianz_hilfe" };
 function zeigeTabJetzt(neu) {
   tab = neu;
-  for (const k of [...blitzMerker.keys()]) if (k.startsWith(`${tab}|`)) blitzMerker.delete(k);   // beim Betreten kein Aufblitzen
   document.querySelectorAll(".tab").forEach(el => el.classList.toggle("sichtbar", el.id === `tab-${tab}`));
   document.querySelectorAll("nav#seite a").forEach(a => a.classList.toggle("aktiv", a.dataset.tab === tab));
   $("titel").textContent = TABS[tab];
@@ -3953,21 +3952,10 @@ function stepperBauen(wurzel) {
   });
 }
 stepperBauen(document);
-/** Kennzahlen (".kachel .wert") blitzen kurz auf, wenn sich der Wert gegenueber dem letzten Zeichnen geaendert hat. */
-const blitzMerker = new Map();
-function blitzPruefen(el) {
-  const label = el.closest(".kachel")?.querySelector(".beschriftung")?.textContent.trim();
-  if (!label) return;
-  const schluessel = `${tab}|${label}`, neu = el.textContent.trim(), alt = blitzMerker.get(schluessel);
-  blitzMerker.set(schluessel, neu);
-  if (alt !== undefined && alt !== neu) el.classList.add("blitz");
-}
 new MutationObserver((liste) => {
   for (const m of liste) for (const n of m.addedNodes) {
     if (n.nodeType !== 1) continue;
     stepperBauen(n.matches?.('input[type="number"]') ? n.parentNode || document : n);
-    if (n.matches?.(".kachel .wert")) blitzPruefen(n);
-    n.querySelectorAll?.(".kachel .wert").forEach(blitzPruefen);
   }
 }).observe(document.body, { childList: true, subtree: true });
 
