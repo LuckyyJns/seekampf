@@ -463,6 +463,7 @@
   <div class="fuss">
     <button class="klein" id="thema" title="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>Thema</button>
     <button class="klein" id="anim" title="Kleine Bewegungen (wippendes Schiff, hüpfende Icons) an oder aus">Bewegung</button>
+    <button class="klein" id="ton" title="Kleine 8-Bit-Töne bei Meldungen, Rückfragen und Alarm">Ton</button>
     <span id="uhr" class="mono"></span>
   </div>
 </nav>
@@ -962,6 +963,7 @@ const ROHSTOFFE = [["gold", "Gold"], ["stein", "Stein"], ["holz", "Holz"]];
 function bestaetigen({ titel = "Bist du sicher?", text = "", html = "", icon = null, ok = "OK", abbrechen = "Abbrechen", gefahr = false } = {}) {
   return new Promise((fertig) => {
     document.getElementById("bestaetigung")?.remove();
+    ton("oeffnen");
     const d = document.createElement("div");
     d.id = "bestaetigung"; d.className = "dialog-schleier";
     d.innerHTML = `<div class="dialog dialog-klein" role="alertdialog" aria-modal="true" aria-label="${esc(titel)}">
@@ -1006,6 +1008,7 @@ const sende = (methode) => (pfad, koerper) => hole(pfad, {
 const post = sende("POST"), put = sende("PUT");
 
 function melde(text, art = "") {
+  ton(art === "gut" ? "ok" : art === "schlecht" ? "fehler" : "klick");
   const el = document.createElement("div");
   el.className = `meldung ${art}`;
   el.textContent = text;
@@ -1525,6 +1528,32 @@ $("anim").onclick = () => {
   bewegungAn = !bewegungAn;
   bewegungSetzen(bewegungAn);
   try { localStorage.setItem("bewegung", bewegungAn ? "an" : "aus"); } catch (e) { /* egal */ }
+};
+/** 8-Bit-Toene (Rechteckwelle), standardmaessig aus */
+let tonAn = false, audio = null;
+try { tonAn = localStorage.getItem("ton") === "an"; } catch (e) { /* egal */ }
+const TON_FOLGEN = { klick: [[880, .05]], oeffnen: [[660, .05], [880, .07]], ok: [[523, .07], [659, .07], [784, .13]],
+  fehler: [[196, .12], [147, .22]], alarm: [[880, .1], [660, .1], [880, .1], [660, .1], [880, .14]] };
+function ton(art) {
+  if (!tonAn) return;
+  try {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audio.state === "suspended") audio.resume();
+    let t = audio.currentTime;
+    for (const [hz, dauer] of TON_FOLGEN[art] || []) {
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = "square"; o.frequency.value = hz;
+      g.gain.setValueAtTime(.045, t); g.gain.setValueAtTime(0, t + dauer);
+      o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dauer + .02); t += dauer;
+    }
+  } catch (e) { /* egal */ }
+}
+function tonSetzen(an) { tonAn = an; $("ton").textContent = an ? "Ton: an" : "Ton: aus"; }
+tonSetzen(tonAn);
+$("ton").onclick = () => {
+  tonSetzen(!tonAn);
+  try { localStorage.setItem("ton", tonAn ? "an" : "aus"); } catch (e) { /* egal */ }
+  ton("ok");
 };
 $("thema").onclick = () => {
   const dunkel = getComputedStyle(document.documentElement).colorScheme.includes("dark");
@@ -2533,6 +2562,7 @@ function zeichneUebersichtHeld() {
 }
 
 // ---------- Alarmband und Zeitleiste der Übersicht ----------
+let letzteAlarme = 0;
 function zeichneAlarme() {
   const a = [];
   for (const i of flotte?.inseln || []) if (i.bedrohung && i.gehoert_uns !== false)
@@ -2541,6 +2571,8 @@ function zeichneAlarme() {
     a.push({ text: `Notruf in der Allianz${n.insel_name || n.insel ? `: ${esc(n.insel_name || n.insel)}` : ""}`, ziel: "allianz" });
   for (const [name, d] of Object.entries(dienste || {}))
     if (d && d.installiert && d.zustand !== "active") a.push({ text: `${esc(d.titel)} läuft nicht (${esc(d.zustand)})`, ziel: name === "hub" ? "gesundheit" : name });
+  if (a.length > letzteAlarme) ton("alarm");
+  letzteAlarme = a.length;
   $("ue-alarm").innerHTML = a.map(x => `<a class="alarmband" href="#${x.ziel}">${IK("invasions_verband", 32)}<span>${x.text}</span><span class="mehr">ansehen →</span></a>`).join("");
 }
 const ZEIT_H = 4 * 3600;
