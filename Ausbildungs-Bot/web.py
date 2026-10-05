@@ -1,7 +1,7 @@
 """Schnittstelle und Einstiegspunkt des Ausbildungs-Bots.
 
 Ein Prozess: uvicorn bedient die JSON-Schnittstelle auf 127.0.0.1:8083, ein
-Hintergrund-Thread haelt die Truppen auf Soll. Die Oberflaeche liefert der
+Hintergrund-Thread haelt Truppen und Schiffe auf Soll. Die Oberflaeche liefert der
 Seekampf-Hub aus; er reicht /api/ausbildung/... hierher weiter.
 
 Start von Hand:   .venv/bin/python web.py
@@ -75,20 +75,9 @@ app = FastAPI(title="Seekampf Ausbildungs-Bot", lifespan=lifespan)
 @app.get("/api/status")
 def status():
     daten = state.snapshot()
-    inseln = []
-    for iid, ov in sorted(bot.ov.items()):
-        inseln.append({
-            "id": iid, "name": ov.get("name"), "koordinaten": ov.get("koordinaten"),
-            "kaserne": int((ov.get("gebaeude") or {}).get("kaserne") or 0),
-            "truppen": ov.get("truppen") or {},
-            "bedrohung": bool(ov.get("bedrohung_im_anflug")),
-            "soll": state.soll(iid),
-            "bericht": bot.bericht.get(str(iid)),
-        })
     return {
         "laeuft": daten["laeuft"], "fehler": bot.letzter_fehler, "letzter_tick": bot.letzter_tick,
-        "serverzeit": time.time(), "einheiten": list(config.EINHEITEN), "inseln": inseln,
-        "verlauf": daten["verlauf"], "reserve": bot.reserve,
+        "serverzeit": time.time(), **bot.status(), "verlauf": daten["verlauf"], "reserve": bot.reserve,
     }
 
 
@@ -105,16 +94,42 @@ def steuern(payload: dict = Body(...)):
     return {"laeuft": state.data["laeuft"]}
 
 
+@app.post("/api/standard")
+def standard_setzen(payload: dict = Body(...)):
+    try:
+        standard = state.standard_setzen(payload)
+    except (TypeError, ValueError) as e:
+        raise HTTPException(400, f"Ungueltiger Wert: {e}") from e
+    log.info("Seekampf-Hub: Standard: %s", ", ".join(f"{k}={'-' if v is None else v}" for k, v in standard.items() if v is not None) or "leer")
+    _jetzt.set()
+    return {"standard": standard}
+
+
 @app.post("/api/inseln/{insel_id}/soll")
 def soll_setzen(insel_id: int, payload: dict = Body(...)):
     try:
-        soll = state.soll_setzen(insel_id, payload)
+        eintrag = state.insel_setzen(insel_id, payload)
     except (TypeError, ValueError) as e:
         raise HTTPException(400, f"Ungueltiger Wert: {e}") from e
-    log.info("Seekampf-Hub: Soll %s: %s", bot._name(insel_id),
-             ", ".join(f"{k}={'-' if v is None else v}" for k, v in soll.items()))
+    log.info("Seekampf-Hub: %s: aktiv=%s, aus=%s, Soll %s", bot._name(insel_id), eintrag["aktiv"],
+             ",".join(eintrag["aus"]) or "-",
+             ", ".join(f"{k}={v}" for k, v in eintrag["soll"].items() if v is not None) or "leer")
     _jetzt.set()
-    return {"id": insel_id, "soll": soll}
+    return {"id": insel_id, **eintrag}
+
+
+@app.post("/api/inseln/{insel_id}/ausbilden")
+def ausbilden(insel_id: int, payload: dict = Body(...)):
+    try:
+        text = bot.ausbilden(insel_id, str(payload.get("einheit", "")), payload.get("anzahl"))
+    except (TypeError, ValueError) as e:
+        raise HTTPException(400, str(e)) from e
+    except ApiError as e:
+        raise HTTPException(409, f"Das Spiel lehnt ab: {e.message}") from e
+    except requests.RequestException as e:
+        raise HTTPException(502, f"Spiel nicht erreichbar: {type(e).__name__}") from e
+    _jetzt.set()
+    return {"ok": True, "text": text}
 
 
 if __name__ == "__main__":

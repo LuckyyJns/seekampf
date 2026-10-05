@@ -694,18 +694,21 @@
     <div class="tab" id="tab-ausbildung">
       <div class="fehler" id="ab-fehler" hidden></div>
       <section class="karte">
-        <div class="kopfzeile"><h2>Soll-Truppen je Insel</h2>
+        <div class="kopfzeile"><h2>Standard für alle Inseln</h2>
           <div class="rechts">
-            <span class="ungespeichert-marke" data-dirty-anzeige="ab-soll" hidden>● ungespeichert</span>
-            <label class="schalter" title="Truppen auf Soll halten"><input type="checkbox" id="ab-laeuft"><span class="spur"></span><span>Aktiv</span></label>
-            <button class="klein" id="ab-speichern">Speichern</button></div></div>
-        <div data-form="ab-soll" id="ab-tabelle"></div>
-        <div class="leise klein-text" style="margin-top:8px">Leer = keine Vorgabe: der Bot bildet dort diese Einheit nicht aus und gibt keine ab.
-          Vorhanden zählt daheim + auf Raids + in Ausbildung + per Handel im Anflug. Ohne passende Kaserne kommt der Überschuss
-          (über dem Soll) der nächstgelegenen Insel per Handel auf Kriegsschiffen; hat keine Insel Überschuss, bildet die nächstgelegene
-          Kaserne mit Soll für die Einheit zusätzlich aus.</div>
+            <span class="ungespeichert-marke" data-dirty-anzeige="ab-standard" hidden>● ungespeichert</span>
+            <label class="schalter" title="Truppen und Schiffe auf Soll halten"><input type="checkbox" id="ab-laeuft"><span class="spur"></span><span>Aktiv</span></label>
+            <button class="klein" id="ab-std-speichern">Speichern</button></div></div>
+        <div class="formular" id="ab-standard" data-form="ab-standard"></div>
+        <div class="leise klein-text" style="margin-top:10px">Mindestbestand: jede Insel bildet aus, bis dieser Bestand erreicht ist. Leer = keine Vorgabe.
+          Eine Insel kann unten eigene Werte setzen oder eine Einheit ausnehmen. Vorhanden zählt daheim + auf Raids und Fahrten + in Ausbildung +
+          per Handel im Anflug. Kann die Insel eine Einheit nicht selbst bauen (Kaserne oder Hafen zu niedrig), kommt der Überschuss der nächsten
+          Insel per Handel auf Kriegsschiffen; Schiffe werden nur vor Ort gebaut. Kolonisationsschiffe baut der Kolonisations-Bot.</div>
       </section>
-      <section class="karte">
+      <div class="kopfzeile abschnitt-kopf"><h2>Inseln</h2>
+        <div class="rechts leise klein-text">Kachel anklicken = sofort ausbilden</div></div>
+      <div id="ab-inseln"></div>
+      <section class="karte" style="margin-top:16px">
         <div class="kopfzeile"><h2>Zuletzt</h2></div>
         <div id="ab-verlauf"></div>
       </section>
@@ -1009,56 +1012,184 @@ async function ausbildungHolen() {
   catch (e) { ausbildungFehler = `Ausbildungs-Bot nicht erreichbar: ${e.message}`; }
   if (tab === "ausbildung") zeichneAusbildung();
 }
+const abName = (t) => ausbildung?.katalog?.[t]?.name || EINHEIT_NAME[t] || t;
+const abIst = (i, t) => i.ist ? (i.ist[t] || 0) : (i.bestand[t] || 0) + (i.in_ausbildung[t] || 0);
+const abAnlage = (k) => k.anlage === "kaserne" ? "Kaserne" : "Hafen";
 function zeichneAusbildung() {
   const box = $("ab-fehler"), fehler = ausbildungFehler || ausbildung?.fehler;
   box.hidden = !fehler; box.textContent = fehler ? `Fehler: ${fehler}` : "";
   if (!ausbildung) return;
   $("ab-laeuft").checked = ausbildung.laeuft;
-  const el = $("ab-tabelle");
-  const stand = JSON.stringify(ausbildung.inseln.map(i => [i.id, i.soll, i.bericht, i.truppen]));
-  if (!ungespeichert.has("ab-soll") && el.dataset.gebaut !== stand) {
-    el.dataset.gebaut = stand;
-    const E = ausbildung.einheiten;
-    el.innerHTML = `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th class="zahl">Kaserne</th>
-        ${E.map(e => `<th><span style="display:inline-flex;gap:6px;align-items:center">${gico(e, 24)}${EINHEIT_NAME[e] || e}</span><div class="leise klein-text" style="font-weight:normal">Soll · vorhanden</div></th>`).join("")}<th>Hinweis</th></tr></thead>
-      <tbody>${ausbildung.inseln.map(i => {
-        const b = i.bericht;
-        return `<tr><td>${esc(i.name)} <span class="leise mono klein-text">${esc(i.koordinaten)}</span>${i.bedrohung ? ` <span class="marke schlecht"><span class="punkt"></span>bedroht</span>` : ""}</td>
-          <td class="zahl">${i.kaserne}</td>
-          ${E.map(e => {
-            const ist = b ? b.ist[e] : (i.truppen[e] || 0);
-            const teile = b ? [["daheim", b.daheim[e]], ["Raids", b.unterwegs[e]], ["Anflug", b.im_anflug[e]], ["Ausbildung", b.in_ausbildung[e]]]
-              .filter(([, n]) => n).map(([t, n]) => `${t} ${n}`).join(", ") : "daheim";
-            const soll = i.soll[e];
-            const farbe = soll != null && ist < soll ? "var(--warn)" : "inherit";
-            return `<td style="white-space:nowrap"><input type="number" min="0" step="1" class="eingabe" style="width:78px"
-                data-ab-insel="${i.id}" data-ab-einheit="${e}" value="${soll ?? ""}" placeholder="–">
-              <span class="mono" style="color:${farbe}" title="${esc(teile)}">${zahl(ist)}</span></td>`;
-          }).join("")}
-          <td class="klein-text">${esc((b?.hinweise || []).join(" · "))}</td></tr>`;
-      }).join("")}</tbody></table></div>`;
-  }
+  zeichneAbStandard();
+  zeichneAbInseln();
   $("ab-verlauf").innerHTML = ausbildung.verlauf.length ? ausbildung.verlauf.slice(0, 15).map(v =>
     `<div class="klein-text" style="margin:3px 0">${uhrzeit(v.zeit, true)} · ${esc(v.text)}</div>`).join("")
     : `<div class="leise klein-text">noch nichts</div>`;
 }
-$("ab-speichern").onclick = async (e) => {
-  const je = {};
-  document.querySelectorAll("[data-ab-insel]").forEach(f => {
-    (je[f.dataset.abInsel] ||= {})[f.dataset.abEinheit] = f.value === "" ? null : f.value;
-  });
-  const geaendert = Object.entries(je).filter(([id, werte]) => {
-    const i = ausbildung.inseln.find(x => String(x.id) === id);
-    return Object.entries(werte).some(([k, v]) => String(i.soll[k] ?? "") !== String(v ?? ""));
-  });
-  for (const [id, werte] of geaendert) {
-    const r = await aktion(e.target, () => post(`/api/ausbildung/inseln/${id}/soll`, werte));
-    if (!r) return;
+/** Globale Mindestbestände (Truppen + Schiffe) */
+function zeichneAbStandard() {
+  const el = $("ab-standard"), stand = JSON.stringify(ausbildung.standard);
+  if (ungespeichert.has("ab-standard") || el.dataset.gebaut === stand) return;
+  el.dataset.gebaut = stand;
+  const feld = (t) => {
+    const k = ausbildung.katalog[t];
+    return `<div class="feld"><label>${gico(t, 24)} ${esc(abName(t))}</label>
+      <input type="number" min="0" step="1" class="eingabe" data-ab-std="${t}" value="${ausbildung.standard[t] ?? ""}" placeholder="–">
+      <span class="hinweis">${abAnlage(k)} ab Stufe ${k.ab_stufe} · ${ROHSTOFFE.map(([r]) => zahl(k.kosten[r])).join(" / ")} je Stück</span></div>`;
+  };
+  el.innerHTML = `<div class="gruppe">Truppen</div>${ausbildung.truppen.map(feld).join("")}
+    <div class="gruppe">Schiffe</div>${ausbildung.schiffe.map(feld).join("")}`;
+}
+/** Eine Kachel je Truppe/Schiff: Bestand, Soll, Kosten; Klick öffnet den Ausbilden-Dialog */
+function abKachel(i, t) {
+  const k = ausbildung.katalog[t], baubar = i.baubar.includes(t);
+  const inAus = i.in_ausbildung[t] || 0, ist = abIst(i, t), soll = i.soll_eff[t];
+  const kosten = ROHSTOFFE.map(([r]) => `<span class="${(i.rohstoffe[r] || 0) >= k.kosten[r] ? "" : "fehlt"}">${ROHSTOFF_ICON(r)}${zahl(k.kosten[r])}</span>`).join("");
+  let marke;
+  if (!baubar) marke = `<span class="marke grau">${abAnlage(k)} ab ${k.ab_stufe}</span>`;
+  else if (soll != null) marke = ist >= soll ? `<span class="marke gut">Soll erreicht</span>` : `<span class="marke warn">fehlt ${zahl(soll - ist)}</span>`;
+  else marke = `<span class="marke grau">kein Soll</span>`;
+  return `<button type="button" class="gkachel" data-ab-kachel="${i.id}" data-item="${t}" ${baubar ? "" : "disabled"}
+      title="${esc(baubar ? `${abName(t)} auf ${i.name} ausbilden` : `${i.name}: ${abAnlage(k)} Stufe ${i[k.anlage] ?? 0} – braucht ${k.ab_stufe}`)}">
+    <span class="gk-kopf">${gico(t, 48)}<span class="gk-name"><b>${esc(abName(t))}</b>
+      <span class="leise">${soll != null ? `${zahl(ist)} von ${zahl(soll)}` : zahl(ist)}${inAus ? ` · ${zahl(inAus)} im Bau` : ""}</span></span></span>
+    ${soll > 0 ? `<span class="balken"><i style="width:${Math.min(100, 100 * ist / soll)}%"></i></span>` : ""}
+    <span class="gk-kosten">${kosten}</span>
+    <span class="gk-fuss"><span class="leise">${dauer(k.dauer_s)} je Stück</span>${marke}</span></button>`;
+}
+function zeichneAbInseln() {
+  const container = $("ab-inseln");
+  for (const i of ausbildung.inseln) {
+    const id = String(i.id);
+    const karte = inselKarte(container, id, `
+      <div class="unterteil"><h2>Truppen &amp; Schiffe ausbilden</h2><div data-teil="kacheln"></div></div>
+      <div class="unterteil"><div class="kopfzeile"><h2>Eigene Werte</h2>
+        <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="ab-insel-${id}" hidden>● ungespeichert</span>
+          <button class="klein" data-ab-speichern="${id}">Speichern</button></div></div>
+        <div data-form="ab-insel-${id}" data-teil="form"></div></div>
+      <div class="unterteil" data-teil="hinweis-box"><h2>Hinweise</h2><div data-teil="hinweise" class="klein-text"></div></div>`);
+    karte.classList.toggle("offen", offeneInseln.ausbildung.has(id));
+    const fehlt = Object.entries(i.soll_eff).reduce((n, [t, s]) => n + (s != null ? Math.max(0, s - abIst(i, t)) : 0), 0);
+    const imBau = Object.values(i.in_ausbildung).reduce((n, x) => n + x, 0);
+    karte.querySelector(".insel-kopf").innerHTML = `
+      <span class="pfeil">▶</span>
+      ${avatar(i.name, i.id)}
+      <span class="namenblock"><span class="titel">${esc(i.name)}</span><span class="koord mono">${esc(i.koordinaten)}</span></span>
+      ${i.bedrohung ? `<span class="marke schlecht"><span class="punkt"></span>bedroht</span>` : ""}
+      ${i.aktiv ? `<span class="marke gut"><span class="punkt"></span>an</span>` : `<span class="marke grau"><span class="punkt"></span>aus</span>`}
+      <span class="info">
+        <span>Kaserne <b>${i.kaserne}</b> · Hafen <b>${i.hafen}</b></span>
+        ${fehlt ? `<span>fehlt: <b>${zahl(fehlt)}</b> Stück</span>` : `<span>alles auf Soll</span>`}
+        ${imBau ? `<span>${zahl(imBau)} in Ausbildung</span>` : ""}
+      </span>
+      <span class="schalter-platz"><label class="schalter" title="Ausbildung auf dieser Insel">
+        <input type="checkbox" data-ab-aktiv="${id}" ${i.aktiv ? "checked" : ""}>
+        <span class="spur"></span><span class="verstecken-schmal">Bot</span></label></span>`;
+    if (!karte.classList.contains("offen")) continue;
+    karte.querySelector('[data-teil="kacheln"]').innerHTML =
+      `<div class="gk-gruppe">Truppen</div><div class="gkacheln">${ausbildung.truppen.map(t => abKachel(i, t)).join("")}</div>
+       <div class="gk-gruppe">Schiffe</div><div class="gkacheln">${ausbildung.schiffe.map(t => abKachel(i, t)).join("")}</div>
+       <div class="leise klein-text" style="margin-top:8px">Klick auf eine Kachel: Anzahl wählen und ausbilden. Die Kosten zieht das Spiel sofort ab; das geht auch, wenn der Bot hier aus ist.</div>`;
+    zeichneAbInselFormular(karte, i);
+    const hw = i.hinweise || [];
+    karte.querySelector('[data-teil="hinweis-box"]').hidden = !hw.length;
+    karte.querySelector('[data-teil="hinweise"]').innerHTML = hw.map(h => `<div style="margin:3px 0">${esc(h)}</div>`).join("");
   }
-  melde(geaendert.length ? `Soll für ${geaendert.length} Insel(n) gespeichert` : "nichts geändert", "gut");
-  dirtySetzen("ab-soll", false);
-  $("ab-tabelle").dataset.gebaut = "";
-  setTimeout(ausbildungHolen, 1500);
+}
+/** Eigene Werte der Insel: leer = Standard, "nicht verwalten" nimmt eine Einheit heraus */
+function zeichneAbInselFormular(karte, i) {
+  const el = karte.querySelector('[data-teil="form"]'), form = `ab-insel-${i.id}`;
+  const stand = JSON.stringify([i.soll, i.aus, ausbildung.standard]);
+  if (ungespeichert.has(form) || el.dataset.gebaut === stand) return;
+  el.dataset.gebaut = stand;
+  const feld = (t) => {
+    const std = ausbildung.standard[t];
+    return `<div class="feld"><label>${gico(t, 24)} ${esc(abName(t))}</label>
+      <input type="number" min="0" step="1" class="eingabe" data-ab-soll="${t}" value="${i.soll[t] ?? ""}"
+        placeholder="${std != null ? `Standard ${zahl(std)}` : "Standard: keins"}">
+      <label class="ab-aus"><input type="checkbox" data-ab-aus="${t}" ${i.aus.includes(t) ? "checked" : ""}>hier nicht verwalten</label></div>`;
+  };
+  el.innerHTML = `<div class="formular"><div class="gruppe">Truppen</div>${ausbildung.truppen.map(feld).join("")}
+      <div class="gruppe">Schiffe</div>${ausbildung.schiffe.map(feld).join("")}</div>
+    <div class="leise klein-text" style="margin-top:8px">Leer = Standard von oben. „Nicht verwalten“: der Bot lässt diese Einheit auf dieser Insel in Ruhe – er bildet nichts aus und gibt nichts ab.</div>`;
+}
+akkordeonKlick("ausbildung", $("ab-inseln"));
+
+/** Dialog: Anzahl wählen und ausbilden */
+function abDialog(iid, t) {
+  const i = ausbildung.inseln.find(x => String(x.id) === String(iid)), k = ausbildung.katalog[t];
+  const max = Math.max(0, Math.min(...ROHSTOFFE.map(([r]) => k.kosten[r] > 0 ? Math.floor((i.rohstoffe[r] || 0) / k.kosten[r]) : Infinity)));
+  const soll = i.soll_eff[t], fehlt = soll != null ? Math.max(0, soll - abIst(i, t)) : 0;
+  const start = Math.max(1, Math.min(max || 1, fehlt || 5));
+  document.getElementById("ab-dialog")?.remove();
+  const d = document.createElement("div");
+  d.id = "ab-dialog"; d.className = "dialog-schleier";
+  d.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-label="${esc(abName(t))} ausbilden">
+    <div class="dialog-kopf">${gico(t, 64)}<div><h3>${esc(abName(t))} ausbilden</h3>
+      <div class="leise">auf ${esc(i.name)} · ${abAnlage(k)} Stufe ${i[k.anlage] ?? 0}${soll != null ? ` · Soll ${zahl(soll)}, vorhanden ${zahl(abIst(i, t))}` : ""}</div></div></div>
+    <div class="dialog-zahl">
+      <button type="button" data-d="-10">−10</button><button type="button" data-d="-1">−1</button>
+      <input type="number" class="eingabe" id="ab-d-n" min="1" step="1" value="${start}" aria-label="Anzahl">
+      <button type="button" data-d="1">+1</button><button type="button" data-d="10">+10</button>
+      <button type="button" data-d="max" ${max ? "" : "disabled"}>Max ${zahl(max)}</button>
+      ${fehlt ? `<button type="button" data-d="fehlt">Bis Soll (${zahl(fehlt)})</button>` : ""}</div>
+    <div class="dialog-summe" id="ab-d-summe"></div>
+    <div class="dialog-leiste"><button type="button" id="ab-d-abbr">Abbrechen</button><button type="button" class="haupt" id="ab-d-ok">Ausbilden</button></div></div>`;
+  document.body.appendChild(d);
+  const feld = d.querySelector("#ab-d-n"), ok = d.querySelector("#ab-d-ok");
+  const zu = () => { d.remove(); document.removeEventListener("keydown", taste); };
+  const taste = (e) => { if (e.key === "Escape") zu(); if (e.key === "Enter" && !ok.disabled) ok.click(); };
+  document.addEventListener("keydown", taste);
+  const rechne = () => {
+    const n = Math.max(0, Math.floor(Number(feld.value) || 0));
+    const geht = n >= 1 && n <= max;
+    d.querySelector("#ab-d-summe").innerHTML = `<div class="gk-kosten">${ROHSTOFFE.map(([r]) =>
+        `<span class="${(i.rohstoffe[r] || 0) >= n * k.kosten[r] ? "" : "fehlt"}">${ROHSTOFF_ICON(r)}${zahl(n * k.kosten[r])}</span>`).join("")}</div>
+      <div class="leise klein-text">Dauer ca. ${dauer(n * k.dauer_s)} · ${n > max ? `<b class="fehlt">so viel kann die Insel nicht bezahlen (höchstens ${zahl(max)})</b>` : `danach noch ${ROHSTOFFE.map(([r]) => zahl((i.rohstoffe[r] || 0) - n * k.kosten[r])).join(" / ")} im Lager`}</div>`;
+    ok.disabled = !geht; ok.textContent = geht ? `${zahl(n)} ausbilden` : "Ausbilden";
+  };
+  d.addEventListener("click", (e) => {
+    if (e.target === d || e.target.id === "ab-d-abbr") return zu();
+    const b = e.target.closest("[data-d]");
+    if (!b) return;
+    const w = b.dataset.d;
+    feld.value = w === "max" ? max : w === "fehlt" ? Math.min(fehlt, max) : Math.max(1, (Number(feld.value) || 0) + Number(w));
+    rechne();
+  });
+  feld.addEventListener("input", rechne);
+  ok.onclick = async () => {
+    const n = Math.floor(Number(feld.value));
+    const r = await aktion(ok, () => post(`/api/ausbildung/inseln/${iid}/ausbilden`, { einheit: t, anzahl: n }),
+      `${i.name}: ${zahl(n)} ${abName(t)} in Ausbildung gegeben`);
+    if (r) { zu(); setTimeout(ausbildungHolen, 800); }
+  };
+  rechne(); feld.focus(); feld.select();
+}
+$("ab-inseln").addEventListener("click", async (e) => {
+  const kachel = e.target.closest("[data-ab-kachel]");
+  if (kachel && !kachel.disabled) return abDialog(kachel.dataset.abKachel, kachel.dataset.item);
+  const sp = e.target.closest("[data-ab-speichern]");
+  if (sp) {
+    const id = sp.dataset.abSpeichern, f = document.querySelector(`[data-form="ab-insel-${id}"]`);
+    const nutzlast = { aus: [...f.querySelectorAll("[data-ab-aus]:checked")].map(x => x.dataset.abAus) };
+    f.querySelectorAll("[data-ab-soll]").forEach(x => { nutzlast[x.dataset.abSoll] = x.value === "" ? null : x.value; });
+    const r = await aktion(sp, () => post(`/api/ausbildung/inseln/${id}/soll`, nutzlast), "Eigene Werte gespeichert");
+    if (r) { dirtySetzen(`ab-insel-${id}`, false); f.dataset.gebaut = ""; setTimeout(ausbildungHolen, 800); }
+  }
+});
+$("ab-inseln").addEventListener("change", async (e) => {
+  const cb = e.target.closest("[data-ab-aktiv]");
+  if (!cb) return;
+  const name = ausbildung.inseln.find(x => String(x.id) === cb.dataset.abAktiv)?.name;
+  await aktion(cb, () => post(`/api/ausbildung/inseln/${cb.dataset.abAktiv}/soll`, { aktiv: cb.checked }),
+    `${name}: Ausbildung ${cb.checked ? "eingeschaltet" : "ausgeschaltet"}`);
+  ausbildungHolen();
+});
+$("ab-std-speichern").onclick = async (e) => {
+  const werte = {};
+  document.querySelectorAll("[data-ab-std]").forEach(f => { werte[f.dataset.abStd] = f.value === "" ? null : f.value; });
+  const r = await aktion(e.target, () => post("/api/ausbildung/standard", werte), "Standard gespeichert – gilt für alle Inseln ohne eigenen Wert");
+  if (r) { dirtySetzen("ab-standard", false); $("ab-standard").dataset.gebaut = ""; setTimeout(ausbildungHolen, 800); }
 };
 $("ab-laeuft").onchange = async (e) => {
   const an = e.target.checked;
@@ -1103,7 +1234,7 @@ const UNTERTITEL = {
   upgrade: "Bau-Warteschlangen, Priorisierung und Ausbau von Hand",
   allianz: "Allianz-Protokoll: Notrufe, Beistand, Rohstoff-Anfragen",
   kolonie: "Freie Inseln aus deiner Warteschlange kolonisieren",
-  ausbildung: "Truppen je Insel auf Soll halten",
+  ausbildung: "Truppen und Schiffe je Insel auf Mindestbestand halten",
 };
 let tab = null;
 
@@ -1355,7 +1486,7 @@ window.addEventListener("resize", () => { clearTimeout(groesseTimer); groesseTim
 // ======================================================================
 // Akkordeon-Helfer: offene Inseln bleiben beim Neuzeichnen offen
 // ======================================================================
-const offeneInseln = { flotte: new Set(), upgrade: new Set() };
+const offeneInseln = { flotte: new Set(), upgrade: new Set(), ausbildung: new Set() };
 try {
   for (const k of Object.keys(offeneInseln)) (JSON.parse(localStorage.getItem(`offen-${k}`) || "[]")).forEach(x => offeneInseln[k].add(String(x)));
 } catch (e) { /* egal */ }
@@ -1729,8 +1860,7 @@ function zeichneUpgrade() {
         <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="up-form-${id}" hidden>● ungespeichert</span>
           <button class="klein" data-up-speichern="${id}">Speichern</button></div></div>
         <div data-form="up-form-${id}" data-teil="form"></div></div>
-      <div class="unterteil"><h2>Ausbau von Hand</h2><div data-teil="auftrag"></div></div>
-      <div class="unterteil"><h2>Gebäude</h2><div data-teil="gebaeude"></div></div>`);
+      <div class="unterteil"><h2>Gebäude ausbauen</h2><div data-teil="gebaeude"></div></div>`);
     karte.classList.toggle("offen", offeneInseln.upgrade.has(id));
     const schlange = i.warteschlange || [];
     const aktiv = schlange.find(o => o.status === "aktiv");
@@ -1788,30 +1918,29 @@ function zeichneUpgrade() {
       ${i.hinweis ? `<div class="leise klein-text" style="margin-top:6px">${esc(i.hinweis)}</div>` : ""}</div>`;
     // Formular: nur bauen, wenn nicht gerade bearbeitet
     zeichneUpgradeFormular(karte, id, steuer, i);
-    // Auftrag von Hand
-    const auftragEl = karte.querySelector('[data-teil="auftrag"]');
-    if (!auftragEl.dataset.gebaut || !auftragEl.contains(document.activeElement)) {
-      const baubar = (i.gebaeude || []).filter(g => upgrade.gebaeude.includes(g.typ) && g.verfuegbar && g.naechste_stufe);
-      const gewaehlt = auftragEl.querySelector("select")?.value;
-      auftragEl.dataset.gebaut = "1";
-      auftragEl.innerHTML = baubar.length ? `<div class="formular-leiste" style="margin-top:0">
-          <select class="eingabe" data-up-auftrag-wahl="${id}" style="width:auto">
-          ${baubar.map(g => `<option value="${g.typ}" ${g.typ === gewaehlt ? "selected" : ""}>${esc(gname(g.typ))} → ${g.naechste_stufe} (${ROHSTOFFE.map(([k]) => zahl(g.kosten?.[k])).join(" / ")})</option>`).join("")}
-          </select>
-          <button class="klein" data-up-auftrag="${id}">In die Warteschlange</button>
-          <span class="leise klein-text">läuft auch, wenn der Bot hier aus ist; die Kosten zieht das Spiel sofort ab</span></div>`
-        : `<span class="leise klein-text">nichts ausbaubar</span>`;
-    }
-    // Gebaeude-Uebersicht
-    karte.querySelector('[data-teil="gebaeude"]').innerHTML = `<div class="tabelle-rahmen"><table><thead><tr>
-        <th>Gebäude</th><th class="zahl">Stufe</th><th class="zahl verstecken-schmal">Nächste</th><th class="verstecken-schmal">Kosten (G / S / H)</th><th class="zahl verstecken-schmal">Bauzeit</th></tr></thead><tbody>
-      ${(i.gebaeude || []).filter(g => upgrade.gebaeude.includes(g.typ)).map(g => `<tr>
-        ${gico(g.typ)}<td>${esc(gname(g.typ))}${steuer.gesperrt.includes(g.typ) ? ` <span class="marke grau">gesperrt</span>` : ""}</td>
-        <td class="zahl">${g.stufe}</td>
-        <td class="zahl verstecken-schmal">${g.naechste_stufe ?? (g.verfuegbar ? "max" : `ab HH ${g.haupthaus_ab}`)}</td>
-        <td class="verstecken-schmal mono">${g.kosten ? ROHSTOFFE.map(([k]) => zahl(g.kosten[k])).join(" / ") : "–"}</td>
-        <td class="zahl verstecken-schmal">${g.bauzeit_s ? dauer(g.bauzeit_s) : "–"}</td></tr>`).join("")}
-      </tbody></table></div>`;
+    // Gebäude-Kacheln: ein Klick reiht den Ausbau in die Warteschlange ein
+    const roh = i.rohstoffe || {};
+    const schlangeVoll = schlange.length >= (st.max_warteschlange || 3);
+    const MAX_STUFE = 20;
+    karte.querySelector('[data-teil="gebaeude"]').innerHTML = `<div class="gkacheln">${(i.gebaeude || []).filter(g => upgrade.gebaeude.includes(g.typ)).map(g => {
+        const inSchlange = schlange.filter(o => o.gebaeude === g.typ);
+        let grund = "", marke = "";
+        if (!g.verfuegbar) { grund = `erst ab Haupthaus ${g.haupthaus_ab}`; marke = `<span class="marke grau">ab HH ${g.haupthaus_ab}</span>`; }
+        else if (g.naechste_stufe == null) { grund = "Höchststufe erreicht"; marke = `<span class="marke grau">Maximum</span>`; }
+        else if (inSchlange.length) { grund = "ist schon in der Warteschlange"; marke = `<span class="marke">in Schlange → ${inSchlange[inSchlange.length - 1].ziel_stufe}</span>`; }
+        else if (schlangeVoll) { grund = "Warteschlange ist voll"; marke = `<span class="marke grau">Schlange voll</span>`; }
+        else marke = ROHSTOFFE.every(([k]) => (roh[k] || 0) >= (g.kosten?.[k] || 0)) ? `<span class="marke gut">bezahlbar</span>` : `<span class="marke warn">Rohstoffe fehlen</span>`;
+        const kosten = g.kosten ? ROHSTOFFE.map(([k]) => `<span class="${(roh[k] || 0) >= g.kosten[k] ? "" : "fehlt"}">${ROHSTOFF_ICON(k)}${zahl(g.kosten[k])}</span>`).join("") : "";
+        const gesperrt = steuer.gesperrt.includes(g.typ) ? ` <span class="marke grau" title="gilt nur für die automatische Reihenfolge">gesperrt</span>` : "";
+        return `<button type="button" class="gkachel" data-up-kachel="${id}" data-geb="${g.typ}" ${grund ? "disabled" : ""}
+          title="${esc(grund || `${gname(g.typ)} auf Stufe ${g.naechste_stufe} ausbauen – Klick reiht ein`)}">
+          <span class="gk-kopf">${gico(g.typ, 48)}<span class="gk-name"><b>${esc(gname(g.typ))}${gesperrt}</b>
+            <span class="leise">Stufe ${g.stufe}${g.naechste_stufe != null ? ` → ${g.naechste_stufe}` : ""}</span></span></span>
+          <span class="gk-pips" aria-hidden="true">${Array.from({ length: MAX_STUFE }, (_, n) => `<i class="${n < g.stufe ? "f" : (g.naechste_stufe != null && n === g.stufe ? "n" : "")}"></i>`).join("")}</span>
+          <span class="gk-kosten">${kosten || `<span class="leise">–</span>`}</span>
+          <span class="gk-fuss"><span class="leise">${g.bauzeit_s ? `Bauzeit ${dauer(g.bauzeit_s)}` : ""}</span>${marke}</span></button>`;
+      }).join("")}</div>
+      <div class="leise klein-text" style="margin-top:8px">Klick auf eine Kachel reiht den Ausbau ein. Läuft auch, wenn der Bot hier aus ist; die Kosten zieht das Spiel sofort ab.</div>`;
   }
   // Befehle
   $("up-befehle").innerHTML = (st.befehle || []).length ? (st.befehle || []).slice(0, 8).map(b =>
@@ -1859,7 +1988,8 @@ function formularVerwerfen(form) {
   else if (form.startsWith("fl-insel-")) { const el = document.querySelector(`[data-form="${form}"]`); if (el) el.dataset.gebaut = ""; }
   else if (form.startsWith("aus-insel-")) { const el = document.querySelector(`[data-form="${form}"]`); if (el) el.dataset.gebaut = ""; }
   else if (form === "al-strategie") $("al-strategie").dataset.gebaut = "";
-  else if (form === "ab-soll") $("ab-tabelle").dataset.gebaut = "";
+  else if (form === "ab-standard") $("ab-standard").dataset.gebaut = "";
+  else if (form.startsWith("ab-insel-")) { const el = document.querySelector(`[data-form="${form}"]`); if (el) el.dataset.gebaut = ""; }
   else if (form === "al-anfrage") ["gold", "stein", "holz"].forEach(k => $(`al-anfrage-${k}`).value = "");
   else if (form.startsWith("up-form-")) {
     const el = document.querySelector(`[data-form="${form}"]`);
@@ -1903,14 +2033,13 @@ $("up-inseln").addEventListener("click", async (e) => {
     if (r) { dirtySetzen(`up-form-${id}`, false); el.dataset.gebaut = ""; upgradeHolen(); }
     return;
   }
-  const au = e.target.closest("[data-up-auftrag]");
-  if (au) {
-    const id = au.dataset.upAuftrag;
-    const geb = document.querySelector(`[data-up-auftrag-wahl="${id}"]`).value;
+  const kachel = e.target.closest("[data-up-kachel]");
+  if (kachel && !kachel.disabled) {
+    const id = kachel.dataset.upKachel, geb = kachel.dataset.geb;
     const name = upgrade.status.inseln[id]?.name;
     if (!confirm(`${gname(geb)} auf ${name} jetzt in die Warteschlange stellen?`)) return;
-    const r = await aktion(au, () => post("/api/upgrade/befehl", { typ: "auftrag", insel_id: id, gebaeude: geb }));
-    if (r) { wartendeBefehle.set(r.id, `${gname(geb)} auf ${name}`); melde("Auftrag an den Bot übergeben …"); }
+    const r = await aktion(kachel, () => post("/api/upgrade/befehl", { typ: "auftrag", insel_id: id, gebaeude: geb }));
+    if (r) { wartendeBefehle.set(r.id, `${gname(geb)} auf ${name}`); melde("Auftrag an den Bot übergeben …"); setTimeout(upgradeHolen, 4000); }
   }
 });
 $("up-pruefen").onclick = async (e) => {

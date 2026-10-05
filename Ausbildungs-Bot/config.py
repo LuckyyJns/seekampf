@@ -1,7 +1,7 @@
 """Feste Einstellungen des Ausbildungs-Bots.
 
-Die Soll-Truppen je Insel stehen in data/state.json und werden im
-Seekampf-Hub gepflegt; hier nur Konstanten.
+Der Standard und die Soll-Werte je Insel (Truppen und Schiffe) stehen in
+data/state.json und werden im Seekampf-Hub gepflegt; hier nur Konstanten.
 """
 import os
 
@@ -38,6 +38,13 @@ RESOURCE_KEYS = ("gold", "stein", "holz")
 
 # Einheiten, fuer die sich ein Soll setzen laesst (Kaserne).
 EINHEITEN = ("steinewerfer", "speerkaempfer", "bogenschuetze")
+# Schiffe mit Soll (Hafen). Kolonisationsschiffe fehlen mit Absicht: die baut
+# der Kolonisations-Bot.
+SCHIFFE = ("spaehschiff", "kleines_handelsschiff", "grosses_handelsschiff",
+           "kleines_kriegsschiff", "grosses_kriegsschiff")
+ITEMS = EINHEITEN + SCHIFFE
+# In welcher Anlage ein Posten ausgebildet bzw. gebaut wird (Feld "facility" der API).
+ANLAGE = {**{e: "kaserne" for e in EINHEITEN}, **{s: "hafen" for s in SCHIFFE}}
 # Truppentransport per Handel geht nur auf Kriegsschiffen; Platz je Schiff
 # (kaempfer_kap aus dem Ausbildungs-Katalog, das hier ist der Fallback).
 KRIEGSSCHIFF_PLATZ = {"grosses_kriegsschiff": 30, "kleines_kriegsschiff": 8}
@@ -50,6 +57,8 @@ SCHIFF_KNOTEN = {"kleines_kriegsschiff": 12, "grosses_kriegsschiff": 8}
 SCHIFF_LADEVOLUMEN: dict[str, int] = {}
 
 TICK_S = 60
+# Ausbildung/Katalog von Inseln ohne Soll nur so selten neu lesen (nur fuer die Anzeige im Hub).
+BEOBACHTUNG_ALTER_S = 120
 # So viele Eintraege bleiben in der Liste "Zuletzt".
 VERLAUF_MERKEN = 40
 

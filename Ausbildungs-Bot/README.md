@@ -1,12 +1,23 @@
 # Ausbildungs-Bot
 
-Hält die Truppen je Insel auf Soll. Eingestellt wird im Seekampf-Hub unter
-**Ausbildung**: je Insel und Einheit (Steinewerfer, Speerkämpfer,
-Bogenschützen) eine Zahl. Leer heißt keine Vorgabe - die Insel wird für diese
-Einheit weder aufgefüllt noch gibt sie welche ab.
+Hält Truppen und Schiffe je Insel auf einem Mindestbestand. Eingestellt wird im
+Seekampf-Hub unter **Ausbildung**:
+
+- **Standard für alle Inseln**: ein Mindestbestand je Posten (Steinewerfer,
+  Speerkämpfer, Bogenschützen, Späh-, Handels- und Kriegsschiffe). Leer heißt
+  keine Vorgabe. Kolonisationsschiffe gehören dem Kolonisations-Bot.
+- **Eigene Werte je Insel**: ein Wert überschreibt den Standard, leer heißt
+  Standard. „Hier nicht verwalten“ nimmt einen Posten auf der Insel heraus,
+  der Insel-Schalter die ganze Insel.
+- **Von Hand ausbilden**: in der Insel-Ansicht eine Kachel anklicken, Anzahl
+  wählen, ausbilden (`POST /api/inseln/{id}/ausbilden`).
+
+Wo weder Standard noch eigener Wert gilt, wird der Posten weder aufgefüllt
+noch gibt die Insel welche ab. Schiffe werden nur vor Ort im Hafen gebaut
+(kein Transport zwischen Inseln, Mindestauftrag 1 statt 5).
 
 **Vorhanden** zählt: daheim + mit eigenen Raids unterwegs + in Ausbildung +
-per Handel im Anflug. An Mitspieler Verliehenes zählt nicht und wird
+per Handel im Anflug (Schiffe: daheim + auf Fahrt + in Ausbildung). An Mitspieler Verliehenes zählt nicht und wird
 nachgebildet.
 
 Fehlt etwas:
@@ -38,5 +49,6 @@ tail -f logs/ausbildung-$(date +%F).log
 ```
 
 Schnittstelle auf `127.0.0.1:8083`, der Hub reicht `/api/ausbildung/...` durch:
-`GET /api/status`, `POST /api/inseln/{id}/soll {einheit: Zahl|null}`,
-`POST /api/control {aktion}`.
+`GET /api/status`, `POST /api/standard {posten: Zahl|null}`,
+`POST /api/inseln/{id}/soll {posten: Zahl|null, aus: [...], aktiv: bool}`,
+`POST /api/inseln/{id}/ausbilden {einheit, anzahl}`, `POST /api/control {aktion}`.

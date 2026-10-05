@@ -45,14 +45,17 @@ läuft im Flotten-Manager (`Flotten-Manager/ausgleich.py`).
 ## Kolonisation und Ausbildung
 
 Menüpunkte **Kolonisation** (Warteschlange freier Inseln, Bau-Inseln,
-Verlauf; Code `Kolonisations-Bot/`) und **Ausbildung** (Soll-Truppen je Insel
-und Einheit; Code `Ausbildungs-Bot/`). Beide Bots haben wie der
+Verlauf; Code `Kolonisations-Bot/`) und **Ausbildung** (Mindestbestand an
+Truppen und Schiffen: Standard für alle Inseln, eigene Werte je Insel, Kachel
+anklicken = Anzahl wählen und von Hand ausbilden; Code `Ausbildungs-Bot/`). Beide Bots haben wie der
 Flotten-Manager eine eigene Schnittstelle (8082 bzw. 8083), der Hub reicht
 `/api/kolonie/...` und `/api/ausbildung/...` durch. Auf der Karte hat jede
 freie Insel den Knopf „Zur Kolonisation“. Unter Kolonisation steht auch das
 Muster, nach dem neue Inseln automatisch umbenannt werden.
 
-Im **Upgrade-Bot** hat jede Insel eine Liste **Ausbauziele** (Gebäude +
+Im **Upgrade-Bot** zeigt jede aufgeklappte Insel alle Gebäude als Kacheln (Icon,
+Stufe, Kosten, Bauzeit): ein Klick reiht den Ausbau ein (mit Rückfrage).
+Außerdem hat jede Insel eine Liste **Ausbauziele** (Gebäude +
 Stufe, der Reihe nach): der Bot baut nur das erste noch nicht erreichte Ziel
 und wartet, bis es bezahlbar ist; nicht verfügbare oder ausgebaute werden
 übersprungen, gesperrte trotzdem gebaut; danach baut er wieder automatisch.

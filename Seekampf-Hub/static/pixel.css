@@ -232,3 +232,50 @@ nav#seite a,.dienst-karte .oben a{color:inherit}
 
 .insel-kachel .fakten b{font:600 13.5px var(--body)}
 .insel-kachel .fakten .leise{font-size:12px}
+
+/* ---------- Upgrade-Bot: Gebäude-Kacheln (Klick = Ausbau einreihen) ---------- */
+.gkacheln{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;padding:2px}
+button.gkachel{display:flex;flex-direction:column;gap:9px;align-items:stretch;text-align:left;padding:10px 12px;background:#f7ecd0;color:var(--text);
+  font:400 14px var(--body);letter-spacing:0;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring),inset 0 -4px 0 #e4d2a6}
+html:root[data-theme="dark"] button.gkachel{background:var(--flaeche-2);box-shadow:0 0 0 2px var(--ring),inset 0 -4px 0 var(--flaeche-3)}
+button.gkachel:hover:not(:disabled){background:#fff8e4;transform:translate(-2px,-2px);box-shadow:0 0 0 2px var(--teal),4px 4px 0 var(--ink),inset 0 -4px 0 #e4d2a6}
+html:root[data-theme="dark"] button.gkachel:hover:not(:disabled){background:var(--flaeche-3)}
+button.gkachel:active:not(:disabled){transform:translate(0,0);box-shadow:0 0 0 2px var(--teal),inset 0 -4px 0 #e4d2a6}
+button.gkachel:disabled{opacity:.55;cursor:not-allowed;box-shadow:0 0 0 2px var(--ring)}
+.gk-kopf{display:flex;gap:10px;align-items:center}
+.gk-kopf .ict{width:48px;height:48px;background:#e4d2a6;border:3px solid var(--ink);padding:2px;box-shadow:0 0 0 2px var(--wood)}
+html:root[data-theme="dark"] .gk-kopf .ict{background:#473526}
+.gk-name{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.gk-name b{font:700 16px var(--px)}
+.gk-pips{display:grid;grid-template-columns:repeat(20,1fr);gap:1px}
+.gk-pips i{height:10px;background:#d6c08a;border:1px solid var(--ink)}
+html:root[data-theme="dark"] .gk-pips i{background:#1b140c}
+.gk-pips i.f{background:var(--teal)}
+.gk-pips i.n{background:repeating-linear-gradient(45deg,var(--warn) 0 3px,#b57d1c 3px 6px)}
+.gk-kosten{display:flex;flex-wrap:wrap;gap:4px 12px;font:500 13.5px var(--mono)}
+.gk-kosten span{display:inline-flex;align-items:center;gap:3px}
+.gk-kosten .ict{width:20px;height:20px}
+.gk-kosten .fehlt{color:var(--schlecht);font-weight:600}
+.gk-fuss{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px}
+
+/* ---------- Ausbildung: Gruppen, Dialog ---------- */
+.gk-gruppe{font:700 13px var(--px);letter-spacing:.1em;text-transform:uppercase;color:var(--wood);margin:12px 0 8px}
+.gk-gruppe:first-child{margin-top:0}
+html:root[data-theme="dark"] .gk-gruppe{color:var(--wood-l)}
+button.gkachel .balken{margin:0;height:10px}
+.feld label.ab-aus{display:flex;align-items:center;gap:7px;font:400 13px var(--body);text-transform:none;letter-spacing:0;color:var(--gedaempft);margin-top:4px}
+.feld label .ict{display:inline-block;vertical-align:-8px;margin-right:4px}
+.dialog-schleier{position:fixed;inset:0;z-index:80;background:rgb(7 9 11 / .65);display:grid;place-items:center;padding:16px}
+.dialog{width:min(520px,100%);background:var(--seite);color:var(--text);border:4px solid var(--ink);box-shadow:inset 0 0 0 3px var(--ivory-d),8px 8px 0 var(--ink);padding:20px 22px}
+html:root[data-theme="dark"] .dialog{box-shadow:inset 0 0 0 3px var(--wood-d),8px 8px 0 var(--ink)}
+.dialog-kopf{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.dialog-kopf .ict{width:64px;height:64px;background:#e4d2a6;border:3px solid var(--ink);padding:3px;box-shadow:0 0 0 2px var(--wood)}
+html:root[data-theme="dark"] .dialog-kopf .ict{background:#473526}
+.dialog-kopf h3{margin:0 0 3px;font:700 20px var(--px)}
+.dialog-zahl{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dialog-zahl input{width:92px;text-align:center;font:600 18px var(--mono);padding:6px}
+.dialog-zahl button{padding:5px 10px}
+.dialog-summe{margin:16px 0 4px;padding:10px 12px;background:var(--flaeche);border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring)}
+.dialog-summe .gk-kosten{font-size:16px;margin-bottom:6px}
+.dialog-summe .fehlt{color:var(--schlecht)}
+.dialog-leiste{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
