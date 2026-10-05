@@ -10,6 +10,13 @@ Links eine Seitenleiste (Hamburger-Menü) mit den Bereichen **Übersicht**,
 **Flotten-Manager**, **Upgrade-Bot** und **Allianz-Bot**. Einzelne Inseln
 lassen sich direkt verlinken, z. B. `#upgrade/447` oder `#flotte/20`.
 
+## Design
+
+Pixel-Optik nach `docs/design/dashboard-ui-referenz` (Repo SeekampfBot): Pergament-Logbuch
+auf Holzdielen, Pixelschrift (Pixelify Sans) und die freigestellten Pixel-Icons. Das Aussehen
+steckt in `static/pixel.css`, die Icons liegen unter `static/icons/` und werden über `/static`
+ausgeliefert. „Thema" wechselt zwischen Pergament (hell) und einer dunklen Holz-Variante.
+
 ## Gesundheit
 
 Menüpunkt **Gesundheit** (der Punkt im Menü ist grün/gelb/rot): je Bot der

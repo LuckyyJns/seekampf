@@ -36,6 +36,7 @@ import httpx
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 import gesundheit
 from karte import Karte
@@ -177,6 +178,10 @@ def _steuerung_aendern(bot: str, aendern) -> dict:
 def startseite():
     return FileResponse(os.path.join(BASE_DIR, "static", "index.html"),
                         headers={"Cache-Control": "no-cache"})
+
+
+# Stylesheet und Pixel-Icons der Seite (static/pixel.css, static/icons/*.png)
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
 # ------------------------------------------------------------------ Dienste

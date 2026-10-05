@@ -6,7 +6,7 @@
 <title>Seekampf-Hub</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: dark;
@@ -441,23 +441,24 @@
   .aenderung:hover { background: var(--flaeche-2); }
   .symbol-form { display: inline-block; width: 11px; height: 11px; background: var(--insel-hervor); flex: none; }
 </style>
+<link rel="stylesheet" href="/static/pixel.css">
 </head>
 <body>
 <nav id="seite" aria-label="Bereiche">
   <div class="marke-kopf">
-    <span class="logo"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2.2"/><path d="M12 7.2V21"/><path d="M8 11h8"/><path d="M4 14c0 4 3.6 7 8 7s8-3 8-7"/></svg></span>
+    <span class="logo"><img class="ict" src="/static/icons/koloschiff.png" width="48" height="48" alt="" aria-hidden="true"></span>
     <span class="logo-text"><b>Seekampf-Hub</b><span>Bots &amp; Inseln</span></span>
   </div>
-  <a href="#uebersicht" data-tab="uebersicht"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Übersicht</a>
-  <a href="#karte" data-tab="karte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15"/><path d="M15 6v15"/></svg>Karte</a>
-  <a href="#gesundheit" data-tab="gesundheit"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>Gesundheit<span class="dot" id="nav-dot-gesundheit"></span></a>
+  <a href="#uebersicht" data-tab="uebersicht"><span class="plate k"><img class="ict" src="/static/icons/eigene_insel.png" width="26" height="26" alt="" aria-hidden="true"></span>Übersicht</a>
+  <a href="#karte" data-tab="karte"><span class="plate k"><img class="ict" src="/static/icons/hinterland.png" width="26" height="26" alt="" aria-hidden="true"></span>Karte</a>
+  <a href="#gesundheit" data-tab="gesundheit"><span class="plate k"><img class="ict" src="/static/icons/wachturm.png" width="26" height="26" alt="" aria-hidden="true"></span>Gesundheit<span class="dot" id="nav-dot-gesundheit"></span></a>
   <div class="rubrik">Bots</div>
-  <a href="#flotte" data-tab="flotte"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/></svg>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
-  <a href="#ausgleich" data-tab="ausgleich"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h13"/><path d="M14 4l3 3-3 3"/><path d="M20 17H7"/><path d="M10 14l-3 3 3 3"/></svg>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
-  <a href="#upgrade" data-tab="upgrade"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/><path d="M12 11v.01"/></svg>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
-  <a href="#allianz" data-tab="allianz"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.6"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><path d="M15.5 14.8c2.6-.3 4.8 1.4 5.5 4.7"/></svg>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
-  <a href="#kolonie" data-tab="kolonie"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21h14"/><path d="M12 21V4"/><path d="M12 4l7 3-7 3"/><path d="M8 21c0-2 1.5-4 4-4s4 2 4 4"/></svg>Kolonisation<span class="dot" id="nav-dot-kolonie"></span></a>
-  <a href="#ausbildung" data-tab="ausbildung"><svg class="symbol" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>Ausbildung<span class="dot" id="nav-dot-ausbildung"></span></a>
+  <a href="#flotte" data-tab="flotte"><span class="plate k"><img class="ict" src="/static/icons/kleines_kriegsschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
+  <a href="#ausgleich" data-tab="ausgleich"><span class="plate k"><img class="ict" src="/static/icons/handelsroute.png" width="26" height="26" alt="" aria-hidden="true"></span>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
+  <a href="#upgrade" data-tab="upgrade"><span class="plate k"><img class="ict" src="/static/icons/haupthaus.png" width="26" height="26" alt="" aria-hidden="true"></span>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
+  <a href="#allianz" data-tab="allianz"><span class="plate k"><img class="ict" src="/static/icons/allianz_hilfe.png" width="26" height="26" alt="" aria-hidden="true"></span>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
+  <a href="#kolonie" data-tab="kolonie"><span class="plate k"><img class="ict" src="/static/icons/koloschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Kolonisation<span class="dot" id="nav-dot-kolonie"></span></a>
+  <a href="#ausbildung" data-tab="ausbildung"><span class="plate k"><img class="ict" src="/static/icons/kaserne.png" width="26" height="26" alt="" aria-hidden="true"></span>Ausbildung<span class="dot" id="nav-dot-ausbildung"></span></a>
   <div class="fuss">
     <button class="klein" id="thema" title="Hell/Dunkel umschalten"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px;margin-right:5px"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>Thema</button>
     <span id="uhr" class="mono"></span>
@@ -856,6 +857,10 @@ const SCHIFF_NAMEN = {
   steinewerfer: "Steinewerfer", speerkaempfer: "Speerkämpfer", bogenschuetze: "Bogenschütze",
 };
 const sname = (t) => SCHIFF_NAMEN[t] || t;
+const ICONS_VORHANDEN = new Set(["haupthaus","goldmine","steingrube","saegewerk","lagerhaus","steinmauer","wachturm","kaserne","hafen","gold","stein","holz","steinewerfer","speerkaempfer","bogenschuetze","kleines_kriegsschiff","grosses_kriegsschiff","kleines_handelsschiff","grosses_handelsschiff","spaehschiff","koloschiff","handelsroute","allianz_hilfe","eigene_insel","hinterland"]);
+const IK = (n, s = 22) => `<img class="ict" src="/static/icons/${n}.png" width="${s}" height="${s}" alt="" aria-hidden="true">`;
+const gico = (t, s = 24) => ICONS_VORHANDEN.has(t) ? IK(t, s) : "";
+const ROHSTOFF_ICON = (k) => IK(k, 24);
 const ROHSTOFFE = [["gold", "Gold"], ["stein", "Stein"], ["holz", "Holz"]];
 function beuteText(b) {
   if (!b) return "–";
@@ -1015,7 +1020,7 @@ function zeichneAusbildung() {
     el.dataset.gebaut = stand;
     const E = ausbildung.einheiten;
     el.innerHTML = `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th class="zahl">Kaserne</th>
-        ${E.map(e => `<th>${EINHEIT_NAME[e] || e}<div class="leise klein-text" style="font-weight:normal">Soll · vorhanden</div></th>`).join("")}<th>Hinweis</th></tr></thead>
+        ${E.map(e => `<th><span style="display:inline-flex;gap:6px;align-items:center">${gico(e, 24)}${EINHEIT_NAME[e] || e}</span><div class="leise klein-text" style="font-weight:normal">Soll · vorhanden</div></th>`).join("")}<th>Hinweis</th></tr></thead>
       <tbody>${ausbildung.inseln.map(i => {
         const b = i.bericht;
         return `<tr><td>${esc(i.name)} <span class="leise mono klein-text">${esc(i.koordinaten)}</span>${i.bedrohung ? ` <span class="marke schlecht"><span class="punkt"></span>bedroht</span>` : ""}</td>
@@ -1300,7 +1305,7 @@ function diagramm(id, reihe) {
   svg += `</svg>`;
 
   const legende = `<div class="legende" style="margin-bottom:8px">${ROHSTOFFE.map(([k, name]) =>
-    `<span><i class="swatch" style="background:var(--${k})"></i>${name}</span>`).join("")}
+    `<span>${ROHSTOFF_ICON(k)}${name}</span>`).join("")}
     <span class="leise" style="margin-left:auto">Summe ${zahl(reihe.reduce((a, d) => a + summe(d), 0))} · ${zahl(reihe.reduce((a, d) => a + d.raids, 0))} Raids</span></div>`;
   el.innerHTML = `${legende}<div class="diagramm">${svg}<div class="tooltip"></div></div>`;
 
@@ -1310,7 +1315,7 @@ function diagramm(id, reihe) {
       const d = reihe[+r.dataset.i];
       const [j, m, t] = d.datum.split("-");
       tip.innerHTML = `<div style="margin-bottom:4px"><b>${t}.${m}.${j}</b></div>` +
-        ROHSTOFFE.map(([k, name]) => `<div class="zeile"><span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${name}</span><b>${zahl(d[k])}</b></div>`).join("") +
+        ROHSTOFFE.map(([k, name]) => `<div class="zeile"><span class="res-key">${ROHSTOFF_ICON(k)}${name}</span><b>${zahl(d[k])}</b></div>`).join("") +
         `<div class="zeile" style="border-top:1px solid var(--rand);margin-top:4px;padding-top:4px"><span>Summe</span><b>${zahl(summe(d))}</b></div>` +
         `<div class="zeile"><span>Raids</span><b>${zahl(d.raids)}</b></div>`;
       tip.style.display = "block";
@@ -1429,7 +1434,7 @@ function kachelnHtml(s) {
     { wert: zahl(s.loot_pro_stunde), label: "Loot / Stunde", icon: "⚡", klasse: "signal" },
   ];
   return k.map(x => `<div class="kachel ${x.klasse || ""}" ${x.farbe ? `style="--kachel-farbe:${x.farbe}"` : ""}>
-      <div class="beschriftung">${x.farbe ? `<i class="swatch" style="background:${x.farbe}"></i>` : ""}${x.icon ? `<span>${x.icon}</span>` : ""}${x.label}</div>
+      <div class="beschriftung">${x.farbe ? ROHSTOFF_ICON(x.label.toLowerCase().split(" ")[0]) : ""}${x.icon ? IK("gold", 24) : ""}${x.label}</div>
       <div class="wert">${x.wert}</div></div>`).join("");
 }
 /** Kuerzel + Farbverlauf je Insel, stabil ueber die ID. */
@@ -1438,7 +1443,7 @@ function avatar(name, id) {
   const worte = String(name || "?").trim().split(/\s+/);
   const kurz = worte.length > 1 ? (worte[0][0] + worte[worte.length - 1].slice(0, 2)) : worte[0][0];
   const [a1, a2] = AVATAR_FARBEN[Math.abs(Number(id) || 0) % AVATAR_FARBEN.length];
-  return `<span class="avatar" style="--a1:${a1};--a2:${a2}">${esc(kurz.toUpperCase())}</span>`;
+  return `<span class="avatar" title="${esc(name)}">${IK("eigene_insel", 34)}</span>`;
 }
 function flottenBestand(i) {
   const s = i.schiffe || {}, t = i.truppen || {};
@@ -1744,7 +1749,7 @@ function zeichneUpgrade() {
         : steuer.aktiv ? `<span class="marke gut"><span class="punkt"></span>an</span>` : `<span class="marke grau"><span class="punkt"></span>aus</span>`}
       ${modusMarke}
       <span class="info">
-        ${aktiv ? `<span>baut <b>${esc(gname(aktiv.gebaeude))} → ${aktiv.ziel_stufe}</b> · ${countdown(aktiv.finish_at)}</span>` : `<span>nichts im Bau</span>`}
+        ${aktiv ? `<span>baut ${gico(aktiv.gebaeude)}<b>${esc(gname(aktiv.gebaeude))} → ${aktiv.ziel_stufe}</b> · ${countdown(aktiv.finish_at)}</span>` : `<span>nichts im Bau</span>`}
         <span>${schlange.length}/${st.max_warteschlange} in der Schlange</span>
       </span>
       <span class="schalter-platz"><label class="schalter" title="Upgrade-Bot auf dieser Insel">
@@ -1756,7 +1761,7 @@ function zeichneUpgrade() {
     // Lager
     const r = i.rohstoffe || {}, kap = r.kapazitaet || 1, prod = r.produktion_pro_h || {};
     karte.querySelector('[data-teil="lager"]').innerHTML = `<div class="res">${ROHSTOFFE.map(([k, n]) => `
-      <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+      <span class="res-key">${ROHSTOFF_ICON(k)}${n}</span>
       <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
       <span class="mono">${zahl(r[k])} <span class="leise">+${zahl(prod[k])}/h</span></span>`).join("")}</div>
       <div class="leise klein-text" style="margin-top:6px">Kapazität ${zahl(kap)} je Rohstoff</div>`;
@@ -1764,7 +1769,7 @@ function zeichneUpgrade() {
     karte.querySelector('[data-teil="schlange"]').innerHTML = schlange.length
       ? `<ul class="schlange">${schlange.map(o => `<li>
           <span class="marke ${o.status === "aktiv" ? "" : "grau"}">${o.status === "aktiv" ? "im Bau" : "wartet"}</span>
-          <span><b>${esc(gname(o.gebaeude))}</b> → Stufe ${o.ziel_stufe}</span>
+          ${gico(o.gebaeude)}<span><b>${esc(gname(o.gebaeude))}</b> → Stufe ${o.ziel_stufe}</span>
           <span class="rest">${o.status === "aktiv" ? `fertig in <b>${countdown(o.finish_at)}</b> <span class="leise">(${uhrzeit(o.finish_at)})</span>`
             : `<span class="leise">startet ${uhrzeit(o.start_at)}</span>`}</span></li>`).join("")}</ul>`
       : `<div class="leise klein-text">Warteschlange leer</div>`;
@@ -1777,7 +1782,7 @@ function zeichneUpgrade() {
       const fehlt = Object.entries(p.fehlt || {}).map(([k, v]) => `${zahl(v)} ${k[0].toUpperCase() + k.slice(1)}`).join(", ");
       const wann = p.in_s === null ? (p.unerreichbar === "lager" ? "passt nicht ins Lager – Lagerhaus nötig" : "ohne Produktion nicht erreichbar")
         : p.in_s <= 0 ? "sofort" : `in ${dauer(p.in_s)} (ca. ${uhrzeit(jetzt() + p.in_s)})`;
-      planHtml = `<b>${esc(gname(p.gebaeude))} → Stufe ${p.ziel_stufe}</b> · ${wann}${fehlt ? ` <span class="leise">· es fehlen ${fehlt}</span>` : ""}`;
+      planHtml = `${gico(p.gebaeude)}<b>${esc(gname(p.gebaeude))} → Stufe ${p.ziel_stufe}</b> · ${wann}${fehlt ? ` <span class="leise">· es fehlen ${fehlt}</span>` : ""}`;
     }
     karte.querySelector('[data-teil="plan"]').innerHTML = `<div class="hinweisbox">${planHtml}
       ${i.hinweis ? `<div class="leise klein-text" style="margin-top:6px">${esc(i.hinweis)}</div>` : ""}</div>`;
@@ -1801,7 +1806,7 @@ function zeichneUpgrade() {
     karte.querySelector('[data-teil="gebaeude"]').innerHTML = `<div class="tabelle-rahmen"><table><thead><tr>
         <th>Gebäude</th><th class="zahl">Stufe</th><th class="zahl verstecken-schmal">Nächste</th><th class="verstecken-schmal">Kosten (G / S / H)</th><th class="zahl verstecken-schmal">Bauzeit</th></tr></thead><tbody>
       ${(i.gebaeude || []).filter(g => upgrade.gebaeude.includes(g.typ)).map(g => `<tr>
-        <td>${esc(gname(g.typ))}${steuer.gesperrt.includes(g.typ) ? ` <span class="marke grau">gesperrt</span>` : ""}</td>
+        ${gico(g.typ)}<td>${esc(gname(g.typ))}${steuer.gesperrt.includes(g.typ) ? ` <span class="marke grau">gesperrt</span>` : ""}</td>
         <td class="zahl">${g.stufe}</td>
         <td class="zahl verstecken-schmal">${g.naechste_stufe ?? (g.verfuegbar ? "max" : `ab HH ${g.haupthaus_ab}`)}</td>
         <td class="verstecken-schmal mono">${g.kosten ? ROHSTOFFE.map(([k]) => zahl(g.kosten[k])).join(" / ") : "–"}</td>
@@ -2111,22 +2116,17 @@ function zeichneUebersichtDienste() {
   $("ue-dienste").innerHTML = Object.entries(dienste).map(([name, d]) => `
     <section class="karte dienst-karte" style="margin:0">
       <div class="oben">
-        ${name !== "hub" ? `<a href="#${name}">${esc(d.titel)} →</a>` : `<b>${esc(d.titel)}</b>`}
+        ${name !== "hub" ? `${IK(({flotte:"kleines_kriegsschiff",upgrade:"haupthaus",allianz:"allianz_hilfe",kolonie:"koloschiff",ausbildung:"kaserne"})[name] || "wachturm", 30)}<a href="#${name}">${esc(d.titel)} →</a>` : `<b>${esc(d.titel)}</b>`}
         ${dienstMarke(d)}</div>
       <div class="leise klein-text">${d.seit && d.zustand === "active" ? `läuft seit ${uhrzeit(d.seit, true)}` : esc(d.ergebnis || "")}
         ${d.neustarts ? ` · ${d.neustarts} Neustarts` : ""}${extra[name]?.() ? ` · ${extra[name]()}` : ""}</div>
       <div class="dienst"><span class="knoepfe">${dienstKnoepfe(name, d)}</span></div>
     </section>`).join("");
 }
-const HELD_ICONS = {
-  loot: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
-  flotte: '<path d="M12 3v13"/><path d="M12 4l7 10h-7"/><path d="M3 18c2 2 4 2 6 0s4-2 6 0 4 2 6 0"/>',
-  bau: '<path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6"/>',
-  allianz: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5"/><circle cx="17" cy="9" r="2.6"/>',
-};
+const HELD_ICONS = { loot: "gold", flotte: "kleines_kriegsschiff", bau: "haupthaus", allianz: "allianz_hilfe" };
 function heldKachel(icon, farbe, label, wert, unter) {
   return `<div class="kachel" style="--kachel-farbe:${farbe}">
-    <div class="beschriftung"><span class="icon"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${HELD_ICONS[icon]}</svg></span>${label}</div>
+    <div class="beschriftung"><span class="icon">${IK(HELD_ICONS[icon], 30)}</span>${label}</div>
     <div class="wert">${wert}</div><div class="unter">${unter}</div></div>`;
 }
 function zeichneUebersichtHeld() {
@@ -2182,11 +2182,11 @@ function zeichneUebersichtInseln() {
         <span class="namenblock"><b>${esc(x.name)}</b><span class="leise mono klein-text">${esc(x.koord)}</span></span></div>
       <div class="chips-zeile">${chips}</div>
       <div class="res">${ROHSTOFFE.map(([k, n]) => `
-        <span class="res-key"><i class="swatch" style="background:var(--${k})"></i>${n}</span>
+        <span class="res-key">${ROHSTOFF_ICON(k)}${n}</span>
         <span class="leiste"><i style="width:${Math.min(100, 100 * (r[k] || 0) / kap)}%;background:var(--${k})"></i></span>
         <span class="mono klein-text">${kompakt(r[k])}${prod[k] ? ` <span class="leise">+${kompakt(prod[k])}/h</span>` : ""}</span>`).join("")}</div>
       <div class="fakten">
-        <div><span class="etikett">Baut gerade</span><b>${bau ? `${esc(gname(bau.gebaeude))} → ${bau.ziel_stufe}` : "–"}</b>${bau ? `<div class="leise klein-text">${countdown(bau.finish_at)}</div>` : ""}</div>
+        <div><span class="etikett">Baut gerade</span><b>${bau ? `${gico(bau.gebaeude, 20)} ${esc(gname(bau.gebaeude))} → ${bau.ziel_stufe}` : "–"}</b>${bau ? `<div class="leise klein-text">${countdown(bau.finish_at)}</div>` : ""}</div>
         <div><span class="etikett">Flotten</span><b>${fl} unterwegs</b><div class="leise klein-text">Lager ${kompakt(kap)}</div></div>
       </div>
     </div>`;
@@ -2830,7 +2830,7 @@ function zeichneAusgleichInsel(i, st) {
     return teile.join(" ");
   };
   k.querySelector('[data-teil="balken"]').innerHTML = `<div class="res" style="grid-template-columns:56px 1fr auto">${ROHSTOFFE.map(([x, n]) => `
-      <span class="res-key"><i class="swatch" style="background:var(--${x})"></i>${n}</span>
+      <span class="res-key">${ROHSTOFF_ICON(x)}${n}</span>
       ${ausgleichLeiste(r, x, kap, i.unterwegs?.[x], e.bekommt ? i.soll?.[x] / kap : null, e.gibt ? i.grenze?.[x] / kap : null)}
       <span class="mono klein-text">${zahlen(x)}</span>`).join("")}</div>`;
 
@@ -2873,7 +2873,7 @@ function zeichneAusgleich() {
     { wert: zahl(a.stand.fahrten || 0), label: "Lieferungen" },
     ...ROHSTOFFE.map(([k, n]) => ({ wert: zahl(g[k] || 0), label: `${n} geliefert`, farbe: `var(--${k})` })),
   ].map(x => `<div class="kachel" ${x.farbe ? `style="--kachel-farbe:${x.farbe}"` : ""}>
-      <div class="beschriftung">${x.farbe ? `<i class="swatch" style="background:${x.farbe}"></i>` : ""}${x.label}</div>
+      <div class="beschriftung">${x.farbe && /^(gold|stein|holz)/i.test(x.label) ? ROHSTOFF_ICON(x.label.toLowerCase().split(" ")[0]) : (x.farbe ? `<i class="swatch" style="background:${x.farbe}"></i>` : "")}${x.label}</div>
       <div class="wert">${x.wert}</div></div>`).join("");
 
   const eigene = a.inseln.filter(i => i.gehoert_uns);

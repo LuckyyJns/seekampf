@@ -1,0 +1,234 @@
+/* ==========================================================================
+   Pixel-Design (Pergament-Logbuch auf Holzdielen) nach docs/design/dashboard-ui-referenz
+   Legt sich über das bestehende Hub-Stylesheet; Klassen und Funktionen bleiben gleich.
+   ========================================================================== */
+:root{
+  --ink:#07090b; --ivory:#f1e3bf; --ivory-d:#c9b78c; --wood:#8a5a2b; --wood-d:#5a3a1c; --wood-l:#b57a3e;
+  --teal:#2fb3c2; --teal-d:#1d7f8b;
+  --px:'Pixelify Sans','IBM Plex Mono',monospace; --body:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+/* ---------- Farbwerte: Pergament (hell) ---------- */
+html:root:not([data-theme="dark"]){
+  color-scheme: light;
+  --bg:#2a1b0e; --bg-verlauf:none; --seite:#f1e3bf; --plank-a:#2a1b0e; --plank-b:#241709;
+  --flaeche:#fff8e4; --flaeche-2:#f4e8c8; --flaeche-3:#e4d2a6; --rand:#d3bd8b; --rand-stark:#8a5a2b;
+  --text:#2a1b0e; --gedaempft:#6a5236; --schwach:#8a6a40;
+  --akzent:#1d7f8b; --akzent-2:#2fb3c2; --akzent-text:#06242a;
+  --gut:#2d8a5c; --warn:#a86a10; --schlecht:#b8352a; --signal:#c2570d;
+  --gold:#d19a00; --stein:#6c7b8e; --holz:#8a5a2b;
+  --serie-1:#1d7f8b; --serie-2:#c2570d; --serie-3:#2d8a5c; --serie-4:#d19a00; --serie-5:#a8446e; --serie-6:#5a7a20; --serie-7:#6a54b8; --serie-8:#b8352a;
+  --schatten:none; --radius:0; --radius-klein:0; --nav-breite:262px;
+  --nav-bg:#f1e3bf; --nav-text:#4a3220; --nav-gedaempft:#8a6a40; --log-bg:#16110b; --log-text:#d9c9a0;
+  --meer:#a9c9c6; --meer-welt:#c3dcd8; --meer-gitter:#9dbbb8; --meer-gitter-stark:#7fa3a0;
+  --insel-neutral:#8a6a40; --insel-frei:#5a4a38; --insel-hervor:#c2570d; --insel-rand:#f1e3bf; --glow:0;
+  --tag-bg:#e4d2a6; --tag-gut:#bfe3c6; --tag-warn:#f3d79a; --tag-bad:#e9b3ac; --tag-grau:#ddd0ae;
+  --nav-aktiv-bg:#8a5a2b; --nav-aktiv-text:#f1e3bf; --kopf-bg:#3a2614; --ring:#8a5a2b;
+}
+/* ---------- Farbwerte: Nacht (dunkel) ---------- */
+html:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#150e07; --bg-verlauf:none; --seite:#241a11; --plank-a:#150e07; --plank-b:#100a05;
+  --flaeche:#2e2318; --flaeche-2:#38291c; --flaeche-3:#473526; --rand:#4a3826; --rand-stark:#8a5a2b;
+  --text:#f1e3bf; --gedaempft:#c9b78c; --schwach:#a08a60;
+  --akzent:#2fb3c2; --akzent-2:#2fb3c2; --akzent-text:#06242a;
+  --gut:#4cc38a; --warn:#e0a43a; --schlecht:#f0645a; --signal:#f59e4b;
+  --gold:#f2b705; --stein:#9aa3ad; --holz:#c58a4e;
+  --serie-1:#2fb3c2; --serie-2:#f59e4b; --serie-3:#4cc38a; --serie-4:#f2b705; --serie-5:#e07aa4; --serie-6:#9bc34a; --serie-7:#9a8aea; --serie-8:#f0645a;
+  --schatten:none; --radius:0; --radius-klein:0; --nav-breite:262px;
+  --nav-bg:#3a2614; --nav-text:#d9c9a0; --nav-gedaempft:#a08a60; --log-bg:#0d0905; --log-text:#d9c9a0;
+  --glow:0; --tag-bg:#473526; --tag-gut:#1f4a36; --tag-warn:#5a4318; --tag-bad:#5a2420; --tag-grau:#3d3224;
+  --nav-aktiv-bg:#f1e3bf; --nav-aktiv-text:#3a2614; --kopf-bg:#2a1b0e; --ring:#8a5a2b;
+}
+*{border-radius:0 !important;}
+html:root{ --ict-rand:1; }
+body{
+  background: repeating-linear-gradient(90deg,var(--plank-a) 0 78px,var(--plank-b) 78px 80px) fixed;
+  font:14px/1.5 var(--body); color:var(--text);
+}
+::selection{background:var(--teal);color:#06242a}
+.ict{display:inline-block;vertical-align:-6px;image-rendering:pixelated;flex:none}
+.plate{display:inline-grid;place-items:center;width:40px;height:40px;background:#e4d2a6;border:3px solid var(--ink);
+  box-shadow:0 0 0 2px var(--wood),inset 0 -3px 0 #d3bd8b;flex:none}
+.plate.k{width:34px;height:34px;border-width:2px;box-shadow:0 0 0 1px var(--wood),inset 0 -3px 0 #d3bd8b}
+.res-ik{width:22px;height:22px}
+
+/* ---------- Seitenleiste ---------- */
+nav#seite{background:var(--nav-bg);border-right:4px solid var(--ink);box-shadow:inset -4px 0 0 var(--ivory-d);padding:14px 12px 16px;gap:2px;color:var(--nav-text)}
+html:root[data-theme="dark"] nav#seite{background:linear-gradient(#3a2614,#2a1b0e);box-shadow:inset -4px 0 0 var(--wood-d)}
+nav#seite .marke-kopf{padding:4px 6px 14px;gap:10px}
+nav#seite .logo{width:auto;height:auto;background:none;box-shadow:none;color:inherit}
+nav#seite .logo-text b{font:700 21px var(--px);color:#3a2614;letter-spacing:.02em}
+html:root[data-theme="dark"] nav#seite .logo-text b{color:var(--ivory);text-shadow:2px 2px 0 var(--ink)}
+nav#seite .logo-text span{font:11px var(--mono);letter-spacing:0;color:var(--nav-gedaempft)}
+nav#seite .rubrik{font:700 12px var(--px);letter-spacing:.14em;text-transform:uppercase;color:var(--wood);padding:14px 6px 4px;display:flex;align-items:center;gap:8px}
+nav#seite .rubrik::after{content:'';flex:1;height:3px;background:currentColor;opacity:.3}
+nav#seite a{font:500 16px var(--px);padding:4px 8px;margin:3px 0;gap:10px;border:3px solid transparent;color:var(--nav-text)}
+nav#seite a:hover{background:#e4d2a6;color:#2a1b0e}
+html:root[data-theme="dark"] nav#seite a:hover{background:#4a3220;color:var(--ivory)}
+nav#seite a.aktiv{background:var(--nav-aktiv-bg);color:var(--nav-aktiv-text);border-color:var(--ink);box-shadow:inset 0 3px 0 var(--wood-l),3px 3px 0 var(--ink)}
+html:root[data-theme="dark"] nav#seite a.aktiv{box-shadow:inset 0 -4px 0 var(--ivory-d),3px 3px 0 var(--ink)}
+nav#seite a.aktiv::before{display:none}
+nav#seite a .dot{width:11px;height:11px;border:2px solid var(--ink);box-shadow:none}
+nav#seite .fuss{border-top:3px solid var(--ink);margin-top:auto;padding:12px 6px 0}
+nav#seite .fuss button{background:#e4d2a6;border-color:var(--ink);color:#2a1b0e}
+html:root[data-theme="dark"] nav#seite .fuss button{background:#4a3220;color:var(--ivory)}
+nav#seite #uhr{font:12px var(--mono);color:var(--nav-gedaempft)}
+#schleier{background:rgb(7 9 11 / .6);backdrop-filter:none}
+
+/* ---------- Kopfleiste auf dem Holz ---------- */
+.kopf{background:var(--kopf-bg);backdrop-filter:none;border-bottom:4px solid var(--ink);box-shadow:inset 0 -4px 0 var(--wood-d);padding:10px 24px;color:var(--ivory)}
+.kopf h1{font:700 clamp(20px,2.4vw,27px)/1.2 var(--px);color:var(--ivory);text-shadow:2px 2px 0 var(--ink);letter-spacing:.01em}
+.kopf #untertitel{color:var(--ivory-d);font-size:13px}
+#hamburger{background:var(--wood);border:3px solid var(--ink);box-shadow:inset 0 3px 0 var(--wood-l),3px 3px 0 var(--ink);color:var(--ivory);width:44px;height:40px}
+#hamburger:hover{border-color:var(--ink);filter:brightness(1.15)}
+main{min-width:0}
+.huelle{max-width:1320px;width:calc(100% - 48px);margin:22px auto 70px;padding:22px 22px 36px;background:var(--seite);
+  border:4px solid var(--ink);box-shadow:inset 0 0 0 3px var(--ivory-d),6px 6px 0 var(--ink)}
+html:root[data-theme="dark"] .huelle{box-shadow:inset 0 0 0 3px var(--wood-d),6px 6px 0 var(--ink)}
+@media (max-width:900px){.huelle{width:calc(100% - 20px);margin:10px auto 50px;padding:14px 12px 28px}.kopf{padding:8px 12px}}
+
+/* ---------- Überschriften ---------- */
+h2{font:700 17px var(--px);color:var(--wood);letter-spacing:.06em;text-transform:uppercase;gap:8px;width:100%}
+html:root[data-theme="dark"] h2{color:var(--wood-l)}
+h2::before{display:none}
+h2::after{content:'';flex:1;height:3px;background:var(--wood);opacity:.35}
+.kopfzeile h2,.abschnitt-kopf h2{width:auto;flex:1}
+h3{font:700 16px var(--px)}
+
+/* ---------- Karten, Kacheln ---------- */
+section.karte,.insel-karte,.insel-kachel,.kachel,.hinweisbox,.vorgang,.fehler,.karten-rahmen{
+  background:var(--flaeche);border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring);margin-left:2px;margin-right:2px}
+section.karte{margin-bottom:24px;padding:16px 18px}
+.insel-karte{margin-bottom:16px}
+.insel-karte.offen{border-color:var(--ink);box-shadow:0 0 0 2px var(--teal)}
+.insel-karte:hover{border-color:var(--ink)}
+.insel-rumpf{border-top:3px double var(--wood)}
+.kachel{box-shadow:0 0 0 2px var(--ring);padding:12px 14px}
+.kachel::after{height:6px;border-bottom:3px solid var(--ink);background:var(--kachel-farbe,transparent)}
+.kachel .beschriftung{font:500 13px var(--px);color:var(--gedaempft);gap:8px;letter-spacing:.02em;margin-top:4px}
+.kachel .wert{font:700 clamp(21px,2.3vw,28px) var(--px);letter-spacing:.01em}
+.kachel.signal{background:#bfe3e8;color:#06242a;border-color:var(--ink)}
+.kachel.signal .beschriftung{color:#0b4a54}
+html:root[data-theme="dark"] .kachel.signal{background:#16414a;color:var(--ivory)}
+html:root[data-theme="dark"] .kachel.signal .beschriftung{color:#7ad6e2}
+.kacheln.klein .kachel{background:var(--flaeche-2);box-shadow:0 0 0 2px var(--ring)}
+.held .icon{width:40px;height:40px;background:#e4d2a6;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--wood),inset 0 -3px 0 #d3bd8b;color:inherit}
+html:root[data-theme="dark"] .held .icon{background:#473526}
+.held .kachel .unter{font-size:13px}
+.insel-kachel .fakten > div{background:var(--flaeche-2);border:2px dashed var(--ivory-d);padding:6px 9px}
+html:root[data-theme="dark"] .insel-kachel .fakten > div{border-color:var(--rand)}
+.insel-kachel .oben b,.insel-kopf .titel{font:700 17px var(--px)}
+.insel-kachel .fakten .etikett,.kachel .etikett{font:500 11px var(--mono);letter-spacing:.04em}
+.avatar{width:46px;height:46px;background:#e4d2a6 !important;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--wood),inset 0 -3px 0 #d3bd8b;color:#2a1b0e}
+html:root[data-theme="dark"] .avatar{background:#473526 !important}
+.hinweisbox,.vorgang{box-shadow:0 0 0 2px var(--ring);background:var(--flaeche-2)}
+.vorgang{border-left-width:8px}
+.fehler{background:#e9b3ac;color:#2a1b0e;border-color:var(--ink);box-shadow:0 0 0 2px var(--schlecht)}
+html:root[data-theme="dark"] .fehler{background:#5a2420;color:var(--ivory)}
+
+/* ---------- Marken (Chips) ---------- */
+.marke{font:600 12.5px var(--body);background:var(--tag-bg);color:var(--text);border:2px solid var(--ink);padding:0 8px;gap:6px;line-height:1.6}
+.marke.gut{background:var(--tag-gut);color:var(--text);border-color:var(--ink)}
+.marke.warn{background:var(--tag-warn);color:var(--text);border-color:var(--ink)}
+.marke.schlecht{background:var(--tag-bad);color:var(--text);border-color:var(--ink)}
+.marke.grau{background:var(--tag-grau);color:var(--gedaempft);border-color:var(--ink)}
+.punkt{width:8px;height:8px;border-radius:0;background:currentColor;border:2px solid var(--ink);box-sizing:content-box;width:6px;height:6px}
+.marke.gut .punkt{background:var(--gut);box-shadow:none}.marke.warn .punkt{background:var(--warn)}.marke.schlecht .punkt{background:var(--schlecht)}.marke.grau .punkt{background:var(--schwach)}
+.dot{border-radius:0;width:11px;height:11px;border:2px solid var(--ink)}
+
+/* ---------- Knöpfe ---------- */
+button{font:500 14px var(--px);letter-spacing:.02em;padding:6px 14px;border:3px solid var(--ink);background:#e4d2a6;color:#2a1b0e;
+  box-shadow:inset 0 -3px 0 #d3bd8b,3px 3px 0 var(--ink);transition:none}
+html:root[data-theme="dark"] button{background:#4a3220;color:var(--ivory);box-shadow:inset 0 3px 0 #6a4a30,3px 3px 0 var(--ink)}
+button:hover:not(:disabled){border-color:var(--ink);background:#ecdcb2;filter:brightness(1.04)}
+html:root[data-theme="dark"] button:hover:not(:disabled){background:#5a3f28}
+button:active:not(:disabled){transform:translate(2px,2px);box-shadow:inset 0 -3px 0 #d3bd8b,1px 1px 0 var(--ink)}
+button:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+button:disabled{opacity:.5;box-shadow:3px 3px 0 var(--ink)}
+button.haupt{background:var(--teal);color:#06242a;border-color:var(--ink);box-shadow:inset 0 3px 0 #6fd6e2,3px 3px 0 var(--ink)}
+button.haupt:hover:not(:disabled){background:#4fc6d4;filter:none}
+button.stop{background:#f0645a;color:#2a0a08;border-color:var(--ink);box-shadow:inset 0 3px 0 #f69a93,3px 3px 0 var(--ink)}
+button.stop:hover:not(:disabled){background:#f47a71;filter:none}
+button.klein{padding:3px 10px;font-size:13px;border-width:2px;box-shadow:inset 0 -2px 0 #d3bd8b,2px 2px 0 var(--ink)}
+html:root[data-theme="dark"] button.klein{box-shadow:inset 0 2px 0 #6a4a30,2px 2px 0 var(--ink)}
+
+/* ---------- Schalter, Formulare ---------- */
+.schalter{font-size:14px}
+.schalter .spur{width:48px;height:26px;background:#d6c08a;border:3px solid var(--ink);box-shadow:none}
+.schalter .spur::after{top:2px;left:2px;width:16px;height:16px;background:var(--wood-d);box-shadow:none}
+.schalter input:checked + .spur{background:var(--teal);border-color:var(--ink)}
+.schalter input:checked + .spur::after{transform:translateX(22px);background:var(--ink)}
+.feld label,.feld .label{font:500 12px var(--px);letter-spacing:.06em;color:var(--wood)}
+html:root[data-theme="dark"] .feld label,html:root[data-theme="dark"] .feld .label{color:var(--wood-l)}
+.feld input:not([type=checkbox]),.feld select,select.eingabe,.karten-leiste input.eingabe,input[type=text],input[type=number],select{
+  background:#fff8e4;border:3px solid var(--ink);color:#2a1b0e;font:500 14px var(--mono);padding:6px 9px}
+html:root[data-theme="dark"] .feld input:not([type=checkbox]),html:root[data-theme="dark"] .feld select,html:root[data-theme="dark"] select.eingabe,html:root[data-theme="dark"] .karten-leiste input.eingabe{background:#1b140c;color:var(--ivory)}
+.feld input:not([type=checkbox]):focus,.feld select:focus,select.eingabe:focus{border-color:var(--ink);box-shadow:0 0 0 3px var(--teal)}
+input[type=checkbox]{accent-color:var(--teal-d);width:18px;height:18px}
+.gruppe{font:700 13px var(--px);color:var(--wood);border-top:3px double var(--wood)}
+.chips label{border:2px solid var(--ink);background:var(--flaeche-2);padding:2px 10px 2px 8px;font-size:13px}
+.chips label:has(input:checked){background:var(--tag-bad);border-color:var(--ink)}
+.segment{background:var(--flaeche-2);border:3px solid var(--ink);padding:2px;box-shadow:none}
+.segment button{border:0;box-shadow:none;background:transparent;padding:3px 12px;font-size:13.5px}
+.segment button.an{background:var(--teal);color:#06242a;box-shadow:inset 0 3px 0 #6fd6e2}
+.ebenen label{border:2px solid var(--ink);background:var(--flaeche-2);padding:2px 10px 2px 8px;font:500 13px var(--body)}
+.ebenen label:has(input:checked){background:#bfe3e8;border-color:var(--ink)}
+html:root[data-theme="dark"] .ebenen label:has(input:checked){background:#16414a}
+.ungespeichert-marke{font:500 13px var(--px)}
+
+/* ---------- Tabellen ---------- */
+table{font-size:14px}
+th{font:700 12px var(--px);letter-spacing:.05em;text-transform:uppercase;color:var(--wood);border-bottom:3px solid var(--wood);background:transparent;padding:6px 10px 6px 0}
+html:root[data-theme="dark"] th{color:var(--wood-l)}
+td{border-top:2px dashed var(--ivory-d);padding:8px 10px 8px 0}
+html:root[data-theme="dark"] td{border-top-color:var(--rand)}
+tbody tr:hover{background:color-mix(in srgb,var(--teal) 10%,transparent)}
+.mono{font-family:var(--mono)}
+
+/* ---------- Balken ---------- */
+.balken,.res .leiste,.aus-leiste{height:12px;background:#d6c08a;border:2px solid var(--ink);overflow:hidden;position:relative}
+html:root[data-theme="dark"] .balken,html:root[data-theme="dark"] .res .leiste,html:root[data-theme="dark"] .aus-leiste{background:#1b140c}
+.balken{margin-top:5px}
+.balken > i{background:var(--teal)}
+.res .leiste i,.balken > i{position:relative}
+.res .leiste i::after,.balken > i::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 6px,rgb(7 9 11 / .35) 6px 8px)}
+.aus-leiste .strich{background:var(--ink);opacity:1;width:3px}
+
+/* ---------- Warteschlange, Listen ---------- */
+.schlange li{background:#f7ecd0;border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring);margin:0 2px 10px}
+html:root[data-theme="dark"] .schlange li{background:var(--flaeche-2)}
+.faehigkeit{border-top:2px dashed var(--ivory-d)}
+.ges-liste li{border-top:2px dashed var(--ivory-d)}
+.info-zeile{border-top:2px dashed var(--ivory-d)}
+.aenderung{border-top:2px dashed var(--ivory-d)}
+.legende-liste button{border:2px solid transparent;box-shadow:none;background:transparent;font:500 14px var(--body)}
+.legende-liste button:hover{background:var(--flaeche-3)}
+.legende-liste button.an{border-color:var(--ink);background:#bfe3e8}
+html:root[data-theme="dark"] .legende-liste button.an{background:#16414a}
+.kreis{border-radius:0;box-shadow:none;border:2px solid var(--ink)}
+
+/* ---------- Dienste ---------- */
+.dienst-karte .oben a,.dienst-karte .oben b{font:700 16px var(--px)}
+.dienst-karte .oben a:hover{color:var(--teal-d)}
+
+/* ---------- Diagramme, Log, Karte, Meldungen ---------- */
+.diagramm .gitter{stroke:var(--ivory-d);stroke-dasharray:3 3}
+html:root[data-theme="dark"] .diagramm .gitter{stroke:var(--rand)}
+.diagramm .achse text{font-family:var(--mono);fill:var(--gedaempft)}
+.legende{font-size:13px;color:var(--gedaempft)}
+.linien-legende i{height:4px;border-radius:0}
+pre.log{border:3px solid var(--ink);box-shadow:0 0 0 2px var(--ring);font-family:var(--mono)}
+.tooltip,.karten-tip{background:var(--flaeche);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);padding:8px 11px}
+.meldung{background:var(--flaeche);color:var(--text);border:3px solid var(--ink);border-left-width:10px;box-shadow:4px 4px 0 var(--ink)}
+.karten-rahmen{border-color:var(--ink);height:calc(100vh - 330px)}
+.karten-knoepfe button{background:var(--flaeche-3);backdrop-filter:none;width:38px;height:38px;font:700 20px var(--px);padding:0}
+.karten-stand{background:var(--flaeche);backdrop-filter:none;border:2px solid var(--ink);color:var(--text)}
+.swatch{border-radius:0;border:2px solid var(--ink);width:12px;height:12px}
+.res-key{gap:8px}
+.leise{color:var(--gedaempft)}
+a{color:var(--teal-d)}
+html:root[data-theme="dark"] a{color:#7ad6e2}
+nav#seite a,.dienst-karte .oben a{color:inherit}
+
+.insel-kachel .fakten b{font:600 13.5px var(--body)}
+.insel-kachel .fakten .leise{font-size:12px}
