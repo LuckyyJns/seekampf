@@ -35,7 +35,7 @@ from contextlib import asynccontextmanager
 import httpx
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 import gesundheit
@@ -176,8 +176,14 @@ def _steuerung_aendern(bot: str, aendern) -> dict:
 # ------------------------------------------------------------------- Seite
 @app.get("/")
 def startseite():
-    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"),
-                        headers={"Cache-Control": "no-cache"})
+    """Die Seite. Das Stylesheet bekommt die Aenderungszeit als Versionsnummer an die
+    Adresse, damit nach einer Aenderung nie die alte Fassung aus dem Browser kommt."""
+    ordner = os.path.join(BASE_DIR, "static")
+    with open(os.path.join(ordner, "index.html"), encoding="utf-8") as f:
+        html = f.read()
+    version = int(max(os.path.getmtime(os.path.join(ordner, n)) for n in ("index.html", "pixel.css")))
+    html = html.replace('href="/static/pixel.css"', f'href="/static/pixel.css?v={version}"')
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 # Stylesheet und Pixel-Icons der Seite (static/pixel.css, static/icons/*.png)
