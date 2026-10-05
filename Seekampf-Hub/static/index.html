@@ -1532,7 +1532,7 @@ $("anim").onclick = () => {
 /** 8-Bit-Toene (Rechteckwelle), standardmaessig aus */
 let tonAn = false, audio = null;
 try { tonAn = localStorage.getItem("ton") === "an"; } catch (e) { /* egal */ }
-const TON_FOLGEN = { klick: [[880, .05]], oeffnen: [[660, .05], [880, .07]], ok: [[523, .07], [659, .07], [784, .13]],
+const TON_FOLGEN = { klick: [[880, .04]], tab: [[660, .04], [990, .05]], an: [[784, .04], [1047, .05]], aus: [[784, .04], [523, .06]], oeffnen: [[660, .05], [880, .07]], ok: [[523, .07], [659, .07], [784, .13]],
   fehler: [[196, .12], [147, .22]], alarm: [[880, .1], [660, .1], [880, .1], [660, .1], [880, .14]] };
 function ton(art) {
   if (!tonAn) return;
@@ -1548,6 +1548,18 @@ function ton(art) {
     }
   } catch (e) { /* egal */ }
 }
+// Klick-Ton fuer alles, was man anklicken kann (Schalter und Haken haben eigene Toene beim Umlegen)
+const KLICKBAR = "a, button, select, summary, [data-insel], .insel-kopf, .gkachel, .legende-liste button, .zl-balken, .ebenen label";
+document.addEventListener("click", (e) => {
+  if (!tonAn) return;
+  const el = e.target.closest?.(KLICKBAR);
+  if (!el || el.disabled || el.closest("[disabled]")) return;
+  if (el.matches("label") && el.querySelector("input[type=checkbox]")) return;
+  ton(el.matches("nav#seite a") ? "tab" : "klick");
+}, true);
+document.addEventListener("change", (e) => {
+  if (tonAn && e.target.matches?.("input[type=checkbox]")) ton(e.target.checked ? "an" : "aus");
+}, true);
 function tonSetzen(an) { tonAn = an; $("ton").textContent = an ? "Ton: an" : "Ton: aus"; }
 tonSetzen(tonAn);
 $("ton").onclick = () => {
