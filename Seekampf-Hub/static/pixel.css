@@ -21,7 +21,7 @@ html:root:not([data-theme="dark"]){
   --nav-bg:#f1e3bf; --nav-text:#4a3220; --nav-gedaempft:#8a6a40; --log-bg:#16110b; --log-text:#d9c9a0;
   --meer:#3a2614; --meer-welt:#d9b27a; --meer-gitter:rgba(90,58,28,.5); --meer-gitter-stark:rgba(60,36,14,.85);
   --insel-neutral:#8a6a40; --insel-frei:#4a3a28; --insel-hervor:#c2570d; --insel-rand:#07090b; --glow:0;
-  --karte-text:#2a1b0e; --text-halo:rgba(250,240,214,.92); --brett-schleier:rgba(246,234,208,.40);
+  --karte-text:#2a1b0e; --karte-radius:#0aa5bd; --karte-radius-fuell:rgba(10,165,189,.16); --text-halo:rgba(250,240,214,.92); --brett-schleier:rgba(246,234,208,.40);
   --tag-bg:#e4d2a6; --tag-gut:#bfe3c6; --tag-warn:#f3d79a; --tag-bad:#e9b3ac; --tag-grau:#ddd0ae;
   --nav-aktiv-bg:#8a5a2b; --nav-aktiv-text:#f1e3bf; --kopf-bg:#3a2614; --ring:#8a5a2b;
 }
@@ -37,7 +37,7 @@ html:root[data-theme="dark"]{
   --serie-1:#2fb3c2; --serie-2:#f59e4b; --serie-3:#4cc38a; --serie-4:#f2b705; --serie-5:#e07aa4; --serie-6:#9bc34a; --serie-7:#9a8aea; --serie-8:#f0645a;
   --schatten:none; --radius:0; --radius-klein:0; --nav-breite:262px;
   --nav-bg:#3a2614; --nav-text:#d9c9a0; --nav-gedaempft:#a08a60; --log-bg:#0d0905; --log-text:#d9c9a0;
-  --glow:0; --meer:#150e07; --meer-welt:#6a4a30; --meer-gitter:rgba(241,227,191,.22); --meer-gitter-stark:rgba(241,227,191,.5); --insel-rand:#07090b; --insel-frei:#c9b78c; --karte-text:#f1e3bf; --text-halo:rgba(15,9,4,.85); --brett-schleier:rgba(21,14,7,.62); --tag-bg:#473526; --tag-gut:#1f4a36; --tag-warn:#5a4318; --tag-bad:#5a2420; --tag-grau:#3d3224;
+  --glow:0; --meer:#150e07; --meer-welt:#6a4a30; --meer-gitter:rgba(241,227,191,.22); --meer-gitter-stark:rgba(241,227,191,.5); --insel-rand:#07090b; --insel-frei:#c9b78c; --karte-text:#f1e3bf; --karte-radius:#5fe0ef; --karte-radius-fuell:rgba(95,224,239,.14); --text-halo:rgba(15,9,4,.85); --brett-schleier:rgba(21,14,7,.62); --tag-bg:#473526; --tag-gut:#1f4a36; --tag-warn:#5a4318; --tag-bad:#5a2420; --tag-grau:#3d3224;
   --nav-aktiv-bg:#f1e3bf; --nav-aktiv-text:#3a2614; --kopf-bg:#2a1b0e; --ring:#8a5a2b;
 }
 *{border-radius:0 !important;}

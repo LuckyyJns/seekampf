@@ -2687,7 +2687,7 @@ function fahrzeitS(a, b, knoten) {
 function farbenLesen() {
   const cs = getComputedStyle(document.documentElement);
   for (const n of ["meer", "meer-welt", "meer-gitter", "meer-gitter-stark", "insel-neutral", "insel-frei", "insel-hervor",
-                   "insel-rand", "brett-schleier", "text-halo", "al1", "al2", "al3", "al4", "al5", "al6", "al7", "al8", "al9", "al10", "al11", "al12", "gildenlos", "glow", "feind", "karte-text", "warn", "akzent", "gedaempft"])
+                   "insel-rand", "brett-schleier", "text-halo", "karte-radius", "karte-radius-fuell", "al1", "al2", "al3", "al4", "al5", "al6", "al7", "al8", "al9", "al10", "al11", "al12", "gildenlos", "glow", "feind", "karte-text", "warn", "akzent", "gedaempft"])
     ka.farben[n] = cs.getPropertyValue(`--${n}`).trim();
 }
 
@@ -2885,12 +2885,17 @@ function zeichneJetzt() {
       if (!rahmen.has(schluessel)) rahmen.set(schluessel, { sx, sy, r, namen: [] });
       rahmen.get(schluessel).namen.push(i.name);
     }
-    ctx.lineWidth = 1.5; ctx.strokeStyle = f.akzent; ctx.fillStyle = f.akzent;
-    ctx.font = "600 11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textBaseline = "bottom";
+    ctx.font = "600 12px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textBaseline = "bottom";
     for (const { sx, sy, r, namen } of rahmen.values()) {
       const [x0, y0] = zuBild((sx - r) * 5, (sy - r) * 5), [x1, y1] = zuBild((sx + r + 1) * 5, (sy + r + 1) * 5);
-      ctx.setLineDash([6, 5]); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.setLineDash([]);
-      pixText(ctx, `${namen.join(", ")} · Radius ${r}`, x0 + 2, y0 - 3);
+      const bx = Math.round(x0) + .5, by = Math.round(y0) + .5, bw = Math.round(x1 - x0), bh = Math.round(y1 - y0);
+      ctx.fillStyle = f["karte-radius-fuell"] || "rgba(17,169,189,.14)"; ctx.fillRect(bx, by, bw, bh);   // Flaeche: wo gesucht wird
+      ctx.setLineDash([10, 6]);
+      ctx.lineWidth = 6; ctx.strokeStyle = f["insel-rand"]; ctx.strokeRect(bx, by, bw, bh);               // dunkle Kontur
+      ctx.lineWidth = 3; ctx.strokeStyle = f["karte-radius"] || f.akzent; ctx.strokeRect(bx, by, bw, bh); // helle Linie
+      ctx.setLineDash([]);
+      ctx.fillStyle = f["karte-text"];
+      pixText(ctx, `${namen.join(", ")} · Radius ${r}`, bx + 4, by - 4);
     }
   }
 
@@ -2901,8 +2906,11 @@ function zeichneJetzt() {
     ctx.lineWidth = 1.5; ctx.font = "600 11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textBaseline = "bottom";
     for (const min of RINGE_MIN) {
       const rad = knoten * min / 10 * m;
-      ctx.strokeStyle = f.akzent; ctx.globalAlpha = .55; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.fillStyle = f["karte-text"]; pixText(ctx, `${min} min`, cx + 4, cy - rad - 2);
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+      ctx.lineWidth = 5; ctx.strokeStyle = f["insel-rand"]; ctx.stroke();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = f["karte-radius"] || f.akzent; ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = f["karte-text"]; pixText(ctx, `${min} min`, cx + 4, cy - rad - 2);
     }
   }
 
@@ -2944,11 +2952,12 @@ function zeichneJetzt() {
 
   // Raid-Ziele markieren
   if (ka.ebenen.ziele && flotte) {
-    ctx.strokeStyle = f.akzent; ctx.lineWidth = 1.5;
     for (const i of flotte.inseln.filter(x => x.aktiv)) for (const z of i.ziele) {
       const p = koordFeld(z.koordinaten); if (!p) continue;
       const [x, y] = zuBild(...p), s = r + 3;
-      ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - s, y - s); ctx.lineTo(x + s, y + s); ctx.moveTo(x + s, y - s); ctx.lineTo(x - s, y + s);
+      ctx.lineWidth = 6; ctx.strokeStyle = f["insel-rand"]; ctx.stroke();
+      ctx.lineWidth = 3; ctx.strokeStyle = f["karte-radius"] || f.akzent; ctx.stroke();
     }
   }
 
