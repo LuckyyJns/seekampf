@@ -1532,20 +1532,33 @@ $("anim").onclick = () => {
 /** 8-Bit-Toene (Rechteckwelle), standardmaessig aus */
 let tonAn = false, audio = null;
 try { tonAn = localStorage.getItem("ton") === "an"; } catch (e) { /* egal */ }
-const TON_FOLGEN = { klick: [[880, .04]], tab: [[660, .04], [990, .05]], an: [[784, .04], [1047, .05]], aus: [[784, .04], [523, .06]], oeffnen: [[660, .05], [880, .07]], ok: [[523, .07], [659, .07], [784, .13]],
-  fehler: [[196, .12], [147, .22]], alarm: [[880, .1], [660, .1], [880, .1], [660, .1], [880, .14]] };
+// Leises "Tick": kurzes, gefiltertes Rauschen, das schnell abklingt (kein Piepen). f = Tonhoehe des Klicks, v = Lautstaerke.
+const TON_LAUTSTAERKE = 1;
+const TON_ARTEN = {
+  klick: { f: 1900, v: .22 }, tab: { f: 1350, v: .24 }, oeffnen: { f: 1600, v: .2 }, ok: { f: 2300, v: .2 },
+  fehler: { f: 750, v: .28 }, an: { f: 2500, v: .22 }, aus: { f: 1150, v: .22 }, alarm: { f: 950, v: .3, mal: 2, abstand: .17 },
+};
+/** Ein Klick in den Audio-Kontext legen (auch fuer die Offline-Messung nutzbar). */
+function tonErzeugen(ctx, art, t0 = 0) {
+  const a = TON_ARTEN[art];
+  if (!a) return;
+  const laenge = Math.round(ctx.sampleRate * .028);
+  const puffer = ctx.createBuffer(1, laenge, ctx.sampleRate), daten = puffer.getChannelData(0);
+  for (let i = 0; i < laenge; i++) daten[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / laenge, 4);   // schnell abklingend
+  for (let k = 0; k < (a.mal || 1); k++) {
+    const quelle = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), pegel = ctx.createGain();
+    quelle.buffer = puffer; filter.type = "bandpass"; filter.frequency.value = a.f; filter.Q.value = .9;
+    pegel.gain.value = a.v * TON_LAUTSTAERKE;
+    quelle.connect(filter); filter.connect(pegel); pegel.connect(ctx.destination);
+    quelle.start(t0 + k * (a.abstand || 0));
+  }
+}
 function ton(art) {
   if (!tonAn) return;
   try {
     audio ||= new (window.AudioContext || window.webkitAudioContext)();
     if (audio.state === "suspended") audio.resume();
-    let t = audio.currentTime;
-    for (const [hz, dauer] of TON_FOLGEN[art] || []) {
-      const o = audio.createOscillator(), g = audio.createGain();
-      o.type = "square"; o.frequency.value = hz;
-      g.gain.setValueAtTime(.045, t); g.gain.setValueAtTime(0, t + dauer);
-      o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dauer + .02); t += dauer;
-    }
+    tonErzeugen(audio, art, audio.currentTime);
   } catch (e) { /* egal */ }
 }
 // Klick-Ton fuer alles, was man anklicken kann (Schalter und Haken haben eigene Toene beim Umlegen)
