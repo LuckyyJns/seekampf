@@ -2127,20 +2127,20 @@ function zeichneUpgrade() {
         let grund = "", marke = "";
         if (!g.verfuegbar) { grund = `erst ab Haupthaus ${g.haupthaus_ab}`; marke = `<span class="marke grau">ab HH ${g.haupthaus_ab}</span>`; }
         else if (g.naechste_stufe == null) { grund = "Höchststufe erreicht"; marke = `<span class="marke grau">Maximum</span>`; }
-        else if (inSchlange.length) { grund = "ist schon in der Warteschlange"; marke = `<span class="marke">in Schlange → ${inSchlange[inSchlange.length - 1].ziel_stufe}</span>`; }
         else if (schlangeVoll) { grund = "Warteschlange ist voll"; marke = `<span class="marke grau">Schlange voll</span>`; }
         else marke = ROHSTOFFE.every(([k]) => (roh[k] || 0) >= (g.kosten?.[k] || 0)) ? `<span class="marke gut">bezahlbar</span>` : `<span class="marke warn">Rohstoffe fehlen</span>`;
         const kosten = g.kosten ? ROHSTOFFE.map(([k]) => `<span class="${(roh[k] || 0) >= g.kosten[k] ? "" : "fehlt"}">${ROHSTOFF_ICON(k)}${zahl(g.kosten[k])}</span>`).join("") : "";
         const gesperrt = steuer.gesperrt.includes(g.typ) ? ` <span class="marke grau" title="gilt nur für die automatische Reihenfolge">gesperrt</span>` : "";
-        return `<button type="button" class="gkachel" data-up-kachel="${id}" data-geb="${g.typ}" ${grund ? "disabled" : ""}
-          title="${esc(grund || `${gname(g.typ)} auf Stufe ${g.naechste_stufe} ausbauen – Klick reiht ein`)}">
+        const nQ = inSchlange.length;   // naechste_stufe der API rechnet die Warteschlange schon mit
+        return `<button type="button" class="gkachel" data-up-kachel="${id}" data-geb="${g.typ}" data-stufe="${g.naechste_stufe ?? ""}" ${grund ? "disabled" : ""}
+          title="${esc(grund || `${gname(g.typ)} auf Stufe ${g.naechste_stufe} ausbauen – Klick reiht ein${nQ ? ` (hinter ${nQ} in der Warteschlange)` : ""}`)}">
           <span class="gk-kopf">${gico(g.typ, 48)}<span class="gk-name"><b>${esc(gname(g.typ))}${gesperrt}</b>
-            <span class="leise">Stufe ${g.stufe}${g.naechste_stufe != null ? ` → ${g.naechste_stufe}` : ""}</span></span></span>
-          <span class="gk-pips" aria-hidden="true">${Array.from({ length: MAX_STUFE }, (_, n) => `<i class="${n < g.stufe ? "f" : (g.naechste_stufe != null && n === g.stufe ? "n" : "")}"></i>`).join("")}</span>
+            <span class="leise">Stufe ${g.stufe}${g.naechste_stufe != null ? ` → ${g.naechste_stufe}` : ""}${nQ ? ` · ${nQ} in Schlange` : ""}</span></span></span>
+          <span class="gk-pips" aria-hidden="true">${Array.from({ length: MAX_STUFE }, (_, n) => `<i class="${n < g.stufe ? "f" : n < g.stufe + nQ ? "q" : (g.naechste_stufe != null && n === g.stufe + nQ ? "n" : "")}"></i>`).join("")}</span>
           <span class="gk-kosten">${kosten || `<span class="leise">–</span>`}</span>
           <span class="gk-fuss"><span class="leise">${g.bauzeit_s ? `Bauzeit ${dauer(g.bauzeit_s)}` : ""}</span>${marke}</span></button>`;
       }).join("")}</div>
-      <div class="leise klein-text" style="margin-top:8px">Klick auf eine Kachel reiht den Ausbau ein. Läuft auch, wenn der Bot hier aus ist; die Kosten zieht das Spiel sofort ab.</div>`;
+      <div class="leise klein-text" style="margin-top:8px">Klick auf eine Kachel reiht die nächste Stufe ein – auch hinter Stufen, die schon in der Warteschlange stehen. Läuft auch, wenn der Bot hier aus ist; die Kosten zieht das Spiel sofort ab.</div>`;
   }
   // Befehle
   $("up-befehle").innerHTML = (st.befehle || []).length ? (st.befehle || []).slice(0, 8).map(b =>
@@ -2237,7 +2237,8 @@ $("up-inseln").addEventListener("click", async (e) => {
   if (kachel && !kachel.disabled) {
     const id = kachel.dataset.upKachel, geb = kachel.dataset.geb;
     const name = upgrade.status.inseln[id]?.name;
-    if (!confirm(`${gname(geb)} auf ${name} jetzt in die Warteschlange stellen?`)) return;
+    const stufe = kachel.dataset.stufe ? ` auf Stufe ${kachel.dataset.stufe}` : "";
+    if (!confirm(`${gname(geb)}${stufe} auf ${name} jetzt in die Warteschlange stellen?`)) return;
     const r = await aktion(kachel, () => post("/api/upgrade/befehl", { typ: "auftrag", insel_id: id, gebaeude: geb }));
     if (r) { wartendeBefehle.set(r.id, `${gname(geb)} auf ${name}`); melde("Auftrag an den Bot übergeben …"); setTimeout(upgradeHolen, 4000); }
   }

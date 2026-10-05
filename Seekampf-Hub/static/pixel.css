@@ -348,3 +348,5 @@ html:root[data-theme="dark"] .zl-spur{background:repeating-linear-gradient(90deg
 @media (max-width:640px){.zl-zeile{grid-template-columns:70px minmax(0,1fr)}}
 .linien-legende i.zl-key{width:14px;height:14px;display:inline-block}
 .rkacheln{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+
+.gk-pips i.q{background:repeating-linear-gradient(45deg,var(--teal) 0 3px,#8fdce6 3px 6px)}
