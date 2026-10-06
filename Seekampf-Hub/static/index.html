@@ -68,6 +68,7 @@
   /* ---------- Seitenleiste ---------- */
   nav#seite {
     overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: var(--nav-gedaempft) transparent;
     position: fixed; inset: 0 auto 0 0; width: var(--nav-breite); z-index: 30;
     background: var(--nav-bg); color: var(--nav-text); border-right: 1px solid #ffffff10;
     display: flex; flex-direction: column; padding: 18px 14px; gap: 4px;
@@ -98,6 +99,9 @@
   nav#seite .fuss button { background: #ffffff0f; border-color: #ffffff1a; color: var(--nav-text); }
   nav#seite .fuss button:hover { background: #ffffff1a; }
   nav#seite #uhr { margin-left: auto; font-size: 13px; color: var(--nav-gedaempft); }
+  nav#seite::-webkit-scrollbar { width: 4px; }
+  nav#seite::-webkit-scrollbar-thumb { background: var(--nav-gedaempft); border-radius: 2px; }
+  nav#seite::-webkit-scrollbar-track { background: transparent; }
   #schleier { position: fixed; inset: 0; background: rgb(3 8 16 / .55); backdrop-filter: blur(2px); z-index: 25; display: none; }
 
   main { margin-left: var(--nav-breite); transition: margin-left .22s ease; min-width: 0; }
