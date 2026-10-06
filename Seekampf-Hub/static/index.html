@@ -3815,10 +3815,10 @@ function linienDiagramm(el, daten, serien) {
     let pfad = "", stift = false;
     s.werte.forEach((v, i) => {
       if (v == null) { stift = false; return; }
-      pfad += stift ? `H${x(i).toFixed(1)} V${y(v).toFixed(1)} ` : `M${x(i).toFixed(1)},${y(v).toFixed(1)} `;
+      pfad += `${stift ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)} `;
       stift = true;
     });
-    if (pfad) svg += `<path d="${pfad}" fill="none" stroke="${s.farbe}" stroke-width="3" stroke-linejoin="miter" stroke-linecap="square"/>`;
+    if (pfad) svg += `<path d="${pfad}" fill="none" stroke="${s.farbe}" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>`;
     s.werte.forEach((v, i) => {   // einzelne Punkte ohne Nachbarn sichtbar machen
       const allein = v != null && s.werte[i - 1] == null && s.werte[i + 1] == null;
       if (allein) svg += `<rect x="${x(i) - 4}" y="${y(v) - 4}" width="8" height="8" fill="${s.farbe}" stroke="var(--ink)" stroke-width="2"/>`;

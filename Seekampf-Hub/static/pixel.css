@@ -361,6 +361,7 @@ html:root[data-theme="dark"] .zl-spur{background:repeating-linear-gradient(90deg
 
 /* ---------- Diagramme: kantig, ohne Glaettung ---------- */
 .diagramm svg *{shape-rendering:crispEdges}
+.diagramm svg path{shape-rendering:auto}
 .diagramm .achse text{font:500 11px var(--mono);text-rendering:optimizeSpeed}
 .linien-legende i:not(.zl-key){width:14px;height:10px;border:2px solid var(--ink);border-radius:0}
 .tooltip .linie{width:12px;height:8px;border:2px solid var(--ink);border-radius:0}
