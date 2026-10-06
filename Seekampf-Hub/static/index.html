@@ -67,6 +67,7 @@
 
   /* ---------- Seitenleiste ---------- */
   nav#seite {
+    overflow-y: auto; overscroll-behavior: contain;
     position: fixed; inset: 0 auto 0 0; width: var(--nav-breite); z-index: 30;
     background: var(--nav-bg); color: var(--nav-text); border-right: 1px solid #ffffff10;
     display: flex; flex-direction: column; padding: 18px 14px; gap: 4px;
@@ -120,6 +121,8 @@
   }
   #hamburger span::before { position: absolute; top: -6px; }
   #hamburger span::after { position: absolute; top: 6px; }
+  a.koord-link { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+  a.koord-link:hover { color: var(--akzent); text-decoration-style: solid; }
   .huelle { max-width: 1280px; margin: 0 auto; padding: 24px 24px 80px; }
 
   @media (max-width: 900px) {
@@ -1059,7 +1062,7 @@ function zeichneKolonie() {
       const [klasse, text] = KO_STATUS[e.status] || ["grau", e.status];
       const ankunft = e.status === "unterwegs" && e.ankunft ? ` · Ankunft in <span data-bis="${e.ankunft}" data-fertig="jetzt">${dauer(e.ankunft - jetzt())}</span>` : "";
       return `<tr><td class="mono">${n + 1}</td>
-        <td><span class="mono">${esc(e.koordinaten)}</span> <span class="leise">${esc(e.name || "")}</span></td>
+        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span></td>
         <td><span class="marke ${klasse}"><span class="punkt"></span>${text}</span>${ankunft}</td>
         <td>${esc(e.bau_insel_name || "–")}${e.entfernung != null ? ` <span class="leise klein-text">(${zahl(e.entfernung, 1)} Felder)</span>` : ""}</td>
         <td class="zahl verstecken-schmal">${e.fahrzeit_s ? dauer(e.fahrzeit_s) : "–"}</td>
@@ -1073,13 +1076,13 @@ function zeichneKolonie() {
   $("ko-schiff").textContent = `Kolonisationsschiff: Hafen ${sch.ab_hafen}, ${mengenText(sch.kosten)}`;
   $("ko-inseln").innerHTML = `<div class="tabelle-rahmen"><table><thead><tr><th>Insel</th><th class="zahl">Hafen</th><th class="zahl">Lager</th>
       <th class="zahl">Schiffe im Hafen</th><th>Kann bauen</th><th>Baut für</th></tr></thead><tbody>${kolonie.inseln.map(i => `<tr>
-      <td>${esc(i.name)} <span class="leise mono klein-text">${esc(i.koordinaten)}</span></td>
+      <td>${esc(i.name)} <span class="leise mono klein-text">${koordLink(i.koordinaten)}</span></td>
       <td class="zahl">${i.hafen}</td><td class="zahl">${kompakt(i.kapazitaet)}</td><td class="zahl">${i.schiffe_im_hafen}</td>
       <td>${i.ungeeignet ? `<span class="leise klein-text">${esc(i.ungeeignet)}</span>` : `<span class="marke gut"><span class="punkt"></span>ja</span>`}</td>
-      <td>${i.baut_fuer ? `<span class="mono">${esc(i.baut_fuer)}</span>${i.reserviert ? ` <span class="leise klein-text">· reserviert ${mengenText(i.reserviert)}</span>` : ""}` : "–"}</td>
+      <td>${i.baut_fuer ? `${koordLink(i.baut_fuer)}${i.reserviert ? ` <span class="leise klein-text">· reserviert ${mengenText(i.reserviert)}</span>` : ""}` : "–"}</td>
     </tr>`).join("")}</tbody></table></div>`;
   $("ko-verlauf").innerHTML = kolonie.verlauf.length ? kolonie.verlauf.slice(0, 15).map(v =>
-    `<div class="klein-text" style="margin:3px 0"><span class="marke ${KO_ERGEBNIS[v.ergebnis] || "grau"}" style="margin-right:6px">${esc(v.ergebnis)}</span>${uhrzeit(v.zeit, true)} · <span class="mono">${esc(v.koordinaten)}</span> ${esc(v.text)}</div>`).join("")
+    `<div class="klein-text" style="margin:3px 0"><span class="marke ${KO_ERGEBNIS[v.ergebnis] || "grau"}" style="margin-right:6px">${esc(v.ergebnis)}</span>${uhrzeit(v.zeit, true)} · ${koordLink(v.koordinaten)} ${esc(v.text)}</div>`).join("")
     : `<div class="leise klein-text">noch nichts</div>`;
   const dot = $("nav-dot-kolonie");
   if (kolonieFehler) dot.className = "dot schlecht";
@@ -1498,6 +1501,19 @@ function zeigeTab(ziel) {
   zeigeTabJetzt(neu);
 }
 const TAB_ICON_NAME = { uebersicht: "eigene_insel", karte: "hinterland", gesundheit: "gesundheit", upgrade: "haupthaus", flotte: "kleines_kriegsschiff", ausbildung: "kaserne", ausgleich: "rohstoffausgleich", kolonie: "koloschiff", allianz: "allianz_hilfe" };
+/** Koordinate als Link: Klick oeffnet die Karte mit dieser Insel */
+function koordLink(k) {
+  if (!k) return `<span class="mono">–</span>`;
+  return `<a class="koord-link mono" href="#karte" data-zur-karte="${esc(k)}" title="Auf der Karte zeigen">${esc(k)}</a>`;
+}
+document.addEventListener("click", (e) => {
+  const a = e.target.closest("[data-zur-karte]");
+  if (!a) return;
+  e.preventDefault(); e.stopPropagation();
+  ka.zielKoord = a.dataset.zurKarte;
+  zeigeTab("karte");
+  if (ka.nachKoord.size) karteZielAnspringen();
+}, true);
 function zeigeTabJetzt(neu) {
   tab = neu;
   document.querySelectorAll(".tab").forEach(el => el.classList.toggle("sichtbar", el.id === `tab-${tab}`));
@@ -1931,7 +1947,7 @@ function flottenTabelle(liste) {
     const art = f.mission && f.mission !== "attack" ? ` <span class="leise">(${esc(f.mission)})</span>` : "";
     const prio = f.prioritaet ? ` <span class="leise">(${esc(f.prioritaet)})</span>` : "";
     return `<tr>
-      <td class="mono">${esc(f.koordinaten)}${prio}${art}</td>
+      <td class="mono">${koordLink(f.koordinaten)}${prio}${art}</td>
       <td class="verstecken-schmal">${esc(f.ziel_name || "–")}</td>
       <td>${phase}</td>
       <td>${f.angekommen ? beuteText(f.loot) : "<span class='leise'>–</span>"}</td>
@@ -1956,7 +1972,7 @@ function zieleTabelle(i, unterwegs) {
     else status = `<span class="leise">bereit</span>`;
     return `<tr>
       <td>${z.niederlagen_gesamt ? `<span class="marke schlecht" title="${z.niederlagen_gesamt} Niederlagen">${z.niederlagen_gesamt}×</span>` : ""}</td>
-      <td class="mono">${esc(z.koordinaten)}</td>
+      <td class="mono">${koordLink(z.koordinaten)}</td>
       <td class="verstecken-schmal">${esc(z.name)}</td>
       <td class="zahl">${dauer(z.fahrzeit_s)}</td>
       <td class="zahl">${zahl(z.raids)}</td>
@@ -2027,7 +2043,11 @@ function zeichneFlotte() {
       : `<span class="leise">nichts daheim</span>`;
     karte.querySelector('[data-teil="flotten"]').innerHTML = flottenTabelle(fl);
     karte.querySelector('[data-teil="scaninfo"]').textContent = i.letzter_scan ? `letzter Scan ${vor(i.letzter_scan)}` : "noch kein Scan";
-    karte.querySelector('[data-teil="ziele"]').innerHTML = zieleTabelle(i, unterwegs);
+    const zielBox = karte.querySelector('[data-teil="ziele"]');
+    const zielScroll = zielBox.querySelector(".tabelle-rahmen")?.scrollTop || 0;
+    zielBox.innerHTML = zieleTabelle(i, unterwegs);
+    const zielRahmen = zielBox.querySelector(".tabelle-rahmen");
+    if (zielRahmen) zielRahmen.scrollTop = zielScroll;
     zeichneInselEinstellungen(karte, i);
     if (verlauf && verlauf.inseln[id] && !diagramme[`fl-diagramm-${id}`]) diagramm(`fl-diagramm-${id}`, verlauf.inseln[id]);
     else if (verlauf && !verlauf.inseln[id]) $(`fl-diagramm-${id}`).innerHTML = `<div class="leise klein-text">noch keine Beute von dieser Insel</div>`;
@@ -2864,6 +2884,15 @@ async function karteHolen() {
   scanInfo(d.scan);
   if (!ka.bereit && ka.inseln.length) { einpassen(); ka.bereit = true; }
   zeichneKarte();
+  karteZielAnspringen();
+}
+function karteZielAnspringen() {
+  const k = ka.zielKoord;
+  if (!k || tab !== "karte") return;
+  ka.zielKoord = null;
+  const t = k.split(":").map(Number);
+  if (ka.nachKoord.has(k)) waehleInsel(k, true);
+  else if (t.length === 3 && t.every(n => !isNaN(n))) zentrieren(...feld(t[0], t[1], t[2]), 30);
 }
 function spielerListeFuellen() {
   const sel = $("ka-spieler");
