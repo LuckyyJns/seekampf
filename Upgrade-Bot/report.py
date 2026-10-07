@@ -7,7 +7,6 @@ uebergibt since/until); dafuer werden alle Tageslogs im Zeitraum gelesen.
 """
 from __future__ import annotations
 
-import ast
 import os
 import re
 from datetime import datetime, timedelta
