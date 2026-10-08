@@ -191,6 +191,13 @@ class InselEinstellungen(Basis):
         self.assertEqual(m._freie_flotten(447, api.ov[0]), 1)
         self.assertEqual(m._freie_flotten(20, api.ov[1]), 4)
 
+    def test_begleitung_fuer_kolonisation_bleibt_daheim(self):
+        api = self.zwei_inseln()
+        self.reserve(config.KOLO_RESERVE_PATH, "einheiten", {"447": {"kleines_kriegsschiff": 3}})
+        m, st = self.manager(api)
+        self.assertEqual(m._freie_flotten(447, api.ov[0]), 1)
+        self.assertEqual(m._freie_flotten(20, api.ov[1]), 4)
+
     def test_einstellungen_ueberstehen_neustart(self):
         m, st = self.manager(self.zwei_inseln())
         st.update_insel_settings(447, {"scan_radius_sektoren": 3})

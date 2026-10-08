@@ -7,6 +7,7 @@ import logging
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -103,6 +104,10 @@ class Basis(unittest.TestCase):
     def bot(self, api):
         st = State(os.path.join(self.tmp, "state.json"))
         return Kolonisierer(api, st), st
+
+    def einheiten(self):
+        with open(config.RESERVE_PATH) as f:
+            return json.load(f)["einheiten"]
 
     def reserve(self):
         with open(config.RESERVE_PATH) as f:
@@ -250,6 +255,34 @@ class Besiedelt(Basis):
                              begleitung={"schiffe": {}, "truppen": {"steinewerfer": 3}})
         bot.tick()
         self.assertEqual(api.created[0]["origin_island_id"], 2)      # nicht die naehere Insel 1
+
+    def _baut_mit_begleitung(self, minuten):
+        api = FakeApi([insel(1, "40:40:1", res=(20000, 5000, 36000))])
+        api.ov[0]["schiffe"]["kleines_kriegsschiff"] = 3
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True,
+                             begleitung={"schiffe": {"kleines_kriegsschiff": 2}, "truppen": {}})
+        bot.tick()
+        self.assertEqual(e["status"], "baut")
+        t = time.time() + minuten * 60
+        api.training[1][0]["finish_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t))
+        return api, bot, st, e
+
+    def test_begleitung_wird_erst_10_minuten_vor_fertigstellung_reserviert(self):
+        api, bot, st, e = self._baut_mit_begleitung(30)
+        bot.tick()
+        self.assertEqual(self.einheiten(), {})
+        api.training[1][0]["finish_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 5 * 60))
+        bot.tick()
+        self.assertEqual(self.einheiten(), {"1": {"kleines_kriegsschiff": 2}})
+
+    def test_begleitung_bleibt_reserviert_wenn_schiff_bereit_liegt(self):
+        api, bot, st, e = self._baut_mit_begleitung(30)
+        api.fertig(1)
+        api.ov[0]["schiffe"]["kleines_kriegsschiff"] = 1       # Begleitung fehlt -> Schiff wartet
+        bot.tick()
+        self.assertEqual(e["status"], "bereit")
+        self.assertEqual(self.einheiten(), {"1": {"kleines_kriegsschiff": 2}})
 
     def test_begleitung_bereinigen(self):
         roh = {"schiffe": {"a": "2", "b": 0, "c": -1, config.SCHIFF: 5, "d": "x"}, "truppen": {"t": 1.0}, "foo": 1}

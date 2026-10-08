@@ -27,6 +27,9 @@ STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
 # ignorieren die anderen sie.
 RESERVE_PATH = os.path.join(BASE_DIR, "data", "reserve.json")
 RESERVE_MAX_ALTER_S = 10 * 60
+# Die Begleitung (weitere Schiffe/Truppen) eines bewohnten Ziels wird erst so lange
+# vor Fertigstellung des Kolonisationsschiffs reserviert (dann bis zur Abfahrt).
+BEGLEITUNG_VORLAUF_S = 10 * 60
 
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "kolonie"

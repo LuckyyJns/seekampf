@@ -114,6 +114,7 @@ class Kolonisierer:
         self.kosten = dict(config.SCHIFF_KOSTEN)
         self.inseln: dict[int, dict] = {}   # Eignung je Insel, fuer den Seekampf-Hub
         self.reserve: dict[str, dict] = {}
+        self.einheiten_reserve: dict[str, dict] = {}   # Insel -> {Typ: Anzahl} der Begleitung
         self.spieler: str | None = None
         self.letzter_tick: float | None = None
         self.letzter_fehler: str | None = None
@@ -355,13 +356,50 @@ class Kolonisierer:
         log.info("%s: Kolonisationsschiff auf %s in Ausbildung gegeben (%s)", e["koordinaten"],
                  self._name(iid), fmt_res(self.kosten))
 
+    def _schiff_fertig_um(self, iid: int) -> float | None:
+        """Wann das Kolonisationsschiff auf dieser Insel fertig ausgebildet ist (None = unbekannt)."""
+        enden = []
+        try:
+            auftraege = self._ausbildung(iid).get("auftraege") or []
+        except ApiError:
+            return None
+        for a in auftraege:
+            if a.get("item_typ") == config.SCHIFF and str(a.get("status", "")).lower() in AUSBILDUNG_LAEUFT:
+                ende = iso_zu_epoch(a.get("finish_at"))
+                if ende:
+                    enden.append(ende)
+        return min(enden) if enden else None
+
+    def _begleitung_reservieren(self, jetzt: float) -> None:
+        """Begleitung bewohnter Ziele zurueckhalten (der Flotten-Manager nimmt sie
+        sonst fuer Raids): wenn das Schiff bereitliegt oder in hoechstens
+        BEGLEITUNG_VORLAUF_S fertig wird."""
+        self.einheiten_reserve = {}
+        if not self.state.data["laeuft"]:
+            return
+        for e in self.state.warteschlange:
+            iid, beg = e.get("bau_insel"), e.get("begleitung") or {}
+            if not e.get("bewohnt") or iid not in self.ov or not (beg.get("schiffe") or beg.get("truppen")):
+                continue
+            if e["status"] == "baut":
+                ende = self._schiff_fertig_um(iid)
+                if ende is None or ende - jetzt > config.BEGLEITUNG_VORLAUF_S:
+                    continue
+            elif e["status"] != "bereit":
+                continue
+            ziel = self.einheiten_reserve.setdefault(str(iid), {})
+            for art in ("schiffe", "truppen"):
+                for typ, n in (beg.get(art) or {}).items():
+                    ziel[typ] = ziel.get(typ, 0) + int(n)
+
     def _reserve_schreiben(self, jetzt: float) -> None:
+        self._begleitung_reservieren(jetzt)
         pfad = config.RESERVE_PATH
         os.makedirs(os.path.dirname(pfad), exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(pfad), prefix=".reserve-", suffix=".json")
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"zeit": jetzt, "inseln": self.reserve}, f)
+                json.dump({"zeit": jetzt, "inseln": self.reserve, "einheiten": self.einheiten_reserve}, f)
             os.replace(tmp, pfad)
         except BaseException:
             if os.path.exists(tmp):

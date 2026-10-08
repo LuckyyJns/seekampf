@@ -46,6 +46,8 @@ eintragen (beim Hinzufügen oder später über „Begleitung“). Sie fahren im 
 Verband mit, müssen aber beim Start im Hafen der Bau-Insel liegen - der Bot
 bildet sie nicht aus. Fehlt etwas, wartet das Schiff mit Hinweis. Bei der Wahl
 der Bau-Insel bevorzugt der Bot eine Insel, die die Begleitung schon hat.
+Reserviert (der Flotten-Manager nimmt sie dann nicht für Raids) wird sie erst
+ab 10 min vor Fertigstellung des Kolonisationsschiffs, danach bis zur Abfahrt.
 
 Der Flotten-Manager lässt Kolonisationsfahrten in Ruhe.
 

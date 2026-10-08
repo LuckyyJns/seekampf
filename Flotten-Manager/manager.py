@@ -158,6 +158,12 @@ class FlottenManager:
         for typ, n in (transport or {}).items():
             if typ in bestand:
                 bestand[typ] = max(0, int(bestand[typ] or 0) - int(n or 0))
+        # Begleitung, die der Kolonisations-Bot fuer ein bewohntes Ziel zurueckhaelt
+        # (erst kurz vor Fertigstellung des Kolonisationsschiffs).
+        kolo = reserve_lesen(config.KOLO_RESERVE_PATH, "einheiten").get(str(insel_id))
+        for typ, n in (kolo or {}).items():
+            if typ in bestand:
+                bestand[typ] = max(0, int(bestand[typ] or 0) - int(n or 0))
         return bestand
 
     def flotte_ships(self, insel_id, vorrat: dict | None = None) -> dict:
