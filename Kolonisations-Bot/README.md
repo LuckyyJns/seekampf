@@ -41,6 +41,12 @@ sind. Solche Ziele fliegen nicht raus und das Schiff wird nicht zurückgerufen,
 nur weil die Insel einen Besitzer hat. Ob die Insel einnehmbar ist, prüft der
 Bot nicht; das Schiff fährt los, sobald es bereit ist (sonst 50/50).
 
+**Begleitung:** Bei bewohnten Zielen lassen sich weitere Schiffe und Truppen
+eintragen (beim Hinzufügen oder später über „Begleitung“). Sie fahren im selben
+Verband mit, müssen aber beim Start im Hafen der Bau-Insel liegen - der Bot
+bildet sie nicht aus. Fehlt etwas, wartet das Schiff mit Hinweis. Bei der Wahl
+der Bau-Insel bevorzugt der Bot eine Insel, die die Begleitung schon hat.
+
 Der Flotten-Manager lässt Kolonisationsfahrten in Ruhe.
 
 ## Neue Inseln umbenennen

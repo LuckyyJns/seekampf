@@ -1043,6 +1043,10 @@ const KO_STATUS = {
   bereit: ["gut", "Schiff bereit"], unterwegs: ["gut", "unterwegs"],
 };
 const KO_ERGEBNIS = { kolonisiert: "gut", besiedelt: "schlecht", gescheitert: "schlecht", entfernt: "grau" };
+function begleitungKurz(e) {
+  const b = e.begleitung || {}, m = { ...(b.schiffe || {}), ...(b.truppen || {}) };
+  return Object.keys(m).length ? `<div class="leise klein-text">+ ${esc(mengenText(m))}</div>` : "";
+}
 async function kolonieHolen() {
   try { kolonie = await hole("/api/kolonie/status"); kolonieFehler = null; }
   catch (e) { kolonieFehler = `Kolonisations-Bot nicht erreichbar: ${e.message}`; }
@@ -1064,13 +1068,14 @@ function zeichneKolonie() {
       const [klasse, text] = KO_STATUS[e.status] || ["grau", e.status];
       const ankunft = e.status === "unterwegs" && e.ankunft ? ` · Ankunft in <span data-bis="${e.ankunft}" data-fertig="jetzt">${dauer(e.ankunft - jetzt())}</span>` : "";
       return `<tr><td class="mono">${n + 1}</td>
-        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span>${e.bewohnt ? ` <span class="marke warn">bewohnt</span>` : ""}</td>
+        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span>${e.bewohnt ? ` <span class="marke warn">bewohnt</span>` : ""}${begleitungKurz(e)}</td>
         <td><span class="marke ${klasse}"><span class="punkt"></span>${text}</span>${ankunft}</td>
         <td>${esc(e.bau_insel_name || "–")}${e.entfernung != null ? ` <span class="leise klein-text">(${zahl(e.entfernung, 1)} Felder)</span>` : ""}</td>
         <td class="zahl verstecken-schmal">${e.fahrzeit_s ? dauer(e.fahrzeit_s) : "–"}</td>
         <td class="klein-text">${esc(e.hinweis || "")}</td>
         <td style="white-space:nowrap"><button class="klein" data-ko-hoch="${e.id}" ${n === 0 ? "disabled" : ""} title="nach oben">▲</button>
           <button class="klein" data-ko-runter="${e.id}" ${n === ws.length - 1 ? "disabled" : ""} title="nach unten">▼</button>
+          ${e.bewohnt && e.status !== "unterwegs" ? `<button class="klein" data-ko-beg="${e.id}" title="Begleitung (weitere Schiffe und Truppen)">Begleitung</button>` : ""}
           <button class="klein" data-ko-weg="${e.id}" title="entfernen">✕</button></td></tr>`;
     }).join("")}</tbody></table></div>` : `<div class="leise klein-text">Die Warteschlange ist leer.</div>`;
 
@@ -1089,14 +1094,43 @@ function zeichneKolonie() {
   const dot = $("nav-dot-kolonie");
   if (kolonieFehler) dot.className = "dot schlecht";
 }
+/** Dialog: weitere Schiffe und Truppen fuer das Kolonisationsschiff. Gibt {schiffe, truppen} zurueck, null bei Abbrechen. */
+async function begleitungDialog({ titel, text, aktuell, ok, gefahr }) {
+  const inseln = kolonie?.inseln || [];
+  const arten = [["schiffe", "Schiffe"], ["truppen", "Truppen"]];
+  const typen = (art) => [...new Set([...inseln.flatMap(i => Object.keys(i[art] || {})), ...Object.keys(aktuell?.[art] || {})])]
+    .filter(t => t !== "kolonisationsschiff").sort();
+  const html = `<div class="formular" id="beg-form" style="margin-top:12px">${arten.map(([art, name]) => typen(art).length
+    ? `<div class="feld"><label>${name}</label>${typen(art).map(t => {
+        const max = Math.max(0, ...inseln.map(i => (i[art] || {})[t] || 0));
+        return `<div class="info-zeile"><span>${esc(sname(t))} <span class="leise klein-text">(max. ${zahl(max)} auf einer Insel)</span></span>
+          <input type="number" class="eingabe" min="0" step="1" style="max-width:90px" data-beg="${art}|${t}" value="${aktuell?.[art]?.[t] || 0}"></div>`;
+      }).join("")}</div>` : "").join("")}
+    <span class="hinweis">Die Schiffe und Truppen müssen beim Start im Hafen der Bau-Insel liegen, sonst wartet das Schiff. Der Bot bildet sie nicht aus.</span></div>`;
+  let werte = null;
+  const lesen = (e) => {
+    if (!e.target.closest("#bestaetigung [data-j]")) return;
+    werte = { schiffe: {}, truppen: {} };
+    document.querySelectorAll("#beg-form [data-beg]").forEach(inp => {
+      const [art, t] = inp.dataset.beg.split("|"), n = Math.floor(Number(inp.value));
+      if (n > 0) werte[art][t] = n;
+    });
+  };
+  document.addEventListener("click", lesen, true);
+  const ja = await bestaetigen({ titel, text, html, icon: "koloschiff", ok, gefahr });
+  document.removeEventListener("click", lesen, true);
+  return ja ? werte : null;
+}
 async function kolonieHinzu(koord, knopf) {
   const r = await aktion(knopf, async () => {
     try { return await post("/api/kolonie/warteschlange", { koordinaten: koord }); }
     catch (err) {
       const besitzer = /^BEWOHNT\|(.*)$/.exec(err.message)?.[1];
       if (besitzer === undefined) throw err;
-      if (!(await bestaetigen({ titel: `${koord} gehört ${besitzer}`, text: "Das Schiff fährt los, sobald es bereit ist, auch wenn die Insel noch bewohnt ist. Sie wird nur eingenommen, wenn Truppen und Hauptgebäude zerstört sind (sonst 50/50). Trotzdem eintragen?", icon: "koloschiff", ok: "Eintragen", gefahr: true }))) return null;
-      return post("/api/kolonie/warteschlange", { koordinaten: koord, bewohnt: true });
+      const beg = await begleitungDialog({ titel: `${koord} gehört ${besitzer}`, ok: "Eintragen", gefahr: true,
+        text: "Das Schiff fährt los, sobald es bereit ist, auch wenn die Insel noch bewohnt ist. Sie wird nur eingenommen, wenn Truppen und Hauptgebäude zerstört sind (sonst 50/50). Optional fahren weitere Schiffe und Truppen mit." });
+      if (!beg) return null;
+      return post("/api/kolonie/warteschlange", { koordinaten: koord, bewohnt: true, begleitung: beg });
     }
   }, (e) => e && `${e.koordinaten} ist auf Platz ${(kolonie?.warteschlange.length || 0) + 1} der Kolonisations-Warteschlange`);
   if (r) { $("ko-koord").value = ""; kolonieHolen(); }
@@ -1129,7 +1163,15 @@ $("ko-liste").addEventListener("click", async (e) => {
     kolonieHolen();
   }
 });
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
+  const beg = e.target.closest("[data-ko-beg]");
+  if (beg) {
+    const eintrag = kolonie?.warteschlange.find(x => String(x.id) === beg.dataset.koBeg);
+    const neu = await begleitungDialog({ titel: `Begleitung für ${eintrag?.koordinaten || "Ziel"}`, ok: "Speichern", aktuell: eintrag?.begleitung,
+      text: "Weitere Schiffe und Truppen, die mit dem Kolonisationsschiff fahren." });
+    if (neu) { await aktion(beg, () => post(`/api/kolonie/warteschlange/${beg.dataset.koBeg}/begleitung`, neu), "Begleitung gespeichert"); kolonieHolen(); }
+    return;
+  }
   const b = e.target.closest("[data-kolonie-hinzu]");
   if (b) kolonieHinzu(b.dataset.kolonieHinzu, b);
 });
@@ -3011,7 +3053,7 @@ function flottenLage(f, t) {
 function karteFlotten() {
   const kolo = (kolonie?.warteschlange || []).filter(e => e.status === "unterwegs" && !e.zurueckgerufen && e.bau_insel && e.ankunft).map(e => ({
     id: e.flotte_id, insel_id: e.bau_insel, koordinaten: e.koordinaten, ziel_name: e.name, mission: "colonize",
-    depart_at: e.abfahrt, arrive_at: e.ankunft, return_at: null, angekommen: false, ships: { kolonisationsschiff: 1 }, units: {} }));
+    depart_at: e.abfahrt, arrive_at: e.ankunft, return_at: null, angekommen: false, ships: { kolonisationsschiff: 1, ...(e.begleitung?.schiffe || {}) }, units: e.begleitung?.truppen || {} }));
   return [...(flotte?.flotten || []), ...kolo];
 }
 function missionForm(ctx2, x, y, r, mission) {

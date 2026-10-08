@@ -72,6 +72,10 @@ def fmt_res(werte: dict) -> str:
                      if float(werte.get(r, 0) or 0) > 0) or "nichts"
 
 
+def mengen_text(m: dict) -> str:
+    return ", ".join(f"{n}x {typ}" for typ, n in m.items())
+
+
 def fmt_dauer(sek: float) -> str:
     sek = max(0, int(sek))
     h, rest = divmod(sek, 3600)
@@ -84,6 +88,20 @@ def ziel_status(info: dict) -> tuple[bool, str | None]:
     if "besitzer" not in (info or {}):
         return False, None
     return True, info.get("besitzer")
+
+
+def begleitung_bereinigen(roh) -> dict:
+    """{"schiffe": {typ: n}, "truppen": {typ: n}} mit ganzen Zahlen > 0; alles andere faellt weg."""
+    aus: dict[str, dict[str, int]] = {"schiffe": {}, "truppen": {}}
+    for art in aus:
+        for typ, n in ((roh or {}).get(art) or {}).items():
+            try:
+                n = int(n)
+            except (TypeError, ValueError):
+                continue
+            if n > 0 and isinstance(typ, str) and typ.strip() and typ != config.SCHIFF:
+                aus[art][typ.strip()] = n
+    return aus
 
 
 class Kolonisierer:
@@ -237,6 +255,25 @@ class Kolonisierer:
             log.info("UMBENANNT  neue Insel %s: '%s' -> '%s'", self.ov[iid].get("koordinaten"), alt, neu)
         self.state.save()
 
+    def _fehlt_begleitung(self, iid: int, e: dict) -> dict[str, int]:
+        """Was von der Begleitung im Hafen von Insel iid noch fehlt (leer = alles da)."""
+        beg = e.get("begleitung") or {}
+        ov = self.ov.get(iid) or {}
+        fehlt = {}
+        for art, quelle in (("schiffe", "schiffe"), ("truppen", "truppen")):
+            for typ, n in (beg.get(art) or {}).items():
+                luecke = int(n) - int((ov.get(quelle) or {}).get(typ) or 0)
+                if luecke > 0:
+                    fehlt[typ] = luecke
+        return fehlt
+
+    def _mit_begleitung(self, ids, e: dict) -> list[int]:
+        """Inseln, die die Begleitung des Eintrags schon im Hafen haben; hat keine
+        sie, bleibt die Auswahl unveraendert."""
+        ids = list(ids)
+        passend = [i for i in ids if not self._fehlt_begleitung(i, e)]
+        return passend or ids
+
     # ----------------------------------------------------------- Zuordnung
     def _zuordnen(self) -> None:
         """Jedem Eintrag (in Reihenfolge der Warteschlange) ein Schiff bzw.
@@ -267,14 +304,14 @@ class Kolonisierer:
             if e["status"] in ("baut", "bereit"):
                 continue
             # 1. Ein Schiff liegt schon irgendwo im Hafen: das naechstgelegene nehmen.
-            frei = [iid for iid, n in im_hafen.items() if n > 0]
+            frei = self._mit_begleitung([iid for iid, n in im_hafen.items() if n > 0], e)
             if frei:
                 iid = min(frei, key=lambda i: self.entfernung(i, e))
                 im_hafen[iid] -= 1
                 e.update(status="bereit", bau_insel=iid, hinweis=None)
                 continue
             # 2. Ein Schiff ist schon in Ausbildung, ohne dass ein Eintrag es fuer sich hat.
-            frei = [iid for iid, n in in_bau.items() if n > 0]
+            frei = self._mit_begleitung([iid for iid, n in in_bau.items() if n > 0], e)
             if frei:
                 iid = min(frei, key=lambda i: self.entfernung(i, e))
                 in_bau[iid] -= 1
@@ -282,7 +319,7 @@ class Kolonisierer:
                 e.update(status="baut", bau_insel=iid, hinweis="Schiff in Ausbildung")
                 continue
             # 3. Die naechstgelegene geeignete Insel, die gerade nichts anderes baut.
-            kandidaten = [iid for iid in geeignet if iid not in belegt]
+            kandidaten = self._mit_begleitung([iid for iid in geeignet if iid not in belegt], e)
             if not kandidaten:
                 e.update(status="wartet", bau_insel=None,
                          hinweis=("alle geeigneten Inseln bauen gerade ein Schiff" if geeignet else
@@ -345,11 +382,16 @@ class Kolonisierer:
         if besitzer and not e.get("bewohnt"):
             self._besiedelt(e, besitzer)
             return
+        beg = e.get("begleitung") or {}
+        fehlt = self._fehlt_begleitung(iid, e)
+        if fehlt:
+            e["hinweis"] = f"Schiff liegt auf {self._name(iid)} bereit, wartet auf Begleitung: es fehlen {mengen_text(fehlt)}"
+            return
         try:
             f = self.client.create_fleet({
                 "origin_island_id": iid, "mission_type": "attack",
                 "target": {"x": e["x"], "y": e["y"], "z": e["z"]},
-                "ships": {config.SCHIFF: 1}, "units": {},
+                "ships": {config.SCHIFF: 1, **(beg.get("schiffe") or {})}, "units": dict(beg.get("truppen") or {}),
             }) or {}
         except ApiError as err:
             e["hinweis"] = f"Abfahrt fehlgeschlagen: {err.message}"
@@ -423,6 +465,7 @@ class Kolonisierer:
                 "kapazitaet": float((ov.get("rohstoffe") or {}).get("kapazitaet") or 0),
                 "rohstoffe": {r: float((ov.get("rohstoffe") or {}).get(r, 0) or 0) for r in config.RESOURCE_KEYS},
                 "schiffe_im_hafen": int((ov.get("schiffe") or {}).get(config.SCHIFF) or 0),
+                "schiffe": dict(ov.get("schiffe") or {}), "truppen": dict(ov.get("truppen") or {}),
                 "ungeeignet": self.eignung(iid),
                 "baut_fuer": e["koordinaten"] if e else None,
                 "reserviert": self.reserve.get(str(iid)),

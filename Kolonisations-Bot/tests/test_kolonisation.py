@@ -14,7 +14,7 @@ logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
 from api_client import ApiError  # noqa: E402
-from kolonisation import Kolonisierer, naechster_name  # noqa: E402
+from kolonisation import Kolonisierer, begleitung_bereinigen, naechster_name  # noqa: E402
 from state import State  # noqa: E402
 
 ZUKUNFT = "2030-01-01T00:00:00Z"
@@ -214,6 +214,47 @@ class Besiedelt(Basis):
         bot.tick()
         self.assertEqual(api.recalled, [])              # und wird nicht zurueckgerufen
         self.assertEqual(st.warteschlange, [e])
+
+    def test_begleitung_faehrt_mit_wenn_sie_im_hafen_liegt(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        api.ov[0]["schiffe"]["kleines_kriegsschiff"] = 3
+        api.ov[0]["truppen"]["steinewerfer"] = 5
+        bot, st = self.bot(api)
+        beg = {"schiffe": {"kleines_kriegsschiff": 2}, "truppen": {"steinewerfer": 4}}
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True, begleitung=beg)
+        api.besitzer["41:40:1"] = "Fremder"
+        bot.tick()
+        self.assertEqual(e["status"], "unterwegs")
+        self.assertEqual(api.created[0]["ships"], {config.SCHIFF: 1, "kleines_kriegsschiff": 2})
+        self.assertEqual(api.created[0]["units"], {"steinewerfer": 4})
+
+    def test_schiff_wartet_auf_fehlende_begleitung(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        api.ov[0]["schiffe"]["kleines_kriegsschiff"] = 1
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True,
+                             begleitung={"schiffe": {"kleines_kriegsschiff": 2}, "truppen": {}})
+        bot.tick()
+        self.assertEqual(e["status"], "bereit")
+        self.assertEqual(api.created, [])
+        self.assertIn("1x kleines_kriegsschiff", e["hinweis"])
+        api.ov[0]["schiffe"]["kleines_kriegsschiff"] = 2
+        bot.tick()
+        self.assertEqual(e["status"], "unterwegs")
+
+    def test_schiff_kommt_von_der_insel_mit_begleitung(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1), insel(2, "60:60:1", schiffe=1)])
+        api.ov[1]["truppen"]["steinewerfer"] = 3
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True,
+                             begleitung={"schiffe": {}, "truppen": {"steinewerfer": 3}})
+        bot.tick()
+        self.assertEqual(api.created[0]["origin_island_id"], 2)      # nicht die naehere Insel 1
+
+    def test_begleitung_bereinigen(self):
+        roh = {"schiffe": {"a": "2", "b": 0, "c": -1, config.SCHIFF: 5, "d": "x"}, "truppen": {"t": 1.0}, "foo": 1}
+        self.assertEqual(begleitung_bereinigen(roh), {"schiffe": {"a": 2}, "truppen": {"t": 1}})
+        self.assertEqual(begleitung_bereinigen(None), {"schiffe": {}, "truppen": {}})
 
     def test_unterwegs_besiedelt_wird_zurueckgerufen(self):
         api = FakeApi([insel(1, "40:40:1", schiffe=1)])

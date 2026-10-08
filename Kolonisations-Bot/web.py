@@ -21,7 +21,7 @@ from fastapi import Body, FastAPI, HTTPException
 
 import config
 from api_client import ApiError, SeekampfClient
-from kolonisation import Kolonisierer, ziel_status
+from kolonisation import Kolonisierer, begleitung_bereinigen, ziel_status
 from logger_setup import get_logger
 from notify import TelegramNotifier
 from state import State
@@ -160,7 +160,8 @@ def hinzufuegen(payload: dict = Body(...)):
         raise HTTPException(409, f"{koord} gehoert schon dir")
     if besitzer and not payload.get("bewohnt"):
         raise HTTPException(409, f"BEWOHNT|{besitzer}")
-    e = state.neuer_eintrag(x, y, z, info.get("name") or "Unbewohnte Insel", bewohnt=bool(besitzer))
+    e = state.neuer_eintrag(x, y, z, info.get("name") or "Unbewohnte Insel", bewohnt=bool(besitzer),
+                            begleitung=begleitung_bereinigen(payload.get("begleitung")) if besitzer else None)
     log.info("Seekampf-Hub: %s (%s) in die Warteschlange (Platz %d)", koord, e["name"], len(state.warteschlange))
     return e
 
@@ -186,6 +187,23 @@ def entfernen(eintrag_id: int):
     state.abschliessen(e, "entfernt", text)
     log.info("Seekampf-Hub: %s %s", e["koordinaten"], text)
     return {"ok": True, "text": text}
+
+
+@app.post("/api/warteschlange/{eintrag_id}/begleitung")
+def begleitung(eintrag_id: int, payload: dict = Body(...)):
+    """Weitere Schiffe/Truppen fuer ein bewohntes Ziel: {schiffe: {typ: n}, truppen: {typ: n}}.
+    Sie muessen beim Start im Hafen der Bau-Insel liegen; der Bot bildet sie nicht aus."""
+    e = state.eintrag(eintrag_id)
+    if e is None:
+        raise HTTPException(404, "Eintrag nicht gefunden")
+    if not e.get("bewohnt"):
+        raise HTTPException(400, "Begleitung gibt es nur bei bewohnten Inseln")
+    if e["status"] == "unterwegs":
+        raise HTTPException(409, "Das Schiff ist schon unterwegs")
+    with state.lock:
+        e["begleitung"] = begleitung_bereinigen(payload)
+    state.save()
+    return {"ok": True, "begleitung": e["begleitung"]}
 
 
 @app.post("/api/warteschlange/{eintrag_id}/verschieben")
