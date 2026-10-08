@@ -18,7 +18,9 @@ Liegt irgendwo schon ein freies Kolonisationsschiff im Hafen (z. B. nach
 einem Rueckruf), nimmt der naechste Eintrag das naechstgelegene davon, statt
 ein neues zu bauen.
 
-Ein Ziel, das einen Besitzer bekommt, fliegt aus der Warteschlange.
+Ein Ziel, das einen Besitzer bekommt, fliegt aus der Warteschlange - ausser
+es wurde bewusst als bewohnte Insel eingetragen (Truppen und Hauptgebaeude
+zerstoert, das Schiff soll sie einnehmen); dann bleibt es stehen.
 """
 from __future__ import annotations
 
@@ -192,7 +194,7 @@ class Kolonisierer:
                 except ApiError as err:
                     log.error("Pruefung von %s fehlgeschlagen: %s", e["koordinaten"], err)
                     continue
-                if besitzer:
+                if besitzer and not e.get("bewohnt"):
                     self._besiedelt(e, besitzer)
 
         self._zuordnen()
@@ -340,7 +342,7 @@ class Kolonisierer:
         except ApiError as err:
             e["hinweis"] = f"Ziel nicht pruefbar: {err.message}"
             return
-        if besitzer:
+        if besitzer and not e.get("bewohnt"):
             self._besiedelt(e, besitzer)
             return
         try:
@@ -389,7 +391,7 @@ class Kolonisierer:
         except ApiError as err:
             log.error("Pruefung von %s unterwegs fehlgeschlagen: %s", e["koordinaten"], err)
             return
-        if not besitzer:
+        if not besitzer or e.get("bewohnt"):
             return
         try:
             self.client.recall_fleet(e["flotte_id"])

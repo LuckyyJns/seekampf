@@ -728,7 +728,7 @@
         <div class="formular-leiste" style="margin-bottom:12px">
           <input type="text" id="ko-koord" class="eingabe mono" placeholder="x:y:z, z. B. 48:53:21" style="max-width:220px">
           <button class="haupt" id="ko-hinzu">Hinzufügen</button>
-          <span class="leise klein-text">Nur freie Inseln. Wird ein Ziel vorher besiedelt, fliegt es raus. Auch über die Karte: Insel anklicken → „Zur Kolonisation“.</span>
+          <span class="leise klein-text">Freie Inseln sofort; bewohnte nach Rückfrage (z. B. wenn Truppen und Hauptgebäude zerstört sind). Wird ein freies Ziel vorher besiedelt, fliegt es raus, ein bewohntes bleibt. Auch über die Karte: Insel anklicken → „Zur Kolonisation“.</span>
         </div>
         <div id="ko-liste"></div>
       </section>
@@ -1024,7 +1024,8 @@ async function aktion(knopf, fn, erfolg) {
   if (knopf) knopf.disabled = true;
   try {
     const r = await fn();
-    if (erfolg) melde(typeof erfolg === "function" ? erfolg(r) : erfolg, "gut");
+    const text = typeof erfolg === "function" ? erfolg(r) : erfolg;
+    if (text) melde(text, "gut");
     return r;
   } catch (e) {
     melde(e.message, "schlecht");
@@ -1063,7 +1064,7 @@ function zeichneKolonie() {
       const [klasse, text] = KO_STATUS[e.status] || ["grau", e.status];
       const ankunft = e.status === "unterwegs" && e.ankunft ? ` · Ankunft in <span data-bis="${e.ankunft}" data-fertig="jetzt">${dauer(e.ankunft - jetzt())}</span>` : "";
       return `<tr><td class="mono">${n + 1}</td>
-        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span></td>
+        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span>${e.bewohnt ? ` <span class="marke warn">bewohnt</span>` : ""}</td>
         <td><span class="marke ${klasse}"><span class="punkt"></span>${text}</span>${ankunft}</td>
         <td>${esc(e.bau_insel_name || "–")}${e.entfernung != null ? ` <span class="leise klein-text">(${zahl(e.entfernung, 1)} Felder)</span>` : ""}</td>
         <td class="zahl verstecken-schmal">${e.fahrzeit_s ? dauer(e.fahrzeit_s) : "–"}</td>
@@ -1089,8 +1090,15 @@ function zeichneKolonie() {
   if (kolonieFehler) dot.className = "dot schlecht";
 }
 async function kolonieHinzu(koord, knopf) {
-  const r = await aktion(knopf, () => post("/api/kolonie/warteschlange", { koordinaten: koord }),
-    (e) => `${e.koordinaten} ist auf Platz ${(kolonie?.warteschlange.length || 0) + 1} der Kolonisations-Warteschlange`);
+  const r = await aktion(knopf, async () => {
+    try { return await post("/api/kolonie/warteschlange", { koordinaten: koord }); }
+    catch (err) {
+      const besitzer = /^BEWOHNT\|(.*)$/.exec(err.message)?.[1];
+      if (besitzer === undefined) throw err;
+      if (!(await bestaetigen({ titel: `${koord} gehört ${besitzer}`, text: "Das Schiff fährt los, sobald es bereit ist, auch wenn die Insel noch bewohnt ist. Sie wird nur eingenommen, wenn Truppen und Hauptgebäude zerstört sind (sonst 50/50). Trotzdem eintragen?", icon: "koloschiff", ok: "Eintragen", gefahr: true }))) return null;
+      return post("/api/kolonie/warteschlange", { koordinaten: koord, bewohnt: true });
+    }
+  }, (e) => e && `${e.koordinaten} ist auf Platz ${(kolonie?.warteschlange.length || 0) + 1} der Kolonisations-Warteschlange`);
   if (r) { $("ko-koord").value = ""; kolonieHolen(); }
 }
 $("ko-umb-speichern").onclick = async (e) => {
@@ -3309,7 +3317,7 @@ function inselInfo() {
     ${zeilen.map(([k, v]) => `<div class="info-zeile"><span>${k}</span><span>${v}</span></div>`).join("")}
     ${eigeneId ? `<div class="formular-leiste" style="margin-top:10px"><a href="#flotte/${eigeneId}"><button class="klein">Flotten-Manager</button></a>
       <a href="#upgrade/${eigeneId}"><button class="klein">Upgrade-Bot</button></a></div>` : ""}
-    ${!i.b ? `<div class="formular-leiste" style="margin-top:10px"><button class="klein" data-kolonie-hinzu="${esc(i.k)}">Zur Kolonisation</button></div>` : ""}
+    ${!i.b || !eigen ? `<div class="formular-leiste" style="margin-top:10px"><button class="klein" data-kolonie-hinzu="${esc(i.k)}">Zur Kolonisation</button></div>` : ""}
     <div class="feld" style="margin-top:12px"><label for="ka-ring-schiff">${eigen ? "Fahrzeit-Ringe für" : "Fahrzeit mit"}</label>
       <select id="ka-ring-schiff" class="eingabe">${Object.entries(KNOTEN).map(([k, v]) => `<option value="${k}" ${k === ka.ringSchiff ? "selected" : ""}>${esc(sname(k))} (${v} Knoten)</option>`).join("")}</select></div>
     ${fahrt ? `<div style="margin-top:8px">${fahrt}</div>` : ""}`;

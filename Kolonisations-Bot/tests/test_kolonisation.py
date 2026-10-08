@@ -202,6 +202,19 @@ class Besiedelt(Basis):
         self.assertEqual(st.data["verlauf"][0]["ergebnis"], "besiedelt")
         self.assertEqual(self.reserve(), {})
 
+    def test_bewohntes_ziel_bleibt_in_der_liste(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True)
+        api.besitzer["41:40:1"] = "Fremder"
+        bot.tick()
+        self.assertEqual(e["status"], "unterwegs")      # Schiff faehrt trotz Besitzer los
+        api.besitzer["41:40:1"] = "Fremder2"
+        e["letzte_pruefung"] = 0
+        bot.tick()
+        self.assertEqual(api.recalled, [])              # und wird nicht zurueckgerufen
+        self.assertEqual(st.warteschlange, [e])
+
     def test_unterwegs_besiedelt_wird_zurueckgerufen(self):
         api = FakeApi([insel(1, "40:40:1", schiffe=1)])
         bot, st = self.bot(api)

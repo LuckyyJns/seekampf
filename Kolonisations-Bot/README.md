@@ -35,6 +35,12 @@ einen Besitzer, fliegt es aus der Warteschlange; ein fahrendes Schiff wird
 zurückgerufen und nimmt das nächste Ziel. Telegram meldet Erfolg, entfernte
 und gescheiterte Ziele.
 
+**Bewohnte Inseln:** Im Hub lässt sich nach Rückfrage auch eine bewohnte Insel
+eintragen (Markierung „bewohnt“), etwa wenn Truppen und Hauptgebäude zerstört
+sind. Solche Ziele fliegen nicht raus und das Schiff wird nicht zurückgerufen,
+nur weil die Insel einen Besitzer hat. Ob die Insel einnehmbar ist, prüft der
+Bot nicht; das Schiff fährt los, sobald es bereit ist (sonst 50/50).
+
 Der Flotten-Manager lässt Kolonisationsfahrten in Ruhe.
 
 ## Neue Inseln umbenennen

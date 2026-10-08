@@ -137,8 +137,9 @@ _KOORD = re.compile(r"^\s*(\d+)\s*:\s*(\d+)\s*:\s*(\d+)\s*$")
 
 @app.post("/api/warteschlange")
 def hinzufuegen(payload: dict = Body(...)):
-    """Ziel hinten anhaengen. Nur freie Inseln (auch Ruinen) - eine bewohnte
-    Insel wuerde ohnehin sofort wieder aus der Liste fliegen."""
+    """Ziel hinten anhaengen. Freie Inseln (auch Ruinen) immer; eine bewohnte
+    Insel nur mit {"bewohnt": true} - sonst Antwort 409 "BEWOHNT|<Besitzer>",
+    damit der Hub nachfragen kann."""
     m = _KOORD.match(str(payload.get("koordinaten", "")))
     if not m:
         raise HTTPException(400, "Koordinate als x:y:z angeben, z. B. 48:53:21")
@@ -155,9 +156,11 @@ def hinzufuegen(payload: dict = Body(...)):
     ist_insel, besitzer = ziel_status(info)
     if not ist_insel:
         raise HTTPException(400, f"Auf {koord} liegt keine Insel")
-    if besitzer:
-        raise HTTPException(409, f"{koord} gehoert schon {besitzer}")
-    e = state.neuer_eintrag(x, y, z, info.get("name") or "Unbewohnte Insel")
+    if besitzer == bot.spieler:
+        raise HTTPException(409, f"{koord} gehoert schon dir")
+    if besitzer and not payload.get("bewohnt"):
+        raise HTTPException(409, f"BEWOHNT|{besitzer}")
+    e = state.neuer_eintrag(x, y, z, info.get("name") or "Unbewohnte Insel", bewohnt=bool(besitzer))
     log.info("Seekampf-Hub: %s (%s) in die Warteschlange (Platz %d)", koord, e["name"], len(state.warteschlange))
     return e
 

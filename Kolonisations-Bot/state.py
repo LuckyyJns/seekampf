@@ -80,7 +80,7 @@ class State:
     def eintrag(self, eintrag_id: int) -> dict | None:
         return next((e for e in self.warteschlange if e["id"] == int(eintrag_id)), None)
 
-    def neuer_eintrag(self, x: int, y: int, z: int, name: str) -> dict:
+    def neuer_eintrag(self, x: int, y: int, z: int, name: str, bewohnt: bool = False) -> dict:
         with self.lock:
             e = {
                 "id": self.data["naechste_id"],
@@ -95,6 +95,8 @@ class State:
                 "zurueckgerufen": False,
                 "letzte_pruefung": 0.0,
                 "hinweis": None,
+                # Insel eines Spielers: bleibt in der Liste, auch wenn sie einen Besitzer hat
+                "bewohnt": bewohnt,
             }
             self.data["naechste_id"] += 1
             self.warteschlange.append(e)
