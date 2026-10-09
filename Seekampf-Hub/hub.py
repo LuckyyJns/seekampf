@@ -513,6 +513,11 @@ def karte_scan():
     return {"ok": True}
 
 
+@app.get("/api/karte/flotten")
+def karte_flotten():
+    return {"flotten": karte.eigene_flotten(), "serverzeit": time.time()}
+
+
 @app.get("/api/karte/angriffe")
 def karte_angriffe():
     return {"angriffe": karte.angriffe(), "serverzeit": time.time()}

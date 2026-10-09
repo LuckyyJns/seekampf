@@ -2890,7 +2890,7 @@ const ka = {
   daten: null, inseln: [], nachKoord: new Map(), allianzen: new Map(),
   modus: "spieler", spieler: null, auswahl: null,
   ebenen: { flotten: true, angriffe: true, frei: false, ziele: false, aenderungen: false, gitter: true },
-  angriffe: [], ringSchiff: "kleines_kriegsschiff",
+  angriffe: [], spielFlotten: [], ringSchiff: "kleines_kriegsschiff",
   // Ansicht: Pixel je Feld und die Feldkoordinate in der linken oberen Ecke
   massstab: 10, ox: 0, oy: 0, bereit: false, farben: {}, zeiger: new Map(), letzteBewegung: 0,
 };
@@ -2960,6 +2960,11 @@ function scanInfo(scan) {
   $("ka-scan-info").textContent = scan?.fehler ? `Letzter Scan fehlgeschlagen: ${scan.fehler}`
     : d?.zeit ? `Stand ${uhrzeit(d.zeit, true)} · nächster Scan um 1:00 Uhr` : "noch kein Scan";
   $("ka-stand").textContent = d?.zeit ? `${zahl(d.inseln.length)} Inseln · ${d.spieler.length} Spieler · ${d.allianzen.length} Allianzen · Stand ${uhrzeit(d.zeit, true)}` : "noch kein Scan";
+}
+/** Alle eigenen Flotten direkt aus dem Spiel - auch von Hand geschickte */
+async function spielFlottenHolen() {
+  try { ka.spielFlotten = (await hole("/api/karte/flotten")).flotten || []; } catch (e) { /* Karte bleibt nutzbar */ }
+  zeichneKarte();
 }
 async function angriffeHolen() {
   try { ka.angriffe = (await hole("/api/karte/angriffe")).angriffe || []; } catch (e) { /* Karte bleibt nutzbar */ }
@@ -3054,7 +3059,10 @@ function karteFlotten() {
   const kolo = (kolonie?.warteschlange || []).filter(e => e.status === "unterwegs" && !e.zurueckgerufen && e.bau_insel && e.ankunft).map(e => ({
     id: e.flotte_id, insel_id: e.bau_insel, koordinaten: e.koordinaten, ziel_name: e.name, mission: "colonize",
     depart_at: e.abfahrt, arrive_at: e.ankunft, return_at: e.rueckkehr || null, angekommen: false, ships: { kolonisationsschiff: 1, ...(e.begleitung?.schiffe || {}) }, units: e.begleitung?.truppen || {} }));
-  return [...(flotte?.flotten || []), ...kolo];
+  // Was kein Bot meldet (z. B. von Hand geschickt), kommt aus dem Spiel dazu
+  const bekannt = new Set([...(flotte?.flotten || []), ...kolo].map(f => String(f.id)));
+  const rest = ka.spielFlotten.filter(f => !bekannt.has(String(f.id)));
+  return [...(flotte?.flotten || []), ...kolo, ...rest];
 }
 function missionForm(ctx2, x, y, r, mission) {
   ctx2.beginPath();
@@ -3983,7 +3991,7 @@ $("vl-tabelle").onclick = () => { vlTabelle = !vlTabelle; zeichneVerlaufUp(); };
 window.addEventListener("resize", () => { if (tab === "upgrade" && !vlTabelle) zeichneVerlaufUp(); });
 
 function aktualisieren() {
-  if (tab === "karte") { farbenLesen(); flotteHolen(); kolonieHolen(); angriffeHolen(); karteHolen(); zeichneKarte(); }
+  if (tab === "karte") { farbenLesen(); flotteHolen(); kolonieHolen(); spielFlottenHolen(); angriffeHolen(); karteHolen(); zeichneKarte(); }
   if (tab === "flotte") { flotteHolen(); if (!verlauf) verlaufHolen(); else { diagramm("fl-diagramm", verlauf.gesamt); } }
   if (tab === "upgrade") { upgradeHolen(); verlaufUpHolen(); }
   if (tab === "allianz") allianzHolen();
@@ -4080,7 +4088,7 @@ setInterval(() => {
   if (tab === "upgrade") upgradeHolen();
   if (tab === "allianz") allianzHolen();
   if (tab === "uebersicht") { flotteHolen(); upgradeHolen(); allianzHolen(); }
-  if (tab === "karte") flotteHolen();
+  if (tab === "karte") { flotteHolen(); kolonieHolen(); spielFlottenHolen(); }
   if (tab === "ausgleich") ausgleichHolen();
   if (tab === "kolonie") kolonieHolen();
   if (tab === "ausbildung") ausbildungHolen();

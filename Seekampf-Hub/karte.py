@@ -83,6 +83,8 @@ class Karte:
         self._ich_zeit = 0.0
         self._angriffe: list = []
         self._angriffe_zeit = 0.0
+        self._flotten: list[dict] = []
+        self._flotten_zeit = 0.0
 
     # ------------------------------------------------------------------ Scan
     def scan_starten(self, grund: str) -> bool:
@@ -239,3 +241,40 @@ class Karte:
         except (httpx.HTTPError, ValueError) as e:
             log.warning("GET /fleets/incoming fehlgeschlagen: %s", e)
         return self._angriffe
+
+    def eigene_flotten(self) -> list[dict]:
+        """Alle eigenen Flotten aus dem Spiel (auch von Hand geschickte),
+        im Format des Flotten-Managers - hoechstens alle 5 s abgefragt."""
+        if time.time() - self._flotten_zeit < 5:
+            return self._flotten
+        try:
+            r = self.client.get("/fleets")
+            r.raise_for_status()
+            jetzt = time.time()
+            flotten = []
+            for f in r.json() or []:
+                z, ships = f.get("target") or {}, f.get("ships") or {}
+                ankunft, rueck = _epoch(f.get("arrive_at")), _epoch(f.get("return_at"))
+                flotten.append({
+                    "id": f.get("id"), "insel_id": f.get("origin_island_id"),
+                    "koordinaten": f"{z.get('x')}:{z.get('y')}:{z.get('z')}", "ziel_name": z.get("name"),
+                    "mission": "colonize" if ships.get("kolonisationsschiff") else f.get("mission"),
+                    "ships": ships, "units": f.get("units") or {}, "loot": f.get("loot") or {},
+                    "state": f.get("state"), "depart_at": _epoch(f.get("depart_at")),
+                    "arrive_at": ankunft, "return_at": rueck,
+                    "angekommen": f.get("state") == "returning" and bool(ankunft) and jetzt >= ankunft,
+                    "zurueckgerufen": f.get("state") == "returning" and bool(ankunft) and jetzt < ankunft,
+                })
+            self._flotten, self._flotten_zeit = flotten, jetzt
+        except (httpx.HTTPError, ValueError) as e:
+            log.warning("GET /fleets fehlgeschlagen: %s", e)
+        return self._flotten
+
+
+def _epoch(wert: str | None) -> float | None:
+    if not wert:
+        return None
+    try:
+        return datetime.fromisoformat(wert).timestamp()
+    except ValueError:
+        return None
