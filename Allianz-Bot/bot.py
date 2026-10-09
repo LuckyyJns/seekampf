@@ -49,6 +49,13 @@ class AllianzBot:
         self.client = SeekampfClient()
         notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
         self.k = Kontext(self.client, self.state, notifier)
+        if self.state.defekt:
+            log.error("data/state.json war unlesbar und liegt jetzt unter %s - Bot startet mit leerem Stand",
+                      self.state.defekt)
+            notifier.send("Allianz-Bot: state.json defekt",
+                          f"data/state.json liess sich nicht lesen und wurde als "
+                          f"{os.path.basename(self.state.defekt)} beiseitegelegt. Der Bot startet mit leerem "
+                          "Stand (Vorgangsnummer faengt bei 0 an) - Datei pruefen.")
         self.verteidiger = Verteidiger(self.k)
         self.helfer = Helfer(self.k)
         self.anfrage = Anfrage(self.k)

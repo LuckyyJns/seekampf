@@ -10,6 +10,8 @@ import tempfile
 import time
 import unittest
 
+import requests
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
@@ -354,6 +356,37 @@ class AlterZustand(Basis):
                 st.insel_setzen(1, schlecht)
         with self.assertRaises(ValueError):
             st.standard_setzen({"steinewerfer": "abc"})
+
+
+class NetzfehlerBeiPost(Basis):
+    def test_ausbildung_antwort_verloren_andere_inseln_kommen_trotzdem_dran(self):
+        api = FakeApi([insel(1, "40:40:1"), insel(2, "10:10:1")])
+        echt = api.start_training
+
+        def erste_insel_netzfehler(iid, facility, item, count):
+            echt(iid, facility, item, count)
+            if iid == 1:
+                raise requests.ReadTimeout("Antwort verloren")
+            return {"id": 99}
+        api.start_training = erste_insel_netzfehler
+        b, _ = self.bot(api, {1: {"speerkaempfer": 5}, 2: {"speerkaempfer": 5}})
+        b.tick()                                       # darf nicht mit Ausnahme enden
+        self.assertEqual(sorted(t[0] for t in api.trainings), [1, 2])
+        b.tick()                                       # Auftrag steht in der Ausbildung -> nicht doppelt
+        self.assertEqual(len(api.trainings), 2)
+
+    def test_verlegen_antwort_verloren_wirft_nicht(self):
+        api = FakeApi([
+            insel(1, "40:40:1", truppen={"speerkaempfer": 103}, schiffe={"kleines_kriegsschiff": 2}),
+            insel(7, "41:40:1", kaserne=0),
+        ])
+
+        def netzfehler(p):
+            raise requests.ConnectionError("weg")
+        api.create_fleet = netzfehler
+        b, _ = self.bot(api, {1: {"speerkaempfer": 100}, 7: {"speerkaempfer": 3}})
+        b.tick()                                       # keine Ausnahme
+        self.assertEqual(api.created, [])
 
 
 if __name__ == "__main__":

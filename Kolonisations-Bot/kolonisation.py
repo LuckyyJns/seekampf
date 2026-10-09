@@ -32,6 +32,8 @@ import tempfile
 import time
 from datetime import datetime, timezone
 
+import requests
+
 import config
 import geo
 from api_client import ApiError
@@ -191,6 +193,7 @@ class Kolonisierer:
         flotten = {str(f.get("id")): f for f in (self.client.get_fleets() or [])}
         eigene = {i.get("koordinaten"): iid for iid, i in self.ov.items()}
         self._umbenennen()
+        self._verlorene_abfahrten_uebernehmen(flotten, jetzt)
 
         for e in [e for e in self.state.warteschlange if e["status"] == "unterwegs"]:
             self._unterwegs(e, flotten, eigene, jetzt)
@@ -227,6 +230,28 @@ class Kolonisierer:
         self._inseln_bewerten()
         self.state.save()
         self.letzter_tick = jetzt
+
+    def _verlorene_abfahrten_uebernehmen(self, flotten: dict, jetzt: float) -> None:
+        """Eintraege, deren Schiff laut Hafen weg ist, obwohl die Abfahrt nicht
+        verbucht wurde (Antwort auf POST /fleets ging verloren): die Flotte
+        in GET /fleets suchen und uebernehmen. Sonst wuerde _zuordnen den Eintrag
+        auf "wartet" setzen und ein zweites Schiff (~59.000 Rohstoffe) bauen."""
+        vergeben = {str(e.get("flotte_id")) for e in self.state.warteschlange if e["status"] == "unterwegs"}
+        for e in self.state.warteschlange:
+            if e["status"] != "bereit":
+                continue
+            for fid, f in flotten.items():
+                t = f.get("target") or {}
+                if (fid in vergeben or (t.get("x"), t.get("y"), t.get("z")) != (e["x"], e["y"], e["z"])
+                        or not int((f.get("ships") or {}).get(config.SCHIFF) or 0)):
+                    continue
+                vergeben.add(fid)
+                e.update(status="unterwegs", flotte_id=f.get("id"), abfahrt=jetzt,
+                         ankunft=iso_zu_epoch(f.get("arrive_at")),
+                         rueckruf_bis=iso_zu_epoch(f.get("recallable_until")), hinweis=None)
+                log.warning("ABFAHRT    %s: Flotte #%s war schon unterwegs (Antwort ging verloren) - uebernommen",
+                            e["koordinaten"], f.get("id"))
+                break
 
     # --------------------------------------------------------- Umbenennen
     def _umbenennen(self) -> None:
@@ -352,6 +377,14 @@ class Kolonisierer:
             log.error("%s: Ausbildung des Schiffs auf %s fehlgeschlagen: %s", e["koordinaten"],
                       self._name(iid), err)
             return
+        except requests.RequestException as err:
+            # Unklar, ob die Ausbildung angenommen wurde. Nicht wiederholen: _zuordnen
+            # erkennt ein Schiff in Ausbildung im naechsten Tick selbst (GET /training).
+            self.reserve[str(iid)] = dict(self.kosten)
+            e["hinweis"] = f"Ausbildung auf {self._name(iid)} unklar (Netzwerk) - wird im naechsten Tick geprueft"
+            log.warning("%s: Ausbildung des Schiffs auf %s unklar: %s", e["koordinaten"], self._name(iid),
+                        type(err).__name__)
+            return
         e.update(status="baut", auftrag_id=antwort.get("id"), hinweis="Schiff in Ausbildung")
         log.info("%s: Kolonisationsschiff auf %s in Ausbildung gegeben (%s)", e["koordinaten"],
                  self._name(iid), fmt_res(self.kosten))
@@ -434,6 +467,12 @@ class Kolonisierer:
         except ApiError as err:
             e["hinweis"] = f"Abfahrt fehlgeschlagen: {err.message}"
             log.error("%s: Abfahrt von %s fehlgeschlagen: %s", e["koordinaten"], self._name(iid), err)
+            return
+        except requests.RequestException as err:
+            # Unklar, ob die Flotte losgefahren ist (create_fleet hat schon in GET /fleets
+            # nachgesehen). Der naechste Tick uebernimmt sie, falls sie doch faehrt.
+            e["hinweis"] = "Abfahrt unklar (Netzwerk) - wird im naechsten Tick geprueft"
+            log.warning("%s: Abfahrt von %s unklar: %s", e["koordinaten"], self._name(iid), type(err).__name__)
             return
         e.update(status="unterwegs", flotte_id=f.get("id"), abfahrt=jetzt,
                  ankunft=iso_zu_epoch(f.get("arrive_at")), rueckruf_bis=iso_zu_epoch(f.get("recallable_until")),

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 
 import config
 
@@ -40,9 +41,22 @@ class State:
         self.path = path
         self.data = json.loads(json.dumps(LEER))
         self._zuletzt = None  # zuletzt geschriebener Inhalt - spart Schreibzugriffe auf die SD-Karte
+        # Pfad der beiseitegelegten Datei, falls state.json unlesbar war (Bot meldet das).
+        self.defekt: str | None = None
+        gespeichert = None
         if os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                gespeichert = json.load(f)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    gespeichert = json.load(f)
+                if not isinstance(gespeichert, dict):
+                    raise ValueError("kein JSON-Objekt")
+            except (ValueError, OSError):
+                # Nicht abstuerzen und nicht ueberschreiben: die kaputte Datei bleibt
+                # zur Rettung liegen (Vorgangsnummern!), der Bot startet mit leerem Stand.
+                self.defekt = f"{path}.defekt-{time.strftime('%Y%m%d-%H%M%S')}"
+                os.replace(path, self.defekt)
+                gespeichert = None
+        if gespeichert is not None:
             self.data.update({k: v for k, v in gespeichert.items() if k in LEER})
             # Aus der Ein-Insel-Zeit: einzelner Notruf/einzelne Anfrage. Die Insel
             # traegt Kontext.start() nach (siehe Kontext.altbestand_zuordnen).

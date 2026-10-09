@@ -8,6 +8,8 @@ trotzdem unterwegs, und ein zweiter Versuch schickte eine zweite los.
 """
 from __future__ import annotations
 
+import time
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -21,6 +23,18 @@ class ApiError(Exception):
         self.code = code
         self.message = message
         super().__init__(f"{status_code} {code}: {message}")
+
+
+MAX_429_VERSUCHE = 3
+
+
+def _warten_bei_429(response, versuch):
+    """Sekunden bis zum naechsten Versuch nach HTTP 429 (Retry-After, sonst 2, 4, 8 ... s, hoechstens 30)."""
+    try:
+        sek = float(response.headers.get("Retry-After", ""))
+    except (TypeError, ValueError):
+        sek = 2.0 ** (versuch + 1)
+    return max(0.5, min(sek, 30.0))
 
 
 class SeekampfClient:
@@ -43,6 +57,12 @@ class SeekampfClient:
     def _request(self, method, path, **kwargs):
         url = f"{config.API_BASE_URL}{path}"
         response = self.session.request(method, url, timeout=15, **kwargs)
+        # 429 heisst: nichts verarbeitet - Wiederholen ist auch bei POST sicher.
+        for versuch in range(MAX_429_VERSUCHE):
+            if response.status_code != 429:
+                break
+            time.sleep(_warten_bei_429(response, versuch))
+            response = self.session.request(method, url, timeout=15, **kwargs)
         if response.status_code >= 400:
             body = {}
             try:
@@ -99,8 +119,38 @@ class SeekampfClient:
         return self._request("GET", "/fleets") or []
 
     def create_fleet(self, payload):
-        """POST /fleets -> legt die Flotte an und gibt sie zurueck (201)."""
-        return self._request("POST", "/fleets", json=payload)
+        """POST /fleets -> legt die Flotte an und gibt sie zurueck (201).
+
+        Reisst die Verbindung ab, bevor die Antwort da ist, kann die Flotte
+        trotzdem losgefahren sein. Deshalb wird danach in GET /fleets nach ihr
+        gesucht (neue Flotte, gleiches Ziel, gleiche Schiffe) und sie dann
+        zurueckgegeben, statt einen Fehler zu melden. Gefunden wird nichts =
+        der Netzfehler wird weitergereicht (Versand unklar).
+        """
+        vorher = {f.get("id") for f in self.get_fleets()}   # schlaegt das fehl, wurde noch nichts gesendet
+        try:
+            return self._request("POST", "/fleets", json=payload)
+        except requests.RequestException:
+            gefunden = self._neue_flotte_suchen(payload, vorher)
+            if gefunden is None:
+                raise
+            return gefunden
+
+    def _neue_flotte_suchen(self, payload, vorher):
+        """Die Flotte aus `payload`, die seit `vorher` neu in GET /fleets steht (oder None)."""
+        try:
+            flotten = self.get_fleets()
+        except (ApiError, requests.RequestException):
+            return None
+        ziel = payload.get("target") or {}
+        ships = {t: int(n) for t, n in (payload.get("ships") or {}).items() if n}
+        for f in flotten:
+            t = f.get("target") or {}
+            if (f.get("id") not in vorher
+                    and (t.get("x"), t.get("y"), t.get("z")) == (ziel.get("x"), ziel.get("y"), ziel.get("z"))
+                    and {k: int(n) for k, n in (f.get("ships") or {}).items() if n} == ships):
+                return f
+        return None
 
     def recall_fleet(self, fleet_id):
         """POST /fleets/{id}/recall - geht nur bis recallable_until."""

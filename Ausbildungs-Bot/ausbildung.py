@@ -254,6 +254,15 @@ class Ausbilder:
                     hinweise[iid].append(f"Ausbildung von {e} fehlgeschlagen: {err.message}")
                     log.error("%s: Ausbildung von %d %s fehlgeschlagen: %s", self._name(iid), n, e, err)
                     continue
+                except requests.RequestException as err:
+                    # Unklar, ob der Auftrag angenommen wurde: nicht wiederholen, die Rohstoffe
+                    # als ausgegeben rechnen; der naechste Tick liest die Ausbildung frisch.
+                    for r in config.RESOURCE_KEYS:
+                        budget[r] -= n * float(kosten.get(r, 0) or 0)
+                    hinweise[iid].append(f"Ausbildung von {e} unklar (Netzwerk) - wird im naechsten Tick geprueft")
+                    log.warning("%s: Ausbildung von %d %s unklar: %s", self._name(iid), n, e, type(err).__name__)
+                    self._gelesen.pop(iid, None)
+                    continue
                 for r in config.RESOURCE_KEYS:
                     budget[r] -= n * float(kosten.get(r, 0) or 0)
                 ist[iid][e] += n
@@ -351,6 +360,13 @@ class Ausbilder:
             hinweise[nach].append(f"Verlegung von {self._name(von)} fehlgeschlagen: {err.message}")
             log.error("Verlegung von %d %s %s -> %s fehlgeschlagen: %s", mit, e, self._name(von),
                       self._name(nach), err)
+            return
+        except requests.RequestException as err:
+            # Unklar, ob die Flotte losgefahren ist (create_fleet hat schon in GET /fleets
+            # nachgesehen); sie zaehlt im naechsten Tick als "im Anflug", falls sie faehrt.
+            hinweise[nach].append(f"Verlegung von {self._name(von)} unklar (Netzwerk) - wird im naechsten Tick geprueft")
+            log.warning("Verlegung von %d %s %s -> %s unklar: %s", mit, e, self._name(von), self._name(nach),
+                        type(err).__name__)
             return
         text = f"{mit} {e} von {self._name(von)} nach {self._name(nach)} verlegt"
         log.info(text)

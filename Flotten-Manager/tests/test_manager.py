@@ -11,6 +11,8 @@ import threading
 import time
 import unittest
 
+import requests
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
@@ -378,6 +380,22 @@ class Ausgleich(Basis):
         self.einstellen(st, i447={"gibt": True, "max_abgabe": 300}, i20={"bekommt": True})
         m.tick()
         self.assertLessEqual(sum(self.lieferungen(api)[(447, 6)].values()), 300)
+
+    def test_netzfehler_beim_versand_bricht_den_tick_nicht_ab_und_wiederholt_nicht(self):
+        api = self.drei_inseln()
+        aufrufe = []
+
+        def netzfehler(p):
+            aufrufe.append(p)
+            raise requests.ConnectionError("Antwort verloren")
+        api.create_fleet = netzfehler
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
+        m.tick()                                       # keine Ausnahme
+        erste = len(aufrufe)
+        self.assertGreaterEqual(erste, 1)
+        m.tick()                                       # Empfaenger pausiert: nicht sofort nochmal senden
+        self.assertEqual(len(aufrufe), erste)
 
     def test_eigene_grenzen_je_insel(self):
         api = self.drei_inseln()

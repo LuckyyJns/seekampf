@@ -1,3 +1,5 @@
+import time
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -11,6 +13,18 @@ class ApiError(Exception):
         self.code = code
         self.message = message
         super().__init__(f"{status_code} {code}: {message}")
+
+
+MAX_429_VERSUCHE = 3
+
+
+def _warten_bei_429(response, versuch):
+    """Sekunden bis zum naechsten Versuch nach HTTP 429 (Retry-After, sonst 2, 4, 8 ... s, hoechstens 30)."""
+    try:
+        sek = float(response.headers.get("Retry-After", ""))
+    except (TypeError, ValueError):
+        sek = 2.0 ** (versuch + 1)
+    return max(0.5, min(sek, 30.0))
 
 
 class SeekampfClient:
@@ -39,13 +53,21 @@ class SeekampfClient:
     def _request(self, method, path, **kwargs):
         url = f"{config.API_BASE_URL}{path}"
         response = self.session.request(method, url, timeout=15, **kwargs)
+        # 429 heisst: nichts verarbeitet - Wiederholen ist auch bei POST sicher.
+        for versuch in range(MAX_429_VERSUCHE):
+            if response.status_code != 429:
+                break
+            time.sleep(_warten_bei_429(response, versuch))
+            response = self.session.request(method, url, timeout=15, **kwargs)
         if response.status_code >= 400:
             body = {}
             try:
                 body = response.json()
             except ValueError:
                 pass
-            error = body.get("error", {})
+            error = body.get("error", {}) if isinstance(body, dict) else {}
+            if not isinstance(error, dict):
+                error = {}
             raise ApiError(
                 response.status_code,
                 error.get("code", "unknown"),

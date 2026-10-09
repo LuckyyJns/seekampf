@@ -33,6 +33,8 @@ import logging
 import math
 import time
 
+import requests
+
 import config
 import geo
 from api_client import ApiError
@@ -396,6 +398,15 @@ class Ausgleich:
                       m.state.insel(sp).get("name"), ziel.get("name"), e)
             self._pause_bis[str(ziel_id)] = jetzt + FEHLER_PAUSE_S
             eintrag["hinweis"] = f"Fehler: {e.message}"
+            return None
+        except requests.RequestException as e:
+            # Unklar, ob die Flotte losgefahren ist (create_fleet hat schon in GET /fleets
+            # nachgesehen). Nicht wiederholen; faehrt sie doch, zaehlt sie im naechsten Tick
+            # als unterwegs. Empfaenger kurz pausieren, damit nichts doppelt geliefert wird.
+            log.warning("AUSGLEICH  Lieferung %s -> %s: Versand unklar (%s)",
+                        m.state.insel(sp).get("name"), ziel.get("name"), type(e).__name__)
+            self._pause_bis[str(ziel_id)] = jetzt + FEHLER_PAUSE_S
+            eintrag["hinweis"] = "Versand unklar (Netzwerk) - wird geprueft"
             return None
         # Bei einem Netzwerkfehler (requests) bricht der Tick ab, ohne zu
         # wiederholen: POST /fleets ist nicht idempotent. Ist die Flotte doch

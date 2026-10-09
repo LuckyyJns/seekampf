@@ -29,6 +29,18 @@ class ApiError(Exception):
         super().__init__(f"{status_code} {code}: {message}")
 
 
+MAX_429_VERSUCHE = 3
+
+
+def _warten_bei_429(response, versuch):
+    """Sekunden bis zum naechsten Versuch nach HTTP 429 (Retry-After, sonst 2, 4, 8 ... s, hoechstens 30)."""
+    try:
+        sek = float(response.headers.get("Retry-After", ""))
+    except (TypeError, ValueError):
+        sek = 2.0 ** (versuch + 1)
+    return max(0.5, min(sek, 30.0))
+
+
 class SeekampfClient:
     def __init__(self):
         self.session = requests.Session()
@@ -50,6 +62,12 @@ class SeekampfClient:
     def _request(self, method, path, **kwargs):
         url = f"{config.API_BASE_URL}{path}"
         response = self.session.request(method, url, timeout=15, **kwargs)
+        # 429 heisst: nichts verarbeitet - Wiederholen ist auch bei POST sicher.
+        for versuch in range(MAX_429_VERSUCHE):
+            if response.status_code != 429:
+                break
+            time.sleep(_warten_bei_429(response, versuch))
+            response = self.session.request(method, url, timeout=15, **kwargs)
         datum = response.headers.get("Date")
         if datum:
             try:

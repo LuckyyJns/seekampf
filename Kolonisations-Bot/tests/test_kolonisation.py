@@ -9,11 +9,15 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
+
+import requests
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
+import api_client  # noqa: E402
 from api_client import ApiError  # noqa: E402
 from kolonisation import Kolonisierer, begleitung_bereinigen, naechster_name  # noqa: E402
 from state import State  # noqa: E402
@@ -371,6 +375,111 @@ class Reihenfolge(Basis):
         bot.tick()
         self.assertEqual(self.reserve(), {})
         self.assertEqual(api.trainings, [])
+
+
+class NetzfehlerBeiPost(Basis):
+    """Geht die Antwort auf einen POST verloren, darf nie ein zweites Schiff entstehen."""
+
+    def test_abfahrt_antwort_verloren_flotte_wird_uebernommen(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        echt = api.create_fleet
+
+        def create_dann_netzfehler(p):
+            echt(p)                                  # Flotte faehrt wirklich los ...
+            raise requests.ConnectionError("Antwort verloren")   # ... aber die Antwort kommt nie an
+        api.create_fleet = create_dann_netzfehler
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel")
+        bot.tick()
+        self.assertEqual(e["status"], "bereit")
+        self.assertEqual(len(api.created), 1)
+        bot.tick()                                    # naechster Tick: Flotte in GET /fleets gefunden
+        self.assertEqual(e["status"], "unterwegs")
+        self.assertEqual(e["flotte_id"], api.fleets[0]["id"])
+        self.assertEqual(len(api.created), 1)
+        self.assertEqual(api.trainings, [])           # KEIN zweites Schiff in Ausbildung
+
+    def test_abfahrt_nie_angekommen_wird_wiederholt(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        echt = api.create_fleet
+        zaehler = {"n": 0}
+
+        def erst_netzfehler(p):
+            zaehler["n"] += 1
+            if zaehler["n"] == 1:
+                raise requests.ConnectionError("nie gesendet")
+            return echt(p)
+        api.create_fleet = erst_netzfehler
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel")
+        bot.tick()
+        self.assertEqual(e["status"], "bereit")
+        bot.tick()
+        self.assertEqual(e["status"], "unterwegs")
+        self.assertEqual(len(api.created), 1)
+
+    def test_ausbildung_antwort_verloren_wird_nicht_doppelt_bestellt(self):
+        api = FakeApi([insel(1, "40:40:1", res=(20000, 5000, 36000))])
+        echt = api.start_training
+
+        def training_dann_netzfehler(*a):
+            echt(*a)
+            raise requests.ReadTimeout("Antwort verloren")
+        api.start_training = training_dann_netzfehler
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel")
+        bot.tick()                                    # Bestellung unklar
+        api.ov[0]["rohstoffe"].update(gold=20000, stein=5000, holz=36000)   # selbst wenn das Geld wieder da waere
+        bot.tick()
+        bot.tick()
+        self.assertEqual(len(api.trainings), 1)
+        self.assertEqual(e["status"], "baut")
+
+
+class ClientCreateFleet(unittest.TestCase):
+    """create_fleet des echten Clients: nach einem Netzfehler in GET /fleets nachsehen."""
+
+    def client(self, get_fleets_antworten, post):
+        c = api_client.SeekampfClient()
+        c.get_fleets = mock.Mock(side_effect=get_fleets_antworten)
+        c._request = mock.Mock(side_effect=post)
+        return c
+
+    PAYLOAD = {"origin_island_id": 1, "mission_type": "attack", "target": {"x": 41, "y": 40, "z": 1},
+               "ships": {config.SCHIFF: 1}}
+
+    def test_flotte_gefunden(self):
+        neu = {"id": 7, "target": {"x": 41, "y": 40, "z": 1}, "ships": {config.SCHIFF: 1}}
+        c = self.client([[{"id": 3}], [{"id": 3}, neu]], requests.ConnectionError("weg"))
+        self.assertEqual(c.create_fleet(self.PAYLOAD), neu)
+
+    def test_nichts_gefunden_reicht_netzfehler_weiter(self):
+        c = self.client([[{"id": 3}], [{"id": 3}]], requests.ConnectionError("weg"))
+        with self.assertRaises(requests.ConnectionError):
+            c.create_fleet(self.PAYLOAD)
+
+    def test_alte_flotte_mit_gleichem_ziel_zaehlt_nicht(self):
+        alt = {"id": 3, "target": {"x": 41, "y": 40, "z": 1}, "ships": {config.SCHIFF: 1}}
+        c = self.client([[alt], [alt]], requests.ConnectionError("weg"))
+        with self.assertRaises(requests.ConnectionError):
+            c.create_fleet(self.PAYLOAD)
+
+    def test_api_fehler_wird_nicht_nachgesucht(self):
+        c = self.client([[{"id": 3}]], ApiError(409, "keine_schiffe", "x"))
+        with self.assertRaises(ApiError):
+            c.create_fleet(self.PAYLOAD)
+        self.assertEqual(c.get_fleets.call_count, 1)
+
+    def test_429_wird_wiederholt(self):
+        c = api_client.SeekampfClient()
+        zu_viel = mock.Mock(status_code=429, headers={"Retry-After": "0"})
+        ok = mock.Mock(status_code=200, headers={}, content=b"{}")
+        ok.json.return_value = {"ok": 1}
+        c.session.request = mock.Mock(side_effect=[zu_viel, ok])
+        with mock.patch("api_client.time.sleep") as schlaf:
+            self.assertEqual(c._request("POST", "/fleets", json={}), {"ok": 1})
+        self.assertEqual(c.session.request.call_count, 2)
+        schlaf.assert_called_once()
 
 
 if __name__ == "__main__":

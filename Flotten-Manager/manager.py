@@ -948,6 +948,13 @@ class FlottenManager:
                 log.error("Flotte von %s nach %s konnte nicht starten: %s",
                           insel.get("name"), ziel["koordinaten"], e)
                 return  # fehlt etwas (Schiffe, Einheiten), hilft der naechste Versuch auch nicht
+            except requests.RequestException as e:
+                # Unklar, ob die Flotte losgefahren ist (create_fleet hat schon in GET /fleets
+                # nachgesehen). Fuer diesen Tick Schluss; faehrt sie doch, erscheint sie im
+                # naechsten Tick in GET /fleets und zaehlt als unterwegs.
+                log.warning("Flotte von %s nach %s: Start unklar (%s)", insel.get("name"),
+                            ziel["koordinaten"], type(e).__name__)
+                return
 
             rec = self._record(antwort)
             rec["insel_id"] = insel_id
