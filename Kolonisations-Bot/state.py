@@ -92,7 +92,7 @@ class State:
                 "bau_insel": None,       # Insel, die das Schiff baut bzw. schickt
                 "auftrag_id": None,      # Ausbildungsauftrag des Schiffs
                 "flotte_id": None,
-                "abfahrt": None, "ankunft": None, "rueckruf_bis": None,
+                "abfahrt": None, "ankunft": None, "rueckruf_bis": None, "rueckkehr": None,
                 "zurueckgerufen": False,
                 "letzte_pruefung": 0.0,
                 "hinweis": None,

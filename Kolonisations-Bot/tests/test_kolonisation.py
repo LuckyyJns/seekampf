@@ -19,7 +19,7 @@ logging.disable(logging.CRITICAL)
 import config  # noqa: E402
 import api_client  # noqa: E402
 from api_client import ApiError  # noqa: E402
-from kolonisation import Kolonisierer, begleitung_bereinigen, naechster_name  # noqa: E402
+from kolonisation import Kolonisierer, begleitung_bereinigen, iso_zu_epoch, naechster_name  # noqa: E402
 from state import State  # noqa: E402
 
 ZUKUNFT = "2030-01-01T00:00:00Z"
@@ -210,6 +210,18 @@ class Besiedelt(Basis):
         self.assertEqual(st.warteschlange, [])
         self.assertEqual(st.data["verlauf"][0]["ergebnis"], "besiedelt")
         self.assertEqual(self.reserve(), {})
+
+    def test_rueckfahrt_nach_gescheiterter_kolonisation_wird_uebernommen(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True)
+        api.besitzer["41:40:1"] = "Fremder"
+        bot.tick()
+        self.assertIsNone(e["rueckkehr"])
+        api.fleets[0].update(state="returning", return_at="2099-01-01T00:00:00+00:00")
+        bot.tick()
+        self.assertEqual(e["status"], "unterwegs")
+        self.assertEqual(e["rueckkehr"], iso_zu_epoch("2099-01-01T00:00:00+00:00"))
 
     def test_bewohntes_ziel_bleibt_in_der_liste(self):
         api = FakeApi([insel(1, "40:40:1", schiffe=1)])

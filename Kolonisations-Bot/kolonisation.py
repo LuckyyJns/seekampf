@@ -496,6 +496,9 @@ class Kolonisierer:
             self.state.abschliessen(e, "gescheitert", text)
             self._melden("Kolonisation gescheitert", f"{e['koordinaten']}: {text}.")
             return
+        # Rueckfahrt (Kolonisation gescheitert oder zurueckgerufen) fuer die Karte im Hub
+        if f.get("return_at"):
+            e["rueckkehr"] = iso_zu_epoch(f.get("return_at"))
         bis = float(e.get("rueckruf_bis") or 0)
         if e.get("zurueckgerufen") or jetzt >= bis:
             return

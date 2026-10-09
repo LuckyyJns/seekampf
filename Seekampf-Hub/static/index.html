@@ -3053,7 +3053,7 @@ function flottenLage(f, t) {
 function karteFlotten() {
   const kolo = (kolonie?.warteschlange || []).filter(e => e.status === "unterwegs" && !e.zurueckgerufen && e.bau_insel && e.ankunft).map(e => ({
     id: e.flotte_id, insel_id: e.bau_insel, koordinaten: e.koordinaten, ziel_name: e.name, mission: "colonize",
-    depart_at: e.abfahrt, arrive_at: e.ankunft, return_at: null, angekommen: false, ships: { kolonisationsschiff: 1, ...(e.begleitung?.schiffe || {}) }, units: e.begleitung?.truppen || {} }));
+    depart_at: e.abfahrt, arrive_at: e.ankunft, return_at: e.rueckkehr || null, angekommen: false, ships: { kolonisationsschiff: 1, ...(e.begleitung?.schiffe || {}) }, units: e.begleitung?.truppen || {} }));
   return [...(flotte?.flotten || []), ...kolo];
 }
 function missionForm(ctx2, x, y, r, mission) {
