@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
+from api_client import ApiError  # noqa: E402
 from ausbildung import Ausbilder  # noqa: E402
 from state import State  # noqa: E402
 
@@ -356,6 +357,53 @@ class AlterZustand(Basis):
                 st.insel_setzen(1, schlecht)
         with self.assertRaises(ValueError):
             st.standard_setzen({"steinewerfer": "abc"})
+
+
+class VolleWarteschlange(Basis):
+    def voll(self, api, iid=1, n=5):
+        api.auftraege[iid] = [{"item_typ": "steinewerfer", "anzahl": 10, "abgeschlossen": 0, "status": "aktiv"}
+                              for _ in range(n)]
+
+    def test_bei_voller_kaserne_wird_nicht_bestellt(self):
+        api = FakeApi([insel(1, "40:40:1")])
+        self.voll(api)
+        b, _ = self.bot(api, {1: {"speerkaempfer": 10}})
+        b.tick()
+        self.assertEqual(api.trainings, [])
+        self.assertIn("voll", " ".join(b.status()["inseln"][0]["hinweise"]))
+
+    def test_vier_auftraege_lassen_noch_einen_zu(self):
+        api = FakeApi([insel(1, "40:40:1")])
+        self.voll(api, n=4)
+        b, _ = self.bot(api, {1: {"speerkaempfer": 10}})
+        b.tick()
+        self.assertEqual(api.trainings, [(1, "speerkaempfer", 10)])
+
+    def test_hafen_und_kaserne_haben_getrennte_warteschlangen(self):
+        api = FakeApi([insel(1, "40:40:1", hafen=20)])
+        self.voll(api)                                 # Kaserne voll
+        b, _ = self.bot(api, {1: {"speerkaempfer": 10, "spaehschiff": 1}})
+        b.tick()
+        self.assertEqual([t[1] for t in api.trainings], ["spaehschiff"])
+
+    def test_mehr_als_fuenf_auftraege_pro_tick_gibt_es_nicht(self):
+        api = FakeApi([insel(1, "40:40:1", hafen=20)])
+        self.voll(api, n=4)
+        b, _ = self.bot(api, {1: {"steinewerfer": 5, "speerkaempfer": 5, "bogenschuetze": 5}})
+        b.tick()
+        self.assertEqual(len(api.trainings), 1)        # nur noch ein Platz in der Kaserne
+
+    def test_veraltete_zaehlung_queue_full_wird_nicht_wiederholt(self):
+        api = FakeApi([insel(1, "40:40:1")])
+        aufrufe = []
+
+        def voll(iid, facility, item, count):
+            aufrufe.append(item)
+            raise ApiError(409, "queue_full", "Ausbildungs-Warteschlange voll (max. 5).")
+        api.start_training = voll
+        b, _ = self.bot(api, {1: {"steinewerfer": 5, "speerkaempfer": 5, "bogenschuetze": 5}})
+        b.tick()
+        self.assertEqual(len(aufrufe), 1)              # danach ist die Kaserne dieser Insel gesperrt
 
 
 class NetzfehlerBeiPost(Basis):

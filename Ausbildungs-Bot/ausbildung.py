@@ -75,6 +75,7 @@ class Ausbilder:
         self.in_ausbildung: dict[int, dict] = {}
         self.auftraege: dict[int, list] = {}
         self._gelesen: dict[int, tuple] = {}     # Insel -> (Zeit, in Ausbildung) fuer die Anzeige
+        self.belegt: dict[int, dict] = {}        # Insel -> {"kaserne": n, "hafen": n}: belegte Warteschlangenplaetze
         self.platz = dict(config.KRIEGSSCHIFF_PLATZ)
         self.bericht: dict[str, dict] = {}
         self.reserve: dict[str, dict] = {}
@@ -115,8 +116,10 @@ class Ausbilder:
                 self.platz[k["typ"]] = int(k["kaempfer_kap"])
         laeuft = _leer()
         self.auftraege[iid] = []
+        self.belegt[iid] = {"kaserne": 0, "hafen": 0}
         for a in daten.get("auftraege") or []:
             if a.get("item_typ") in laeuft and str(a.get("status", "")).lower() in AUSBILDUNG_LAEUFT:
+                self.belegt[iid][config.ANLAGE[a["item_typ"]]] += 1
                 laeuft[a["item_typ"]] += max(0, int(a.get("anzahl") or 0) - int(a.get("abgeschlossen") or 0))
                 self.auftraege[iid].append({"item": a["item_typ"], "anzahl": int(a.get("anzahl") or 0),
                                             "abgeschlossen": int(a.get("abgeschlossen") or 0),
@@ -248,9 +251,20 @@ class Ausbilder:
                 if n <= 0 or (n < fehlt and n < mindest):
                     hinweise[iid].append(f"{fehlt} {e} fehlen - wartet auf Rohstoffe")
                     continue
+                anlage = config.ANLAGE[e]
+                belegt = self.belegt.setdefault(iid, {"kaserne": 0, "hafen": 0})
+                if belegt[anlage] >= config.MAX_AUFTRAEGE:
+                    hinweise[iid].append(f"{fehlt} {e} fehlen - Warteschlange der {anlage.capitalize()} ist voll "
+                                         f"({config.MAX_AUFTRAEGE} Auftraege)")
+                    continue
                 try:
-                    self.client.start_training(iid, config.ANLAGE[e], e, n)
+                    self.client.start_training(iid, anlage, e, n)
+                    belegt[anlage] += 1
                 except ApiError as err:
+                    if err.code == "queue_full":
+                        belegt[anlage] = config.MAX_AUFTRAEGE   # Zaehlung war veraltet - bis zum naechsten Lesen sperren
+                        hinweise[iid].append(f"{fehlt} {e} fehlen - Warteschlange der {anlage.capitalize()} ist voll")
+                        continue
                     hinweise[iid].append(f"Ausbildung von {e} fehlgeschlagen: {err.message}")
                     log.error("%s: Ausbildung von %d %s fehlgeschlagen: %s", self._name(iid), n, e, err)
                     continue
@@ -261,6 +275,7 @@ class Ausbilder:
                         budget[r] -= n * float(kosten.get(r, 0) or 0)
                     hinweise[iid].append(f"Ausbildung von {e} unklar (Netzwerk) - wird im naechsten Tick geprueft")
                     log.warning("%s: Ausbildung von %d %s unklar: %s", self._name(iid), n, e, type(err).__name__)
+                    belegt[anlage] += 1
                     self._gelesen.pop(iid, None)
                     continue
                 for r in config.RESOURCE_KEYS:

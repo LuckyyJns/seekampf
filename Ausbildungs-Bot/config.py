@@ -45,6 +45,9 @@ SCHIFFE = ("spaehschiff", "kleines_handelsschiff", "grosses_handelsschiff",
 ITEMS = EINHEITEN + SCHIFFE
 # In welcher Anlage ein Posten ausgebildet bzw. gebaut wird (Feld "facility" der API).
 ANLAGE = {**{e: "kaserne" for e in EINHEITEN}, **{s: "hafen" for s in SCHIFFE}}
+# Hoechstzahl gleichzeitiger Ausbildungsauftraege je Anlage und Insel (Kaserne, Hafen);
+# danach antwortet das Spiel mit 409 queue_full.
+MAX_AUFTRAEGE = 5
 # Truppentransport per Handel geht nur auf Kriegsschiffen; Platz je Schiff
 # (kaempfer_kap aus dem Ausbildungs-Katalog, das hier ist der Fallback).
 KRIEGSSCHIFF_PLATZ = {"grosses_kriegsschiff": 30, "kleines_kriegsschiff": 8}
