@@ -4,7 +4,7 @@ Die Ziele kommen ausschliesslich aus der Warteschlange, die im Seekampf-Hub
 gepflegt wird - der Bot waehlt selbst keine Inseln aus. Je Eintrag:
 
   wartet     noch keine Insel, die das Schiff bauen kann (oder alle bauen gerade)
-  spart      die naechstgelegene geeignete Insel spart auf das Schiff; die
+  spart      eine geeignete Insel spart auf das Schiff; die
              Kosten stehen in data/reserve.json, damit Upgrade-Bot,
              Rohstoff-Ausgleich und Ausbildungs-Bot sie nicht ausgeben
   baut       das Schiff ist in Ausbildung
@@ -12,7 +12,11 @@ gepflegt wird - der Bot waehlt selbst keine Inseln aus. Je Eintrag:
              besiedelt, wird es zurueckgerufen
 
 Geeignet ist eine Insel, deren Hafen das Schiff bauen kann (Stufe 20) und
-deren Lager die Schiffskosten fasst. Jede Insel baut hoechstens ein Schiff
+deren Lager die Schiffskosten fasst. Hat das Ziel eine Begleitung, kommen nur
+Inseln in Frage, die sie haben (daheim oder auf eigenen Raids, die zurueck-
+kommen). Unter den Kandidaten spart die Insel, deren Schiff am schnellsten am
+Ziel waere: Ansparen (nach Produktion) + Warten auf den Hafen + Bauzeit +
+Fahrzeit. Gewechselt wird nur bei mindestens WECHSEL_VORTEIL_S Vorsprung. Jede Insel baut hoechstens ein Schiff
 zur Zeit, mehrere Eintraege laufen so parallel auf verschiedenen Inseln.
 Liegt irgendwo schon ein freies Kolonisationsschiff im Hafen (z. B. nach
 einem Rueckruf), nimmt der naechste Eintrag das naechstgelegene davon, statt
@@ -121,6 +125,7 @@ class Kolonisierer:
         self.letzter_tick: float | None = None
         self.letzter_fehler: str | None = None
         self._training: dict[int, dict] = {}
+        self._flotten: dict[str, dict] = {}
 
     # ------------------------------------------------------------ Hilfen
     def _melden(self, titel: str, text: str) -> None:
@@ -191,6 +196,7 @@ class Kolonisierer:
             self.spieler = (self.client.get_me() or {}).get("name")
         self.ov = {int(i["id"]): i for i in (self.client.get_islands_overview() or [])}
         flotten = {str(f.get("id")): f for f in (self.client.get_fleets() or [])}
+        self._flotten = flotten
         eigene = {i.get("koordinaten"): iid for iid, i in self.ov.items()}
         self._umbenennen()
         self._verlorene_abfahrten_uebernehmen(flotten, jetzt)
@@ -281,17 +287,50 @@ class Kolonisierer:
             log.info("UMBENANNT  neue Insel %s: '%s' -> '%s'", self.ov[iid].get("koordinaten"), alt, neu)
         self.state.save()
 
-    def _fehlt_begleitung(self, iid: int, e: dict) -> dict[str, int]:
-        """Was von der Begleitung im Hafen von Insel iid noch fehlt (leer = alles da)."""
+    def _fehlt_begleitung(self, iid: int, e: dict, mit_raids: bool = False) -> dict[str, int]:
+        """Was von der Begleitung im Hafen von Insel iid noch fehlt (leer = alles da).
+        mit_raids: was mit eigenen Raids unterwegs ist, zaehlt mit (kommt zurueck)."""
         beg = e.get("begleitung") or {}
         ov = self.ov.get(iid) or {}
+        unterwegs: dict[str, int] = {}
+        if mit_raids:
+            for f in self._flotten.values():
+                if f.get("origin_island_id") != iid or f.get("mission") != "attack" \
+                        or (f.get("ships") or {}).get(config.SCHIFF):
+                    continue
+                for quelle in ("ships", "units"):
+                    for typ, n in (f.get(quelle) or {}).items():
+                        unterwegs[typ] = unterwegs.get(typ, 0) + int(n or 0)
         fehlt = {}
         for art, quelle in (("schiffe", "schiffe"), ("truppen", "truppen")):
             for typ, n in (beg.get(art) or {}).items():
-                luecke = int(n) - int((ov.get(quelle) or {}).get(typ) or 0)
+                luecke = int(n) - int((ov.get(quelle) or {}).get(typ) or 0) - unterwegs.get(typ, 0)
                 if luecke > 0:
                     fehlt[typ] = luecke
         return fehlt
+
+    def _schiff_am_ziel_in(self, iid: int, e: dict, jetzt: float) -> float:
+        """Geschaetzte Sekunden, bis ein auf dieser Insel neu gebautes Schiff am
+        Ziel waere: Ansparen + Warten auf den Hafen + Bauzeit + Fahrzeit."""
+        res = self.client.get_island_resources(iid) or {}
+        prod = res.get("produktion_pro_h") or {}
+        sparen = 0.0
+        for r in config.RESOURCE_KEYS:
+            fehlt = self.kosten[r] - float(res.get(r, 0) or 0)
+            if fehlt <= 0:
+                continue
+            pro_h = float(prod.get(r, 0) or 0)
+            if pro_h <= 0:
+                return 1e9   # ohne Produktion praktisch nie
+            sparen = max(sparen, fehlt / pro_h * 3600)
+        daten = self._ausbildung(iid)
+        hafen_frei = jetzt
+        for a in daten.get("auftraege") or []:
+            if a.get("facility") == "hafen" and str(a.get("status", "")).lower() in AUSBILDUNG_LAEUFT:
+                hafen_frei = max(hafen_frei, iso_zu_epoch(a.get("finish_at")) or jetzt)
+        dauer = next((float(k["dauer_s"]) for k in (daten.get("katalog") or {}).get("hafen") or []
+                      if k.get("typ") == config.SCHIFF and k.get("dauer_s")), float(config.SCHIFF_DAUER_S))
+        return max(jetzt + sparen, hafen_frei) + dauer - jetzt + self.fahrzeit(iid, e)
 
     def _mit_begleitung(self, ids, e: dict) -> list[int]:
         """Inseln, die die Begleitung des Eintrags schon im Hafen haben; hat keine
@@ -344,18 +383,36 @@ class Kolonisierer:
                 belegt.add(iid)
                 e.update(status="baut", bau_insel=iid, hinweis="Schiff in Ausbildung")
                 continue
-            # 3. Die naechstgelegene geeignete Insel, die gerade nichts anderes baut.
-            kandidaten = self._mit_begleitung([iid for iid in geeignet if iid not in belegt], e)
+            # 3. Die geeignete Insel, die gerade nichts anderes baut und deren Schiff
+            #    am schnellsten am Ziel waere; mit Begleitung nur Inseln, die sie haben.
+            frei = [iid for iid in geeignet if iid not in belegt]
+            kandidaten = [iid for iid in frei if not self._fehlt_begleitung(iid, e, mit_raids=True)]
             if not kandidaten:
-                e.update(status="wartet", bau_insel=None,
-                         hinweis=("alle geeigneten Inseln bauen gerade ein Schiff" if geeignet else
-                                  f"keine Insel kann das Schiff bauen (Hafen {self.ab_hafen}, "
-                                  f"Lager ab {max(self.kosten.values()):.0f})"))
+                if not geeignet:
+                    text = (f"keine Insel kann das Schiff bauen (Hafen {self.ab_hafen}, "
+                            f"Lager ab {max(self.kosten.values()):.0f})")
+                elif not frei:
+                    text = "alle geeigneten Inseln bauen gerade ein Schiff"
+                else:
+                    text = "keine geeignete Insel hat die Begleitung"
+                e.update(status="wartet", bau_insel=None, hinweis=text)
                 continue
-            iid = min(kandidaten, key=lambda i: self.entfernung(i, e))
-            if e.get("bau_insel") != iid:
-                log.info("%s: Schiff wird auf %s gebaut (%.1f Felder, Fahrzeit %s)", e["koordinaten"],
-                         self._name(iid), self.entfernung(iid, e), fmt_dauer(self.fahrzeit(iid, e)))
+            jetzt = time.time()
+            zeiten = {}
+            for iid in kandidaten:
+                try:
+                    zeiten[iid] = self._schiff_am_ziel_in(iid, e, jetzt)
+                except ApiError as err:
+                    log.warning("%s: Zeit fuer %s nicht schaetzbar: %s", e["koordinaten"], self._name(iid), err)
+            if not zeiten:
+                continue
+            iid = min(zeiten, key=lambda i: (zeiten[i], self.entfernung(i, e)))
+            alt = e.get("bau_insel")
+            if alt in zeiten and alt != iid and zeiten[alt] - zeiten[iid] < config.WECHSEL_VORTEIL_S:
+                iid = alt
+            if alt != iid:
+                log.info("%s: Schiff wird auf %s gebaut (am Ziel in etwa %s, Fahrzeit %s)", e["koordinaten"],
+                         self._name(iid), fmt_dauer(zeiten[iid]), fmt_dauer(self.fahrzeit(iid, e)))
             belegt.add(iid)
             e.update(status="spart", bau_insel=iid)
 

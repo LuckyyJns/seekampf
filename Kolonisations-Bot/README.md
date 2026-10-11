@@ -10,15 +10,19 @@ Kolonisation“), Reihenfolge mit ▲/▼, entfernen mit ✕.
 | Status | Bedeutung |
 | --- | --- |
 | wartet | keine Insel kann gerade ein Schiff bauen (oder alle bauen schon eins) |
-| spart | die nächstgelegene geeignete Insel spart auf das Kolonisationsschiff |
+| spart | die schnellste geeignete Insel spart auf das Kolonisationsschiff |
 | Schiff in Ausbildung | das Schiff wird im Hafen gebaut (6 h) |
 | Schiff bereit | liegt im Hafen; fährt los, sobald keine Bedrohung mehr anfliegt |
 | unterwegs | fährt zum Ziel (3 Knoten) |
 
 **Geeignet** ist eine Insel, deren Hafen das Schiff bauen kann (Stufe 20) und
-deren Lager die Kosten fasst (größter Posten 35.500 Holz). Für jedes Ziel baut
-die nächstgelegene geeignete Insel das Schiff; erfüllt sie die Bedingungen
-nicht, nimmt der Bot die nächste. Jede Insel baut höchstens ein Schiff zur
+deren Lager die Kosten fasst (größter Posten 35.500 Holz). Hat das Ziel eine
+Begleitung, kommen nur Inseln in Frage, die sie haben (daheim oder auf eigenen
+Raids, die zurückkommen). Unter diesen baut die Insel das Schiff, deren Schiff
+am schnellsten am Ziel wäre: Ansparen der fehlenden Rohstoffe (nach der
+Produktion pro Stunde) + Warten auf den Hafen + Bauzeit + Fahrzeit. Gewechselt
+wird erst, wenn eine andere Insel mindestens 15 min schneller wäre oder die
+gewählte nicht mehr in Frage kommt. Jede Insel baut höchstens ein Schiff zur
 Zeit - mehrere Ziele laufen so parallel auf verschiedenen Inseln. Liegt
 schon irgendwo ein freies Kolonisationsschiff (z. B. nach einem Rückruf),
 nimmt das nächste Ziel das nächstgelegene davon.
@@ -44,8 +48,9 @@ Bot nicht; das Schiff fährt los, sobald es bereit ist (sonst 50/50).
 **Begleitung:** Bei bewohnten Zielen lassen sich weitere Schiffe und Truppen
 eintragen (beim Hinzufügen oder später über „Begleitung“). Sie fahren im selben
 Verband mit, müssen aber beim Start im Hafen der Bau-Insel liegen - der Bot
-bildet sie nicht aus. Fehlt etwas, wartet das Schiff mit Hinweis. Bei der Wahl
-der Bau-Insel bevorzugt der Bot eine Insel, die die Begleitung schon hat.
+bildet sie nicht aus. Fehlt etwas, wartet das Schiff mit Hinweis. Gespart wird
+nur auf einer Insel, die die Begleitung hat (siehe oben); hat sie keine, wartet
+das Ziel mit Hinweis.
 Reserviert (der Flotten-Manager nimmt sie dann nicht für Raids) wird sie erst
 ab 10 min vor Fertigstellung des Kolonisationsschiffs, danach bis zur Abfahrt.
 

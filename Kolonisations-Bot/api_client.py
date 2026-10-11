@@ -161,6 +161,10 @@ class SeekampfClient:
         return self._request("POST", f"/islands/{island_id}/rename", json={"name": name})
 
     # ------------------------------------------------------------ Ausbildung
+    def get_island_resources(self, island_id):
+        """GET /islands/{id}/resources -> {gold, stein, holz, produktion_pro_h, kapazitaet, ...}."""
+        return self._request("GET", f"/islands/{island_id}/resources")
+
     def get_training(self, island_id):
         """GET /islands/{id}/training -> auftraege (item_typ, anzahl,
         abgeschlossen, status), garnison, schiffe und katalog je Gebaeude

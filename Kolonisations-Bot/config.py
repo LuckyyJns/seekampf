@@ -30,6 +30,9 @@ RESERVE_MAX_ALTER_S = 10 * 60
 # Die Begleitung (weitere Schiffe/Truppen) eines bewohnten Ziels wird erst so lange
 # vor Fertigstellung des Kolonisationsschiffs reserviert (dann bis zur Abfahrt).
 BEGLEITUNG_VORLAUF_S = 10 * 60
+# Bau-Insel erst wechseln, wenn eine andere so viel schneller am Ziel waere
+WECHSEL_VORTEIL_S = 15 * 60
+SCHIFF_DAUER_S = 6 * 3600   # Rueckfall, falls der Katalog keine Bauzeit nennt
 
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "kolonie"

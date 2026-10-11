@@ -40,6 +40,7 @@ class FakeApi:
         self.besitzer = {}          # koord -> Spieler
         self.fleets, self.created, self.recalled, self.trainings = [], [], [], []
         self.training = {}          # iid -> [auftraege]
+        self.produktion = {}        # iid -> Produktion pro Stunde
         self.nid = 500
 
     def get_me(self):
@@ -53,6 +54,10 @@ class FakeApi:
 
     def get_island_info(self, x, y, z):
         return {"name": "Unbewohnt", "besitzer": self.besitzer.get(f"{x}:{y}:{z}")}
+
+    def get_island_resources(self, iid):
+        i = next(i for i in self.ov if i["id"] == iid)
+        return {**i["rohstoffe"], "produktion_pro_h": self.produktion.get(iid, {"gold": 1000, "stein": 1000, "holz": 1000})}
 
     def get_training(self, iid):
         return {"auftraege": self.training.get(iid, []),
@@ -271,6 +276,60 @@ class Besiedelt(Basis):
                              begleitung={"schiffe": {}, "truppen": {"steinewerfer": 3}})
         bot.tick()
         self.assertEqual(api.created[0]["origin_island_id"], 2)      # nicht die naehere Insel 1
+
+    def _zwei_inseln_mit_begleitung(self):
+        # Insel 1 liegt naeher am Ziel, Insel 2 weiter weg
+        api = FakeApi([insel(1, "40:40:1"), insel(2, "60:60:1")])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True,
+                             begleitung={"schiffe": {}, "truppen": {"steinewerfer": 3}})
+        api.besitzer["41:40:1"] = "Fremder"
+        return api, bot, st, e
+
+    def test_sparen_nur_auf_insel_mit_begleitung(self):
+        api, bot, st, e = self._zwei_inseln_mit_begleitung()
+        bot.tick()
+        self.assertEqual(e["status"], "wartet")
+        self.assertIn("Begleitung", e["hinweis"])
+        api.ov[1]["truppen"]["steinewerfer"] = 3
+        bot.tick()
+        self.assertEqual((e["status"], e["bau_insel"]), ("spart", 2))   # nicht die naehere Insel 1
+        self.assertEqual(self.reserve(), {"2": KOSTEN})
+
+    def test_begleitung_auf_raid_zaehlt_mit(self):
+        api, bot, st, e = self._zwei_inseln_mit_begleitung()
+        api.ov[0]["truppen"]["steinewerfer"] = 1
+        api.fleets.append({"id": 9, "mission": "attack", "origin_island_id": 1, "state": "outbound",
+                           "target": {"x": 50, "y": 50, "z": 1}, "ships": {"kleines_kriegsschiff": 1},
+                           "units": {"steinewerfer": 2}, "arrive_at": ZUKUNFT})
+        bot.tick()
+        self.assertEqual((e["status"], e["bau_insel"]), ("spart", 1))
+
+    def test_schnellste_insel_spart(self):
+        api, bot, st, e = self._zwei_inseln_mit_begleitung()
+        for i in api.ov:
+            i["truppen"]["steinewerfer"] = 3
+        api.ov[1]["rohstoffe"].update(gold=19000, stein=4000, holz=35000)   # fast alles da
+        bot.tick()
+        self.assertEqual(e["bau_insel"], 2)       # weiter weg, aber viel frueher am Ziel
+
+    def test_bau_insel_wechselt_nur_bei_deutlichem_vorsprung(self):
+        # gleiche Fahrzeit (alles im Sektor des Ziels): es zaehlt nur das Ansparen
+        api = FakeApi([insel(1, "41:40:2"), insel(2, "41:40:3")])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel")
+        api.ov[0]["rohstoffe"].update(gold=19525, stein=4260, holz=30000)    # 5500 Holz = 5,5 h
+        api.ov[1]["rohstoffe"].update(gold=19525, stein=4260, holz=32000)    # 3500 Holz = 3,5 h
+        bot.tick()
+        self.assertEqual(e["bau_insel"], 2)
+        # Insel 1 ist jetzt 10 Minuten schneller: kein Wechsel
+        api.ov[0]["rohstoffe"]["holz"] = 32167
+        bot.tick()
+        self.assertEqual(e["bau_insel"], 2)
+        # eine Stunde schneller: Wechsel
+        api.ov[0]["rohstoffe"]["holz"] = 33000
+        bot.tick()
+        self.assertEqual(e["bau_insel"], 1)
 
     def _baut_mit_begleitung(self, minuten):
         api = FakeApi([insel(1, "40:40:1", res=(20000, 5000, 36000))])
