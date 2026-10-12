@@ -58,7 +58,29 @@ Außerdem hat jede Insel eine Liste **Ausbauziele** (Gebäude +
 Stufe, der Reihe nach): der Bot baut nur das erste noch nicht erreichte Ziel
 und wartet, bis es bezahlbar ist; nicht verfügbare oder ausgebaute werden
 übersprungen, gesperrte trotzdem gebaut; danach baut er wieder automatisch.
-Eine Priorisierung geht vor.
+Eine Priorisierung geht vor. **Nebenher bauen** (je Insel, Standard an):
+während auf das Ziel gespart wird, startet der Bot andere Ausbauten nur, wenn
+das Ziel danach trotzdem genauso früh bezahlbar ist und die Warteschlange bis
+dahin wieder frei ist (`Upgrade-Bot/bot.py`, `_nebenher_waehlen`).
+
+## Rohstoff-Bilanz und Reservierungen
+
+Menüpunkt **Rohstoff-Bilanz**: je Tag und Insel, woher die Rohstoffe kamen
+(Produktion, Raids, Ausgleich, Allianz) und wohin sie gingen (Ausbau,
+Ausbildung, Kolonisation, Allianzkasse, Ausgleich); Zeitraum heute / gestern /
+7 / 14 Tage, eine oder alle Inseln, dazu eine Übersicht je Insel. Die Bots
+buchen selbst (`seekampf_gemeinsam.bilanz`, Dateien in
+`~/Seekampf/data/bilanz/`); „nicht zugeordnet“ ist der Rest zur Lagerveränderung
+laut Upgrade-Bot (Quests, Plünderung, Handarbeit). `GET /api/bilanz`.
+
+Darunter die **Reservierungen**: was welcher Bot gerade auf welcher Insel
+zurückhält (`~/Seekampf/data/reservierungen/`, `GET /api/reservierungen`).
+
+## Flotten-Manager: Unterbereiche einklappen
+
+In jeder aufgeklappten Insel lassen sich „Flotten unterwegs“ und
+„Zielrotation“ per Klick auf die Überschrift einklappen (Anzahl steht daneben).
+Der Zustand bleibt im Browser gemerkt (`zu-unterteile` im localStorage).
 
 ## Allianzkasse
 
@@ -160,6 +182,8 @@ Neustart des Seekampf-Hubs – ohne Platzhalter und ohne gespeichertes Passwort.
 | `gesundheit.py` | Auswertung für die Gesundheitsseite |
 | `alert.py` / `seekampf-hub-alert.service` | Telegram-Alarm, wenn systemd den Hub aufgibt (Token in `.env`) |
 | `hub.py` | FastAPI-App: Seite, Dienste, Logs, Weiterleitung, Steuerdateien |
-| `static/index.html` | die ganze Oberfläche (ein File, kein Build) |
+| `static/index.html` | Gerüst der Oberfläche (HTML, kein Build) |
+| `static/hub.css`, `static/pixel.css` | Aussehen (Grundlage, Pixel-Optik) |
+| `static/js/*.js` | Skripte je Bereich; laufen der Reihe nach im selben globalen Bereich - was beim Laden gebraucht wird, muss in einer früheren Datei stehen (`hilfen.js`, `akkordeon.js` zuerst, `start.js` zuletzt) |
 | `seekampf-hub.service` | systemd-Unit |
 | `seekampf-hub.sudoers` | sudo-Regel für die Dienst-Knöpfe |
