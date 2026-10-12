@@ -23,6 +23,7 @@ import glob
 import json
 import logging
 import os
+import re
 import subprocess
 import tempfile
 import threading
@@ -179,13 +180,21 @@ def _steuerung_aendern(bot: str, aendern) -> dict:
 # ------------------------------------------------------------------- Seite
 @app.get("/")
 def startseite():
-    """Die Seite. Das Stylesheet bekommt die Aenderungszeit als Versionsnummer an die
-    Adresse, damit nach einer Aenderung nie die alte Fassung aus dem Browser kommt."""
+    """Die Seite. Stylesheets und Skripte (static/*.css, static/js/*.js) bekommen ihre
+    Aenderungszeit als Versionsnummer an die Adresse, damit nach einer Aenderung nie
+    die alte Fassung aus dem Browser kommt."""
     ordner = os.path.join(BASE_DIR, "static")
     with open(os.path.join(ordner, "index.html"), encoding="utf-8") as f:
         html = f.read()
-    version = int(max(os.path.getmtime(os.path.join(ordner, n)) for n in ("index.html", "pixel.css")))
-    html = html.replace('href="/static/pixel.css"', f'href="/static/pixel.css?v={version}"')
+
+    def versioniert(m: re.Match) -> str:
+        try:
+            version = int(os.path.getmtime(os.path.join(ordner, m.group(2))))
+        except OSError:
+            return m.group(0)
+        return f'{m.group(1)}="/static/{m.group(2)}?v={version}"'
+
+    html = re.sub(r'(href|src)="/static/([\w./-]+\.(?:css|js))"', versioniert, html)
     return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
@@ -327,6 +336,8 @@ def upgrade_insel(insel_id: int, payload: dict = Body(...)):
     neu = {}
     if "aktiv" in payload:
         neu["aktiv"] = bool(payload["aktiv"])
+    if "nebenher" in payload:
+        neu["nebenher"] = bool(payload["nebenher"])
     if "modus" in payload:
         if payload["modus"] != "auto" and payload["modus"] not in GEBAEUDE:
             raise HTTPException(400, "Unbekannte Priorisierung")
