@@ -66,16 +66,29 @@ ls -1 "$ZIEL"/seekampf-*.tar.gz 2>/dev/null | sort | head -n -"$BEHALTEN" | xarg
 # Code versionieren: was seit dem letzten Commit an den Bots geaendert wurde,
 # als "Automatische Sicherung" committen und nach GitHub schieben. Zustaende,
 # Logs und .env stehen in .gitignore und gehen nie ins Repo.
+# Das Repo ist oeffentlich: pruefe_geheimnisse.sh blockiert Commit und Push,
+# sobald ein Schluessel, eine .env oder Laufzeitdaten dabei waeren.
 git_info=""
 cd "$QUELLE" || exit 1
 if [ -n "$(git status --porcelain)" ]; then
   git add -A
+  if ! funde=$(./pruefe_geheimnisse.sh 2>&1); then
+    git reset -q
+    melden false "Commit gestoppt: ${funde//$'\n'/ }"
+    alarm "Sicherung ok, aber Commit gestoppt - Geheimnis im Repo-Stand: ${funde//$'\n'/ }"
+    exit 1
+  fi
   if git -c user.name="Jannis Hoy" -c user.email="Jannis.hoy@icloud.com" \
        commit -q --no-verify -m "Automatische Sicherung $(date +%F)"; then
     git_info=" · Commit $(git rev-parse --short HEAD)"
   else
     git_info=" · Commit fehlgeschlagen"
   fi
+fi
+if ! funde=$(./pruefe_geheimnisse.sh origin/master 2>&1); then
+  melden false "Push gestoppt: ${funde//$'\n'/ }"
+  alarm "Sicherung ok, aber Push gestoppt - Geheimnis in ungepushten Commits: ${funde//$'\n'/ }"
+  exit 1
 fi
 if ausgabe=$(timeout 60 git push -q origin HEAD 2>&1); then
   git_info="$git_info · GitHub aktuell"

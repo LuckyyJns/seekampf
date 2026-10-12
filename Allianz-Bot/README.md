@@ -96,7 +96,7 @@ sagt Angebote automatisch zu und meldet `[ERLEDIGT]`, sobald alles verschickt is
 .venv/bin/python anfrage_stellen.py gold=500 insel=46:55:6    # bestimmte Insel
 ```
 
-Bequemer geht beides im Seekampf-Hub (http://<pi>:8080, Bereich Allianz-Bot):
+Bequemer geht beides im Seekampf-Hub (https://seekampf-hub.com, Bereich Allianz-Bot):
 Funktionen einzeln an/aus, Anfrage stellen oder beenden, Strategie-Werte.
 Eine abgeschaltete Faehigkeit bleibt in der Praesenz, bis ihre laufenden
 Vorgaenge fertig sind (das Protokoll verbietet, Ungemeldetes zu senden).

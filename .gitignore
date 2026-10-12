@@ -1,0 +1,14 @@
+# Sicherheitsnetz fuer alle Ordner - auch fuer neue Bots ohne eigene
+# .gitignore. Das Repo ist oeffentlich und sicherung.sh committet jede Nacht
+# automatisch mit `git add -A`.
+.env
+.env.*
+!.env.example
+**/data/*
+!Upgrade-Bot/data/gamedata.json
+**/logs/
+.venv/
+__pycache__/
+*.pyc
+*.tar.gz
+*.defekt-*

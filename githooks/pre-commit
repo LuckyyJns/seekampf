@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
-# Vor jedem Commit alle Tests laufen lassen (siehe tests.sh).
-# Notfalls umgehen: git commit --no-verify
-exec "$(git rev-parse --show-toplevel)/tests.sh"
+# Vor jedem Commit: keine Geheimnisse (pruefe_geheimnisse.sh), dann alle Tests
+# (tests.sh). Notfalls umgehen: git commit --no-verify
+top="$(git rev-parse --show-toplevel)"
+"$top/pruefe_geheimnisse.sh" || exit 1
+exec "$top/tests.sh"

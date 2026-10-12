@@ -2,7 +2,7 @@
 
 Schickt vollautomatisch Raid-Flotten auf die freien Inseln rund um jede
 eingeschaltete eigene Insel. Bedient wird er ueber den Seekampf-Hub
-(`~/Seekampf/Seekampf-Hub`, http://<ip-des-pi>:8080); der Manager selbst stellt
+(`~/Seekampf/Seekampf-Hub`, https://seekampf-hub.com); der Manager selbst stellt
 nur eine JSON-Schnittstelle auf `127.0.0.1:8081` bereit.
 
 ## Mehrere Inseln

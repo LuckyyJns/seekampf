@@ -1,10 +1,9 @@
 # Seekampf-Hub
 
-Eine Weboberfläche für alle Seekampf-Bots, erreichbar im Heimnetz:
-
-```
-http://<ip-des-pi>:8080
-```
+Eine Weboberfläche für alle Seekampf-Bots, erreichbar nur über
+**https://seekampf-hub.com** (Cloudflare Tunnel + Access, siehe unten). Der
+Hub selbst lauscht nur auf `127.0.0.1:8080` (`HUB_HOST`), im Heimnetz ist er
+nicht direkt erreichbar.
 
 Links eine Seitenleiste (Hamburger-Menü) mit den Bereichen **Übersicht**,
 **Flotten-Manager**, **Upgrade-Bot** und **Allianz-Bot**. Einzelne Inseln
@@ -107,7 +106,8 @@ Portfreigabe im Router, im normalen Browser (auch am Firmenrechner).
   nichts beim Hub an, auch wenn im Dashboard einmal die Regel fehlt.
 - Wird die Access-Anwendung neu angelegt, ändert sich der AUD-Tag – dann in
   `/etc/cloudflared/config.yml` eintragen und `sudo systemctl restart cloudflared`.
-- Im Heimnetz bleibt `http://<pi>:8080` ohne Login erreichbar.
+- Der Hub lauscht nur auf `127.0.0.1:8080`; ohne Tunnel kommt niemand dran,
+  auch nicht aus dem Heimnetz (auf dem Pi selbst: `curl http://localhost:8080`).
 
 ```bash
 systemctl status cloudflared          # Tunnel läuft?
@@ -131,7 +131,7 @@ der Seite abgefragt.
 
 Schutz gegen Cross-Site-Requests: Ändernde Anfragen (POST/PUT) brauchen den
 Kopf `X-Seekampf-Hub: 1`, den nur die eigene Seite setzt. Sonst könnte jede
-Webseite, die man im Heimnetz öffnet, unbemerkt Dienste stoppen. Von Hand:
+Webseite, die man im eingeloggten Browser öffnet, unbemerkt Dienste stoppen. Von Hand:
 `curl -H 'X-Seekampf-Hub: 1' -X POST …`.
 
 `steuerung.json` des Upgrade-Bots schreiben Hub und Bot (neue Inseln) unter

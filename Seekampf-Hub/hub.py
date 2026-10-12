@@ -44,8 +44,10 @@ from karte import Karte
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SEEKAMPF_DIR = os.path.dirname(BASE_DIR)
 
-# Nur im Heimnetz, ohne Login (so gewuenscht, bis alles laeuft).
-HOST = os.environ.get("HUB_HOST", "0.0.0.0")
+# Nur lokal: von aussen geht es ausschliesslich ueber den Cloudflare-Tunnel
+# (cloudflared -> http://localhost:8080) mit Cloudflare Access davor. Im
+# Heimnetz ist der Hub nicht mehr direkt erreichbar.
+HOST = os.environ.get("HUB_HOST", "127.0.0.1")
 PORT = int(os.environ.get("HUB_PORT", "8080"))
 FLOTTE_URL = os.environ.get("FLOTTEN_MANAGER_URL", "http://127.0.0.1:8081")
 KOLONIE_URL = os.environ.get("KOLONISATIONS_BOT_URL", "http://127.0.0.1:8082")
@@ -105,9 +107,9 @@ app = FastAPI(title="Seekampf-Hub", lifespan=lifespan)
 
 @app.middleware("http")
 async def nur_von_der_eigenen_seite(request: Request, call_next):
-    """Schutz gegen Cross-Site-Requests: Im Heimnetz gibt es keinen Login,
-    also koennte sonst jede beliebige Webseite, die man im Heimnetz oeffnet,
-    unbemerkt Dienste stoppen oder Einstellungen aendern. Aendernde Anfragen
+    """Schutz gegen Cross-Site-Requests: Sonst koennte jede beliebige
+    Webseite, die man im eingeloggten Browser oeffnet, unbemerkt Dienste
+    stoppen oder Einstellungen aendern. Aendernde Anfragen
     muessen deshalb den Kopf X-Seekampf-Hub tragen - den setzt nur die eigene
     Seite; eine fremde Seite darf ihn ohne CORS-Freigabe nicht mitschicken."""
     if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("x-seekampf-hub") != "1":

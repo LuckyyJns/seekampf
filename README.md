@@ -12,7 +12,7 @@ und gestoppt werden koennen.
 | [`Allianz-Bot/`](Allianz-Bot/) | `seekampf-allianz-bot.service` | Nimmt am Allianz-Protokoll teil: Notrufe, Beistand mit Speerkaempfern, Leihe-Rueckgabe, Rohstoff-Anfragen. |
 | [`Kolonisations-Bot/`](Kolonisations-Bot/) | `seekampf-kolonisations-bot.service` | Kolonisiert freie Inseln aus einer Warteschlange im Hub; baut die Schiffe auf der nächstgelegenen geeigneten Insel. |
 | [`Ausbildungs-Bot/`](Ausbildungs-Bot/) | `seekampf-ausbildungs-bot.service` | Hält die Truppen je Insel auf Soll: bildet aus oder verlegt per Handel. |
-| [`Seekampf-Hub/`](Seekampf-Hub/) | `seekampf-hub.service` | Gemeinsame Weboberflaeche fuer alle Bots (http://<pi>:8080): Status, Steuerung, Logs, Dienste starten/stoppen, Rohstoff-Ausgleich, Gesundheit. |
+| [`Seekampf-Hub/`](Seekampf-Hub/) | `seekampf-hub.service` | Gemeinsame Weboberflaeche fuer alle Bots (https://seekampf-hub.com): Status, Steuerung, Logs, Dienste starten/stoppen, Rohstoff-Ausgleich, Gesundheit. |
 
 Der Raspberry Pi laeuft als Dauerbetrieb-Host; die Einrichtung dort beschreibt
 [`Upgrade-Bot/SETUP-PI.md`](Upgrade-Bot/SETUP-PI.md).

@@ -19,7 +19,7 @@ API_KEY = os.environ.get("SEEKAMPF_API_KEY", "")
 TIMEZONE_NAME = "Europe/Berlin"
 
 # Schnittstelle fuer den Seekampf-Hub (~/Seekampf/Seekampf-Hub), der die
-# Weboberflaeche im Heimnetz ausliefert und Anfragen hierher weiterreicht.
+# Weboberflaeche ausliefert und Anfragen hierher weiterreicht.
 # Deshalb nur lokal erreichbar.
 WEB_HOST = os.environ.get("FLOTTEN_MANAGER_HOST", "127.0.0.1")
 WEB_PORT = int(os.environ.get("FLOTTEN_MANAGER_PORT", "8081"))
