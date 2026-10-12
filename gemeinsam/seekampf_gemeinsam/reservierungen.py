@@ -12,7 +12,8 @@ eigene Datei (in jedem Takt komplett neu, atomar), alle anderen lesen:
 - `rohstoffe`: geben die anderen Bots auf dieser Insel nicht aus
   (Upgrade-Bot, Rohstoff-Ausgleich, Ausbildungs-Bot, Allianzkasse).
 - `einheiten`: Schiffe/Truppen, die der Flotten-Manager nicht zum Raiden nimmt.
-- `grund`: Klartext fuer die Uebersicht im Seekampf-Hub.
+- `grund`: Klartext fuer die Uebersicht im Seekampf-Hub. Ein Eintrag nur mit
+  Grund (ohne Mengen) zaehlt trotzdem als Reservierung der Insel.
 
 Ist eine Datei aelter als MAX_ALTER_S, laeuft ihr Bot nicht mehr - dann gilt
 seine Reservierung nicht mehr, damit nichts auf Dauer blockiert bleibt.
@@ -29,6 +30,12 @@ import time
 SEEKAMPF_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ORDNER = os.path.join(SEEKAMPF_DIR, "data", "reservierungen")
 MAX_ALTER_S = 10 * 60
+# Unveraenderte Reservierungen werden hoechstens so oft neu geschrieben (der
+# Flotten-Manager tickt alle 5 s - das schont die SD-Karte); weit unter
+# MAX_ALTER_S, damit ein laufender Bot nie als veraltet gilt.
+AUFFRISCHEN_S = 120
+
+_zuletzt: dict[str, tuple[str, float]] = {}   # Pfad -> (Inhalt, Zeit) des letzten Schreibens
 
 ARTEN = ("rohstoffe", "einheiten")
 
@@ -47,22 +54,27 @@ def schreiben(bot: str, inseln: dict, ordner: str | None = None, jetzt: float | 
             werte = {k: v for k, v in (eintrag.get(art) or {}).items() if v}
             if werte:
                 e[art] = werte
+        if eintrag.get("grund"):
+            e["grund"] = eintrag["grund"]
         if e:
-            if eintrag.get("grund"):
-                e["grund"] = eintrag["grund"]
             sauber[str(iid)] = e
-    os.makedirs(ordner, exist_ok=True)
+    zeit = time.time() if jetzt is None else jetzt
     pfad = os.path.join(ordner, f"{bot}.json")
+    inhalt = json.dumps(sauber, sort_keys=True, ensure_ascii=False)
+    vorher = _zuletzt.get(pfad)
+    if vorher and vorher[0] == inhalt and 0 <= zeit - vorher[1] < AUFFRISCHEN_S and os.path.exists(pfad):
+        return
+    os.makedirs(ordner, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=ordner, prefix=f".{bot}-", suffix=".json")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump({"zeit": time.time() if jetzt is None else jetzt, "bot": bot, "inseln": sauber},
-                      f, ensure_ascii=False)
+            json.dump({"zeit": zeit, "bot": bot, "inseln": sauber}, f, ensure_ascii=False)
         os.replace(tmp, pfad)
     except BaseException:
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
+    _zuletzt[pfad] = (inhalt, zeit)
 
 
 def alle(ordner: str | None = None) -> dict[str, dict]:

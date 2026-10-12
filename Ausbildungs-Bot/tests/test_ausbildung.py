@@ -7,7 +7,6 @@ import logging
 import os
 import sys
 import tempfile
-import time
 import unittest
 
 import requests
@@ -17,6 +16,7 @@ logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
 from api_client import ApiError  # noqa: E402
+from seekampf_gemeinsam import reservierungen  # noqa: E402
 from ausbildung import Ausbilder  # noqa: E402
 from state import State  # noqa: E402
 
@@ -85,12 +85,11 @@ class FakeApi:
 class Basis(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        self._pfade = (config.RESERVE_PATH, config.KOLO_RESERVE_PATH)
-        config.RESERVE_PATH = os.path.join(self.tmp, "reserve.json")
-        config.KOLO_RESERVE_PATH = os.path.join(self.tmp, "kolo.json")
+        self._ordner = config.RESERVIERUNGEN_ORDNER
+        config.RESERVIERUNGEN_ORDNER = os.path.join(self.tmp, "reservierungen")
 
     def tearDown(self):
-        config.RESERVE_PATH, config.KOLO_RESERVE_PATH = self._pfade
+        config.RESERVIERUNGEN_ORDNER = self._ordner
 
     def bot(self, api, soll: dict, standard: dict | None = None):
         st = State(os.path.join(self.tmp, "state.json"))
@@ -125,8 +124,7 @@ class VorOrt(Basis):
 
     def test_nur_so_viel_wie_bezahlbar_und_kolo_reserve_bleibt(self):
         api = FakeApi([insel(1, "40:40:1", res=(20400, 50000, 50000))])
-        with open(config.KOLO_RESERVE_PATH, "w") as f:
-            json.dump({"zeit": time.time(), "inseln": {"1": {"gold": 19525}}}, f)
+        reservierungen.schreiben("kolonisation", {"1": {"rohstoffe": {"gold": 19525}}}, config.RESERVIERUNGEN_ORDNER)
         b, _ = self.bot(api, {1: {"speerkaempfer": 100}})
         b.tick()
         self.assertEqual(api.trainings, [(1, "speerkaempfer", 10)])   # (20400 - 19525) // 80
@@ -183,9 +181,9 @@ class PerHandel(Basis):
         b, _ = self.bot(api, {1: {"speerkaempfer": 100}, 7: {"speerkaempfer": 10}})
         b.tick()
         self.assertEqual(api.created, [])
-        with open(config.RESERVE_PATH) as f:
-            reserve = json.load(f)["kriegsschiffe"]
-        self.assertEqual(reserve, {"1": {"grosses_kriegsschiff": 1, "kleines_kriegsschiff": 2}})
+        reserve = reservierungen.von("ausbildung", config.RESERVIERUNGEN_ORDNER)
+        self.assertEqual(reserve, {"1": {"einheiten": {"grosses_kriegsschiff": 1, "kleines_kriegsschiff": 2},
+                                         "grund": "Truppentransport"}})
 
     def test_bedrohte_insel_gibt_nichts_ab(self):
         api = FakeApi([insel(1, "40:40:1", kaserne=0, truppen={"speerkaempfer": 120},

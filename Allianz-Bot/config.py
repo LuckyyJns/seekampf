@@ -8,6 +8,7 @@ import os
 from datetime import timedelta
 
 from dotenv import load_dotenv
+from seekampf_gemeinsam import reservierungen
 
 load_dotenv()
 
@@ -110,8 +111,8 @@ KASSE_AKTIV = True
 KASSE_AB = 0.95          # ab diesem Fuellstand eines Rohstoffs (Anteil der Lagerkapazitaet) ...
 KASSE_BIS = 0.90         # ... bis auf diesen Anteil einzahlen
 KASSE_MIN_MENGE = 200    # kleinste Einzahlung je Insel
-# Was der Kolonisations-Bot anspart, bleibt; veraltete Datei (Bot aus) zaehlt nicht.
-KOLO_RESERVE_PATH = os.path.join(os.path.dirname(BASE_DIR), "Kolonisations-Bot", "data", "reserve.json")
-RESERVE_MAX_ALTER_S = 10 * 60
-# Haelt der Rohstoff-Ausgleich Handelsschiffe fuer eine Lieferung zurueck, wird dort nicht eingezahlt.
-FLOTTEN_MANAGER_URL = os.environ.get("FLOTTEN_MANAGER_URL", "http://127.0.0.1:8081")
+# Gemeinsames Reservierungs-Verzeichnis (seekampf_gemeinsam.reservierungen):
+# reservierte Rohstoffe (z. B. Kolonisationsschiff) bleiben; haelt der
+# Rohstoff-Ausgleich Handelsschiffe fuer eine Lieferung zurueck, wird dort nicht
+# eingezahlt. Veraltete Eintraege (Bot aus) zaehlen nicht.
+RESERVIERUNGEN_ORDNER = reservierungen.ORDNER

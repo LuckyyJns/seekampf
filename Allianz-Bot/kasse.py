@@ -19,12 +19,11 @@ ab, in der Kasse kommen sie nach der Transferzeit an. Schiffe braucht es nicht.
 """
 from __future__ import annotations
 
-import json
 import logging
 import math
 import time
 
-import requests
+from seekampf_gemeinsam import reservierungen
 
 import config
 from api_client import ApiError
@@ -42,25 +41,15 @@ def leerer_stand() -> dict:
 
 
 def kolo_reserve() -> dict:
-    """Was der Kolonisations-Bot je Insel anspart (veraltete Datei = nichts)."""
-    try:
-        with open(config.KOLO_RESERVE_PATH, encoding="utf-8") as f:
-            daten = json.load(f)
-        if time.time() - float(daten.get("zeit") or 0) > config.RESERVE_MAX_ALTER_S:
-            return {}
-        return {str(k): v for k, v in (daten.get("inseln") or {}).items() if isinstance(v, dict)}
-    except (OSError, ValueError, TypeError, AttributeError):
-        return {}
+    """Was andere Bots je Insel an Rohstoffen reservieren (gemeinsames
+    Reservierungs-Verzeichnis, z. B. Kolonisationsschiff; Bot aus = nichts)."""
+    return reservierungen.summe("rohstoffe", ordner=config.RESERVIERUNGEN_ORDNER)
 
 
 def ausgleich_wartet() -> set[int]:
     """Inseln, deren Handelsschiffe der Rohstoff-Ausgleich gerade fuer eine
-    Lieferung zurueckhaelt. Ist der Flotten-Manager nicht erreichbar: keine."""
-    try:
-        antwort = requests.get(f"{config.FLOTTEN_MANAGER_URL}/api/ausgleich", timeout=3)
-        return {int(i["id"]) for i in antwort.json().get("inseln") or [] if i.get("reserviert")}
-    except (requests.RequestException, ValueError, KeyError, TypeError):
-        return set()
+    Lieferung zurueckhaelt (Flotten-Manager aus = keine)."""
+    return {int(iid) for iid in reservierungen.von("ausgleich", config.RESERVIERUNGEN_ORDNER)}
 
 
 def einzahlung(res: dict, ab: float, bis: float, reserve: dict) -> dict:

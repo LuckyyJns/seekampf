@@ -18,6 +18,7 @@ logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
 from api_client import ApiError  # noqa: E402
+from seekampf_gemeinsam import reservierungen  # noqa: E402
 from manager import FlottenManager  # noqa: E402
 from state import State  # noqa: E402
 
@@ -91,17 +92,17 @@ class FakeApi:
 class Basis(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        self._alt = (config.UPGRADE_STATUS_PATH, config.KOLO_RESERVE_PATH, config.AUSBILDUNG_RESERVE_PATH)
+        self._alt = (config.UPGRADE_STATUS_PATH, config.RESERVIERUNGEN_ORDNER)
         config.UPGRADE_STATUS_PATH = os.path.join(self.tmp, "upgrade-status.json")
-        config.KOLO_RESERVE_PATH = os.path.join(self.tmp, "kolo-reserve.json")
-        config.AUSBILDUNG_RESERVE_PATH = os.path.join(self.tmp, "ausbildung-reserve.json")
+        config.RESERVIERUNGEN_ORDNER = os.path.join(self.tmp, "reservierungen")
 
     def tearDown(self):
-        config.UPGRADE_STATUS_PATH, config.KOLO_RESERVE_PATH, config.AUSBILDUNG_RESERVE_PATH = self._alt
+        config.UPGRADE_STATUS_PATH, config.RESERVIERUNGEN_ORDNER = self._alt
 
-    def reserve(self, pfad, feld, werte, alter_s=0):
-        with open(pfad, "w") as f:
-            json.dump({"zeit": time.time() - alter_s, feld: werte}, f)
+    def reserve(self, bot, art, werte, alter_s=0):
+        """Reservierung eines anderen Bots ins (Test-)Verzeichnis schreiben."""
+        reservierungen.schreiben(bot, {iid: {art: w} for iid, w in werte.items()},
+                                 config.RESERVIERUNGEN_ORDNER, jetzt=time.time() - alter_s)
 
     def manager(self, api, vorher: dict | None = None):
         pfad = os.path.join(self.tmp, "state.json")
@@ -188,14 +189,14 @@ class InselEinstellungen(Basis):
 
     def test_kriegsschiffe_fuer_truppentransport_bleiben_daheim(self):
         api = self.zwei_inseln()
-        self.reserve(config.AUSBILDUNG_RESERVE_PATH, "kriegsschiffe", {"447": {"kleines_kriegsschiff": 3}})
+        self.reserve("ausbildung", "einheiten", {"447": {"kleines_kriegsschiff": 3}})
         m, st = self.manager(api)
         self.assertEqual(m._freie_flotten(447, api.ov[0]), 1)
         self.assertEqual(m._freie_flotten(20, api.ov[1]), 4)
 
     def test_begleitung_fuer_kolonisation_bleibt_daheim(self):
         api = self.zwei_inseln()
-        self.reserve(config.KOLO_RESERVE_PATH, "einheiten", {"447": {"kleines_kriegsschiff": 3}})
+        self.reserve("kolonisation", "einheiten", {"447": {"kleines_kriegsschiff": 3}})
         m, st = self.manager(api)
         self.assertEqual(m._freie_flotten(447, api.ov[0]), 1)
         self.assertEqual(m._freie_flotten(20, api.ov[1]), 4)
@@ -408,7 +409,7 @@ class Ausgleich(Basis):
 
     def test_kolonisations_reserve_bleibt_beim_geber(self):
         api = self.drei_inseln()
-        self.reserve(config.KOLO_RESERVE_PATH, "inseln", {"447": {"gold": 19525, "stein": 4260, "holz": 35500}})
+        self.reserve("kolonisation", "rohstoffe", {"447": {"gold": 19525, "stein": 4260, "holz": 35500}})
         m, st = self.manager(api)
         self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
         m.tick()
@@ -419,7 +420,7 @@ class Ausgleich(Basis):
 
     def test_veraltete_reserve_zaehlt_nicht(self):
         api = self.drei_inseln()
-        self.reserve(config.KOLO_RESERVE_PATH, "inseln", {"447": {"gold": 19525}}, alter_s=3600)
+        self.reserve("kolonisation", "rohstoffe", {"447": {"gold": 19525}}, alter_s=3600)
         m, st = self.manager(api)
         self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
         m.tick()
@@ -479,6 +480,12 @@ class Ausgleich(Basis):
         self.assertEqual(self.lieferungen(api), {})
         self.assertIn(447, m.ausgleich.reserviert)
         self.assertEqual(m.vorrat_fuer_raids(447, api.ov[0]).get("kleines_handelsschiff"), 0)
+        # ... und traegt das ins gemeinsame Reservierungs-Verzeichnis ein (Allianzkasse, Hub).
+        eintrag = reservierungen.von("ausgleich", config.RESERVIERUNGEN_ORDNER)["447"]
+        self.assertEqual(eintrag["einheiten"], {"kleines_handelsschiff": 1})
+        self.assertIn("Lieferung an", eintrag["grund"])
+        # Die eigene Reservierung zaehlt fuer die Raids nicht doppelt.
+        self.assertEqual(reservierungen.summe("einheiten", ausser="ausgleich", ordner=config.RESERVIERUNGEN_ORDNER), {})
 
     def test_neue_insel_erbt_einstellung(self):
         api = self.drei_inseln()

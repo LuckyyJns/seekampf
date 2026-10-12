@@ -34,7 +34,7 @@ import math
 import time
 
 import requests
-from seekampf_gemeinsam import geo
+from seekampf_gemeinsam import geo, reservierungen
 
 import config
 from api_client import ApiError
@@ -46,19 +46,6 @@ FEHLER_PAUSE_S = 10 * 60
 UPGRADE_STATUS_MAX_ALTER_S = 15 * 60
 LIEFERUNGEN_MERKEN = 40
 LAGER_DECKE = 0.95  # nie ueber diesen Anteil auffuellen - der Rest waere verschenkt
-
-
-def reserve_lesen(pfad: str, feld: str) -> dict[str, dict]:
-    """Reservierung eines anderen Bots (Insel-ID -> {Name: Menge}); leer, wenn
-    die Datei fehlt oder veraltet ist (Bot aus)."""
-    try:
-        with open(pfad, encoding="utf-8") as f:
-            daten = json.load(f)
-        if time.time() - float(daten.get("zeit") or 0) > config.RESERVE_MAX_ALTER_S:
-            return {}
-        return {str(k): v for k, v in (daten.get(feld) or {}).items() if isinstance(v, dict)}
-    except (OSError, ValueError, TypeError, AttributeError):
-        return {}
 
 
 def leerer_stand() -> dict:
@@ -113,6 +100,7 @@ class Ausgleich:
     def __init__(self, manager):
         self.m = manager
         self.reserviert: set[int] = set()
+        self.reserviert_fuer: dict[int, int] = {}   # Geber -> Empfaenger der wartenden Lieferung
         self.bericht: dict = {"inseln": {}, "hinweis": None, "zeit": None}
         self._pause_bis: dict[str, float] = {}
 
@@ -169,6 +157,21 @@ class Ausgleich:
                                         if t in config.HANDELSSCHIFF_TYPEN})
                        for f in flotten_api if f.get("origin_island_id") == insel_id)
         return hafen, hafen + draussen
+
+    def reservierung_schreiben(self, alles: dict[int, dict]) -> None:
+        """Ins gemeinsame Reservierungs-Verzeichnis: auf welchen Inseln die
+        Handelsschiffe gerade fuer eine Lieferung zurueckgehalten werden (die
+        Allianzkasse zahlt dort erst danach ein, der Hub zeigt es an)."""
+        inseln = {}
+        for sp in self.reserviert:
+            schiffe = (alles.get(sp) or {}).get("schiffe") or {}
+            nach = self.reserviert_fuer.get(sp)
+            name = self.m.state.insel(nach).get("name") if nach is not None else None
+            inseln[str(sp)] = {
+                "einheiten": {t: int(schiffe.get(t, 0) or 0) for t in config.HANDELSSCHIFF_TYPEN},
+                "grund": f"Rohstoff-Ausgleich: Lieferung an {name or nach or '?'}",
+            }
+        reservierungen.schreiben("ausgleich", inseln, config.RESERVIERUNGEN_ORDNER)
 
     # --------------------------------------------- Lieferung von Hand (Hub)
     def liefern_von_hand(self, von, nach, rohstoffe: dict) -> dict:
@@ -238,11 +241,14 @@ class Ausgleich:
     # --------------------------------------------------------------- Tick
     def tick(self, alles: dict[int, dict], flotten_api: list, jetzt: float) -> None:
         self.reserviert = set()
+        self.reserviert_fuer = {}
         s = self.s
         inseln = self.m.state.data["inseln"]
         unterwegs = self.unterwegs(flotten_api)
         plaene = self.upgrade_plaene() if s["ausgleich_upgrade_bedarf"] else {}
-        kolo = reserve_lesen(config.KOLO_RESERVE_PATH, "inseln")
+        # Rohstoffe, die andere Bots reservieren (z. B. Kolonisationsschiff), gibt
+        # eine Insel nicht ab.
+        kolo = reservierungen.summe("rohstoffe", ausser="ausgleich", ordner=config.RESERVIERUNGEN_ORDNER)
 
         bericht: dict[str, dict] = {}
         nehmer, geber = [], []
@@ -377,6 +383,7 @@ class Ausgleich:
         if kap_hafen < noetig and not (lange_genug and kap_hafen >= mindestens):
             warten.setdefault(str(sp), jetzt)
             self.reserviert.add(sp)
+            self.reserviert_fuer[sp] = ziel_id
             eintrag["hinweis"] = (f"wartet auf Handelsschiffe von {m.state.insel(sp).get('name')}: "
                                   f"{kap_hafen:.0f} von {noetig:.0f} Ladung im Hafen")
             return None

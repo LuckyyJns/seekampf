@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
 import bot  # noqa: E402
+from seekampf_gemeinsam import reservierungen  # noqa: E402
 import config  # noqa: E402
 import planner  # noqa: E402
 import report  # noqa: E402
@@ -104,15 +105,15 @@ class Ausbauziele(unittest.TestCase):
 
 class KoloReserve(unittest.TestCase):
     def setUp(self):
-        self._pfad = config.KOLO_RESERVE_PATH
-        config.KOLO_RESERVE_PATH = os.path.join(tempfile.mkdtemp(), "reserve.json")
+        self._ordner = config.RESERVIERUNGEN_ORDNER
+        config.RESERVIERUNGEN_ORDNER = os.path.join(tempfile.mkdtemp(), "reservierungen")
 
     def tearDown(self):
-        config.KOLO_RESERVE_PATH = self._pfad
+        config.RESERVIERUNGEN_ORDNER = self._ordner
 
     def schreiben(self, alter_s):
-        with open(config.KOLO_RESERVE_PATH, "w") as f:
-            json.dump({"zeit": time.time() - alter_s, "inseln": {"447": {"gold": 19525, "stein": 4260, "holz": 35500}}}, f)
+        reservierungen.schreiben("kolonisation", {"447": {"rohstoffe": {"gold": 19525, "stein": 4260, "holz": 35500}}},
+                                 config.RESERVIERUNGEN_ORDNER, jetzt=time.time() - alter_s)
 
     def test_reserve_wird_abgezogen(self):
         self.schreiben(0)
@@ -124,7 +125,7 @@ class KoloReserve(unittest.TestCase):
 
     def test_veraltete_oder_fehlende_datei_zaehlt_nicht(self):
         self.assertEqual(bot._kolo_reserve(447), {})
-        self.schreiben(config.KOLO_RESERVE_MAX_ALTER_S + 60)
+        self.schreiben(reservierungen.MAX_ALTER_S + 60)
         self.assertEqual(bot._kolo_reserve(447), {})
 
 

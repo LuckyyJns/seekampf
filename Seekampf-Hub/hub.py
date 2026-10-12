@@ -37,6 +37,7 @@ import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from seekampf_gemeinsam import reservierungen
 
 import gesundheit
 from karte import Karte
@@ -481,6 +482,29 @@ def allianz_befehl(payload: dict = Body(...)):
         return {"id": _befehl_ablegen("allianz", {"typ": "anfrage_beenden",
                                                   "insel_id": payload.get("insel_id")})}
     raise HTTPException(400, "Unbekannter Befehl")
+
+
+# ---------------------------------------------------------- Reservierungen
+RESERVIERUNG_BOTS = {"kolonisation": "Kolonisations-Bot", "ausbildung": "Ausbildungs-Bot",
+                     "ausgleich": "Rohstoff-Ausgleich"}
+
+
+@app.get("/api/reservierungen")
+def reservierungen_daten():
+    """Was welcher Bot auf welcher Insel zurueckhaelt (gemeinsames
+    Reservierungs-Verzeichnis), mit Inselnamen; veraltete Dateien (Bot aus)
+    stehen mit aktuell=false dabei - sie gelten nicht mehr."""
+    namen = {iid: i.get("name") for iid, i in
+             ((_json_lesen(_pfad("upgrade", "status.json")) or {}).get("inseln") or {}).items() if isinstance(i, dict)}
+    eintraege = []
+    for bot, daten in reservierungen.alle().items():
+        for iid, e in daten["inseln"].items():
+            eintraege.append({"bot": bot, "bot_titel": RESERVIERUNG_BOTS.get(bot, bot), "insel_id": iid,
+                              "insel": namen.get(iid) or f"Insel {iid}", "rohstoffe": e.get("rohstoffe") or {},
+                              "einheiten": e.get("einheiten") or {}, "grund": e.get("grund"),
+                              "zeit": daten["zeit"], "aktuell": daten["aktuell"]})
+    eintraege.sort(key=lambda e: (not e["aktuell"], e["insel"], e["bot"]))
+    return {"eintraege": eintraege, "max_alter_s": reservierungen.MAX_ALTER_S, "serverzeit": time.time()}
 
 
 # --------------------------------------------------------------- Gesundheit

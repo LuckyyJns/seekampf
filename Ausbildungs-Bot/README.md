@@ -29,7 +29,7 @@ Fehlt etwas:
 2. Sonst bringt die nächstgelegene Insel ihren Überschuss (alles über ihrem
    eigenen Soll) per Handelsfahrt auf Kriegsschiffen (klein 8, groß 30
    Plätze). Sind dort zu wenige Kriegsschiffe daheim, hält der Flotten-Manager
-   sie zurück (`data/reserve.json`), bis sie da sind.
+   sie zurück (gemeinsames Reservierungs-Verzeichnis `~/Seekampf/data/reservierungen/`), bis sie da sind.
 3. Hat keine Insel Überschuss, bildet die nächstgelegene Insel mit passender
    Kaserne und eigenem Soll für die Einheit die fehlende Menge zusätzlich aus
    und schickt sie dann.

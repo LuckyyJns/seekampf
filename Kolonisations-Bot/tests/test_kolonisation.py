@@ -19,6 +19,7 @@ logging.disable(logging.CRITICAL)
 import config  # noqa: E402
 import api_client  # noqa: E402
 from api_client import ApiError  # noqa: E402
+from seekampf_gemeinsam import reservierungen  # noqa: E402
 from kolonisation import Kolonisierer, begleitung_bereinigen, iso_zu_epoch, naechster_name  # noqa: E402
 from state import State  # noqa: E402
 
@@ -104,23 +105,25 @@ class FakeApi:
 class Basis(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        self._reserve = config.RESERVE_PATH
-        config.RESERVE_PATH = os.path.join(self.tmp, "reserve.json")
+        self._ordner = config.RESERVIERUNGEN_ORDNER
+        config.RESERVIERUNGEN_ORDNER = os.path.join(self.tmp, "reservierungen")
 
     def tearDown(self):
-        config.RESERVE_PATH = self._reserve
+        config.RESERVIERUNGEN_ORDNER = self._ordner
 
     def bot(self, api):
         st = State(os.path.join(self.tmp, "state.json"))
         return Kolonisierer(api, st), st
 
+    def _eintraege(self, art):
+        inseln = reservierungen.von("kolonisation", config.RESERVIERUNGEN_ORDNER)
+        return {iid: e[art] for iid, e in inseln.items() if e.get(art)}
+
     def einheiten(self):
-        with open(config.RESERVE_PATH) as f:
-            return json.load(f)["einheiten"]
+        return self._eintraege("einheiten")
 
     def reserve(self):
-        with open(config.RESERVE_PATH) as f:
-            return json.load(f)["inseln"]
+        return self._eintraege("rohstoffe")
 
 
 class Zuordnung(Basis):

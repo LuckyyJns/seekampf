@@ -25,7 +25,8 @@ Aendert sich der Radius, wird beim naechsten Takt neu gescannt. Global bleiben
 Takt, Pruefintervalle unterwegs, Postfach, Telegram und der Rohstoff-Ausgleich.
 
 Kriegsschiffe, die der Ausbildungs-Bot fuer einen Truppentransport braucht
-(`Ausbildungs-Bot/data/reserve.json`), fahren nicht zum Raiden raus.
+(gemeinsames Reservierungs-Verzeichnis), fahren nicht zum Raiden raus; ebenso die
+Begleitung, die der Kolonisations-Bot kurz vor der Abfahrt zurueckhaelt.
 Kolonisationsfahrten (Kolonisations-Bot) uebernimmt der Manager nicht.
 
 Beim Umstieg (erster Start dieser Version) bekam die Heimatinsel die
@@ -49,7 +50,7 @@ zu dessen Kosten aufgefuellt (liest `Upgrade-Bot/data/status.json`). Eine
 Insel, die selbst auch bekommt, gibt nur ab, was ueber ihrem eigenen
 Auffuellziel liegt, und nie, was ihr fuer den naechsten Ausbau fehlt - ein
 Hin- und Herschicken ist damit ausgeschlossen. Was der Kolonisations-Bot auf
-einer Insel fuer ein Schiff anspart (`Kolonisations-Bot/data/reserve.json`),
+einer Insel fuer ein Schiff anspart (gemeinsames Reservierungs-Verzeichnis),
 gibt sie ebenfalls nicht ab. Je Empfaenger liefert die Insel,
 die am meisten liefern kann (bei Gleichstand die naechste), per Handelsfahrt
 (`mission_type: handel`) mit ihren eigenen Handelsschiffen, ab

@@ -5,7 +5,7 @@ gepflegt wird - der Bot waehlt selbst keine Inseln aus. Je Eintrag:
 
   wartet     noch keine Insel, die das Schiff bauen kann (oder alle bauen gerade)
   spart      eine geeignete Insel spart auf das Schiff; die
-             Kosten stehen in data/reserve.json, damit Upgrade-Bot,
+             Kosten stehen im Reservierungs-Verzeichnis, damit Upgrade-Bot,
              Rohstoff-Ausgleich und Ausbildungs-Bot sie nicht ausgeben
   baut       das Schiff ist in Ausbildung
   unterwegs  das Schiff faehrt; wird das Ziel vorher von jemand anderem
@@ -28,16 +28,13 @@ zerstoert, das Schiff soll sie einnehmen); dann bleibt es stehen.
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
-import tempfile
 import time
 from datetime import datetime, timezone
 
 import requests
-from seekampf_gemeinsam import geo
+from seekampf_gemeinsam import geo, reservierungen
 
 import config
 from api_client import ApiError
@@ -483,18 +480,16 @@ class Kolonisierer:
                     ziel[typ] = ziel.get(typ, 0) + int(n)
 
     def _reserve_schreiben(self, jetzt: float) -> None:
+        """Ins gemeinsame Reservierungs-Verzeichnis: Schiffskosten der sparenden
+        Inseln (rohstoffe) und die Begleitung kurz vor der Abfahrt (einheiten)."""
         self._begleitung_reservieren(jetzt)
-        pfad = config.RESERVE_PATH
-        os.makedirs(os.path.dirname(pfad), exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(pfad), prefix=".reserve-", suffix=".json")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"zeit": jetzt, "inseln": self.reserve, "einheiten": self.einheiten_reserve}, f)
-            os.replace(tmp, pfad)
-        except BaseException:
-            if os.path.exists(tmp):
-                os.remove(tmp)
-            raise
+        ziele = {str(e.get("bau_insel")): e["koordinaten"] for e in self.state.warteschlange if e.get("bau_insel")}
+        inseln = {}
+        for iid in set(self.reserve) | set(self.einheiten_reserve):
+            inseln[iid] = {"rohstoffe": self.reserve.get(iid) or {},
+                           "einheiten": self.einheiten_reserve.get(iid) or {},
+                           "grund": f"Kolonisationsschiff fuer {ziele.get(iid, '?')}"}
+        reservierungen.schreiben("kolonisation", inseln, config.RESERVIERUNGEN_ORDNER)
 
     # --------------------------------------------------------- Losschicken
     def _losschicken(self, e: dict, jetzt: float) -> None:

@@ -1,4 +1,3 @@
-import json
 import os
 import time
 from collections import deque
@@ -6,6 +5,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
+from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam.telegram import TelegramNotifier
 
 import config
 import gamedata
@@ -13,7 +14,6 @@ import report
 import steuerung
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
-from seekampf_gemeinsam.telegram import TelegramNotifier
 from planner import (
     affordable,
     choose_upgrade,
@@ -80,17 +80,11 @@ def _usable_resources(resources: dict) -> dict:
 
 
 def _kolo_reserve(island_id) -> dict:
-    """Was der Kolonisations-Bot auf dieser Insel fuer ein Schiff anspart."""
-    try:
-        with open(config.KOLO_RESERVE_PATH, encoding="utf-8") as f:
-            daten = json.load(f)
-        if time.time() - float(daten.get("zeit") or 0) > config.KOLO_RESERVE_MAX_ALTER_S:
-            return {}
-        eintrag = (daten.get("inseln") or {}).get(str(island_id)) or {}
-        reserve = {r: float(eintrag.get(r, 0) or 0) for r in config.RESOURCE_KEYS}
-        return reserve if any(reserve.values()) else {}
-    except (OSError, ValueError, TypeError, AttributeError):
-        return {}
+    """Was andere Bots auf dieser Insel an Rohstoffen reservieren (gemeinsames
+    Reservierungs-Verzeichnis, z. B. der Kolonisations-Bot fuer ein Schiff)."""
+    eintrag = reservierungen.summe("rohstoffe", ordner=config.RESERVIERUNGEN_ORDNER).get(str(island_id)) or {}
+    reserve = {r: float(eintrag.get(r, 0) or 0) for r in config.RESOURCE_KEYS}
+    return reserve if any(reserve.values()) else {}
 
 
 def _ohne_reserve(resources: dict, reserve: dict) -> dict:

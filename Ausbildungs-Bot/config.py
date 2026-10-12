@@ -6,6 +6,7 @@ data/state.json und werden im Seekampf-Hub gepflegt; hier nur Konstanten.
 import os
 
 from dotenv import load_dotenv
+from seekampf_gemeinsam import reservierungen
 
 load_dotenv()
 
@@ -21,13 +22,11 @@ WEB_HOST = os.environ.get("AUSBILDUNGS_BOT_HOST", "127.0.0.1")
 WEB_PORT = int(os.environ.get("AUSBILDUNGS_BOT_PORT", "8083"))
 
 STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
-# Kriegsschiffe, die fuer einen Truppentransport gebraucht werden - der
-# Flotten-Manager laesst sie nicht zum Raiden rausfahren.
-RESERVE_PATH = os.path.join(BASE_DIR, "data", "reserve.json")
-# Rohstoffe, die der Kolonisations-Bot fuer ein Kolonisationsschiff anspart -
-# davon wird nichts ausgebildet. Aeltere Dateien (Bot aus) zaehlen nicht.
-KOLO_RESERVE_PATH = os.path.join(os.path.dirname(BASE_DIR), "Kolonisations-Bot", "data", "reserve.json")
-RESERVE_MAX_ALTER_S = 10 * 60
+# Gemeinsames Reservierungs-Verzeichnis (seekampf_gemeinsam.reservierungen):
+# hier stehen die Kriegsschiffe fuer Truppentransporte (der Flotten-Manager
+# raidet nicht damit); was andere Bots an Rohstoffen reservieren (z. B. der
+# Kolonisations-Bot fuer ein Schiff), wird nicht fuer Ausbildung ausgegeben.
+RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
 
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "ausbildung"

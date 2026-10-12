@@ -93,6 +93,25 @@ class Reservierungen(unittest.TestCase):
         self.assertEqual(reservierungen.alle(self.ordner)["ausgleich"]["inseln"], {})
         self.assertNotIn("kaputt", reservierungen.alle(self.ordner))
 
+    def test_eintrag_nur_mit_grund_bleibt(self):
+        reservierungen.schreiben("ausgleich", {"1": {"einheiten": {"kleines_handelsschiff": 0}, "grund": "Lieferung"}},
+                                 self.ordner)
+        self.assertEqual(set(reservierungen.von("ausgleich", self.ordner)), {"1"})
+
+    def test_unveraendert_wird_nicht_dauernd_neu_geschrieben(self):
+        pfad = os.path.join(self.ordner, "ausgleich.json")
+        reservierungen.schreiben("ausgleich", {"1": {"grund": "x"}}, self.ordner)
+        erst = os.stat(pfad).st_mtime_ns
+        os.utime(pfad, ns=(erst - 10**9, erst - 10**9))
+        reservierungen.schreiben("ausgleich", {"1": {"grund": "x"}}, self.ordner)
+        self.assertEqual(os.stat(pfad).st_mtime_ns, erst - 10**9)        # nicht neu geschrieben
+        reservierungen.schreiben("ausgleich", {"2": {"grund": "y"}}, self.ordner)
+        self.assertNotEqual(os.stat(pfad).st_mtime_ns, erst - 10**9)     # geaendert -> geschrieben
+        reservierungen.schreiben("ausgleich", {"2": {"grund": "y"}}, self.ordner,
+                                 jetzt=time.time() + reservierungen.AUFFRISCHEN_S + 1)
+        with open(pfad) as f:
+            self.assertGreater(json.load(f)["zeit"], time.time() + 60)  # aufgefrischt
+
     def test_fehlender_ordner(self):
         self.assertEqual(reservierungen.summe("rohstoffe", ordner=os.path.join(self.ordner, "gibtsnicht")), {})
 

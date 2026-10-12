@@ -6,6 +6,7 @@ die Warteschlange), steht in data/state.json; hier nur Konstanten.
 import os
 
 from dotenv import load_dotenv
+from seekampf_gemeinsam import reservierungen
 
 load_dotenv()
 
@@ -21,12 +22,12 @@ WEB_HOST = os.environ.get("KOLONISATIONS_BOT_HOST", "127.0.0.1")
 WEB_PORT = int(os.environ.get("KOLONISATIONS_BOT_PORT", "8082"))
 
 STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
-# Rohstoffe, die eine Bau-Insel fuer ihr Kolonisationsschiff anspart. Upgrade-Bot,
-# Rohstoff-Ausgleich (Flotten-Manager) und Ausbildungs-Bot geben dort nur aus,
-# was darueber liegt. Ist die Datei aelter als RESERVE_MAX_ALTER_S (Bot aus),
-# ignorieren die anderen sie.
-RESERVE_PATH = os.path.join(BASE_DIR, "data", "reserve.json")
-RESERVE_MAX_ALTER_S = 10 * 60
+# Gemeinsames Reservierungs-Verzeichnis (seekampf_gemeinsam.reservierungen):
+# Rohstoffe, die eine Bau-Insel fuer ihr Kolonisationsschiff anspart (Upgrade-Bot,
+# Rohstoff-Ausgleich, Ausbildungs-Bot und Allianzkasse geben dort nur aus, was
+# darueber liegt), und die Begleitung kurz vor der Abfahrt. Laeuft der Bot nicht
+# (Datei aelter als 10 min), gilt nichts davon.
+RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
 # Die Begleitung (weitere Schiffe/Truppen) eines bewohnten Ziels wird erst so lange
 # vor Fertigstellung des Kolonisationsschiffs reserviert (dann bis zur Abfahrt).
 BEGLEITUNG_VORLAUF_S = 10 * 60

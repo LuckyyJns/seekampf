@@ -22,12 +22,12 @@ import time
 from datetime import datetime, timezone
 
 import requests
-from seekampf_gemeinsam import geo
+from seekampf_gemeinsam import geo, reservierungen
 
 import config
 import scanner
 from api_client import ApiError
-from ausgleich import Ausgleich, reserve_lesen
+from ausgleich import Ausgleich
 from state import neue_insel
 
 log = logging.getLogger("seekampf_flotten_manager")
@@ -153,15 +153,12 @@ class FlottenManager:
         if insel_id in self.ausgleich.reserviert:
             for typ in config.HANDELSSCHIFF_TYPEN:
                 bestand[typ] = 0
-        # Kriegsschiffe, die der Ausbildungs-Bot gerade fuer einen Truppentransport braucht.
-        transport = reserve_lesen(config.AUSBILDUNG_RESERVE_PATH, "kriegsschiffe").get(str(insel_id))
-        for typ, n in (transport or {}).items():
-            if typ in bestand:
-                bestand[typ] = max(0, int(bestand[typ] or 0) - int(n or 0))
-        # Begleitung, die der Kolonisations-Bot fuer ein bewohntes Ziel zurueckhaelt
-        # (erst kurz vor Fertigstellung des Kolonisationsschiffs).
-        kolo = reserve_lesen(config.KOLO_RESERVE_PATH, "einheiten").get(str(insel_id))
-        for typ, n in (kolo or {}).items():
+        # Einheiten, die andere Bots im gemeinsamen Reservierungs-Verzeichnis
+        # zurueckhalten: Kriegsschiffe fuer einen Truppentransport (Ausbildungs-Bot),
+        # Begleitung fuer ein bewohntes Ziel kurz vor der Abfahrt (Kolonisations-Bot).
+        fremd = reservierungen.summe("einheiten", ausser="ausgleich",
+                                     ordner=config.RESERVIERUNGEN_ORDNER).get(str(insel_id))
+        for typ, n in (fremd or {}).items():
             if typ in bestand:
                 bestand[typ] = max(0, int(bestand[typ] or 0) - int(n or 0))
         return bestand
@@ -281,6 +278,7 @@ class FlottenManager:
 
         if not self.state.data["laeuft"]:
             self.ausgleich.reserviert = set()
+            self.ausgleich.reservierung_schreiben({})
             self._pause("gestoppt")
             self._speichern_wenn_noetig(jetzt)
             self.letzter_tick = jetzt
@@ -291,6 +289,7 @@ class FlottenManager:
         self._report_wenn_faellig(jetzt)
         # Vor den Raids: eine faellige Lieferung bekommt die Handelsschiffe zuerst.
         self.ausgleich.tick(alles, flotten_api, jetzt)
+        self.ausgleich.reservierung_schreiben(alles)
         aktiv = set(self.aktive_inseln())
         for iid_text, insel in self.state.data["inseln"].items():
             iid = int(iid_text)

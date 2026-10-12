@@ -2,10 +2,9 @@
 
     .venv/bin/python -m unittest discover -s tests -v
 """
-import json
 import logging
-import time
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -22,6 +21,7 @@ config.TELEGRAM_BOT_TOKEN = ""
 import bot as bot_modul  # noqa: E402
 import steuerung  # noqa: E402
 from state import State  # noqa: E402
+from seekampf_gemeinsam import reservierungen  # noqa: E402
 
 # Nie die echte Hub-Steuerung lesen oder den echten Status ueberschreiben:
 # sonst haengen die erwarteten Mengen davon ab, was gerade im Seekampf-Hub
@@ -33,10 +33,8 @@ steuerung.STATUS_PATH = os.path.join(_TEST_DATA, "status.json")
 if hasattr(steuerung, "BEFEHLE_DIR"):
     steuerung.BEFEHLE_DIR = os.path.join(_TEST_DATA, "befehle")
 import config as _config  # noqa: E402
-import kasse as kasse_modul  # noqa: E402
-# Nie die echte Kolonisations-Reserve oder den echten Flotten-Manager fragen.
-_config.KOLO_RESERVE_PATH = os.path.join(_TEST_DATA, "kolo-reserve.json")
-kasse_modul.ausgleich_wartet = lambda: set()
+# Nie das echte Reservierungs-Verzeichnis lesen.
+_config.RESERVIERUNGEN_ORDNER = os.path.join(_TEST_DATA, "reservierungen")
 steuerung._mtime = -1.0  # erzwingt Neuladen -> Standardwerte aus config.py
 steuerung.laden()
 
@@ -264,14 +262,13 @@ class Allianzkasse(Basis):
         self.assertEqual(len(self.api.einzahlungen), 1)
 
     def test_kolo_reserve_bleibt(self):
-        with open(_config.KOLO_RESERVE_PATH, "w") as f:
-            json.dump({"zeit": time.time(), "inseln": {"447": {"holz": 42000}}}, f)
+        reservierungen.schreiben("kolonisation", {"447": {"rohstoffe": {"holz": 42000}}}, _config.RESERVIERUNGEN_ORDNER)
         try:
             self.api.rohstoffe = {"gold": 0, "stein": 0, "holz": 43000, "kapazitaet": 43480}
             self.lauf()
             self.assertEqual(self.api.einzahlungen[0][2], {"holz": 1000})
         finally:
-            os.remove(_config.KOLO_RESERVE_PATH)
+            shutil.rmtree(_config.RESERVIERUNGEN_ORDNER)
 
     def test_ausgeschaltet(self):
         self.api.rohstoffe = {"gold": 43000, "stein": 0, "holz": 0, "kapazitaet": 43480}
@@ -284,11 +281,13 @@ class Allianzkasse(Basis):
 
     def test_wartet_auf_ausgleich(self):
         self.api.rohstoffe = {"gold": 43000, "stein": 0, "holz": 0, "kapazitaet": 43480}
-        kasse_modul.ausgleich_wartet = lambda: {447}
+        reservierungen.schreiben("ausgleich", {"447": {"einheiten": {"kleines_handelsschiff": 0},
+                                                       "grund": "Rohstoff-Ausgleich: Lieferung an GiG 2"}},
+                                 _config.RESERVIERUNGEN_ORDNER)
         try:
             self.lauf()
         finally:
-            kasse_modul.ausgleich_wartet = lambda: set()
+            shutil.rmtree(_config.RESERVIERUNGEN_ORDNER)
         self.assertFalse(getattr(self.api, "einzahlungen", []))
 
 

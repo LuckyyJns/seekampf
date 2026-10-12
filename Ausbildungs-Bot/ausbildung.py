@@ -16,7 +16,7 @@ Fehlt etwas:
      Kolonisations-Bots).
   2. Sonst kommt der Ueberschuss (ueber dem eigenen Soll) der naechstgelegenen
      Insel per Handel auf Kriegsschiffen. Sind keine Kriegsschiffe daheim,
-     haelt der Flotten-Manager sie zurueck (data/reserve.json), bis sie da sind.
+     haelt der Flotten-Manager sie zurueck (Reservierungs-Verzeichnis), bis sie da sind.
   3. Hat keine Insel Ueberschuss, bildet die naechstgelegene Insel mit
      passender Kaserne (und eigenem Soll fuer die Einheit) die fehlende Menge
      zusaetzlich aus; ist sie daheim, geht sie per 2. los.
@@ -24,16 +24,13 @@ Bedrohte Inseln geben keine Truppen ab.
 """
 from __future__ import annotations
 
-import json
 import logging
 import math
-import os
-import tempfile
 import threading
 import time
 
 import requests
-from seekampf_gemeinsam import geo
+from seekampf_gemeinsam import geo, reservierungen
 
 import config
 from api_client import ApiError
@@ -50,17 +47,6 @@ MIN_AUFTRAG_SCHIFF = 1    # Schiffe sind teuer: auch ein einzelnes wird bestellt
 
 def _leer() -> dict:
     return {e: 0 for e in config.ITEMS}
-
-
-def reserve_lesen(pfad: str, feld: str) -> dict:
-    try:
-        with open(pfad, encoding="utf-8") as f:
-            daten = json.load(f)
-        if time.time() - float(daten.get("zeit") or 0) > config.RESERVE_MAX_ALTER_S:
-            return {}
-        return {str(k): v for k, v in (daten.get(feld) or {}).items() if isinstance(v, dict)}
-    except (OSError, ValueError, TypeError, AttributeError):
-        return {}
 
 
 class Ausbilder:
@@ -228,10 +214,10 @@ class Ausbilder:
             self._verlegen(von, nach, e, n, hinweise)
 
         # 3. Ausbildung vor Ort
-        kolo = reserve_lesen(config.KOLO_RESERVE_PATH, "inseln")
+        fremd = reservierungen.summe("rohstoffe", ausser="ausbildung", ordner=config.RESERVIERUNGEN_ORDNER)
         for iid in relevant:
             budget = {r: float((self.ov[iid].get("rohstoffe") or {}).get(r, 0) or 0)
-                      - float((kolo.get(str(iid)) or {}).get(r, 0) or 0) for r in config.RESOURCE_KEYS}
+                      - float((fremd.get(str(iid)) or {}).get(r, 0) or 0) for r in config.RESOURCE_KEYS}
             for e in config.ITEMS:
                 soll = soll_eff[iid][e]
                 if soll is None or ist[iid][e] >= soll:
@@ -388,14 +374,8 @@ class Ausbilder:
         self.state.merken(text)
 
     def _reserve_schreiben(self, jetzt: float) -> None:
-        pfad = config.RESERVE_PATH
-        os.makedirs(os.path.dirname(pfad), exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(pfad), prefix=".reserve-", suffix=".json")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                json.dump({"zeit": jetzt, "kriegsschiffe": self.reserve}, f)
-            os.replace(tmp, pfad)
-        except BaseException:
-            if os.path.exists(tmp):
-                os.remove(tmp)
-            raise
+        """Ins gemeinsame Reservierungs-Verzeichnis: Kriegsschiffe, die fuer einen
+        Truppentransport gebraucht werden (der Flotten-Manager raidet nicht damit)."""
+        reservierungen.schreiben("ausbildung", {
+            iid: {"einheiten": schiffe, "grund": "Truppentransport"} for iid, schiffe in self.reserve.items()
+        }, config.RESERVIERUNGEN_ORDNER)

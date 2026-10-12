@@ -8,6 +8,7 @@ steht, aendert sich nur durch einen Neustart.
 import os
 
 from dotenv import load_dotenv
+from seekampf_gemeinsam import reservierungen
 
 load_dotenv()
 
@@ -28,15 +29,12 @@ STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
 # Der Rohstoff-Ausgleich liest hier, was der Upgrade-Bot als Naechstes bauen
 # will und was ihm dafuer fehlt.
 UPGRADE_STATUS_PATH = os.path.join(os.path.dirname(BASE_DIR), "Upgrade-Bot", "data", "status.json")
-# Rohstoffe, die der Kolonisations-Bot auf einer Insel fuer ein
-# Kolonisationsschiff anspart: der Rohstoff-Ausgleich gibt dort nur ab, was
-# darueber liegt.
-KOLO_RESERVE_PATH = os.path.join(os.path.dirname(BASE_DIR), "Kolonisations-Bot", "data", "reserve.json")
-# Kriegsschiffe, die der Ausbildungs-Bot fuer einen Truppentransport braucht:
-# sie fahren nicht zum Raiden raus.
-AUSBILDUNG_RESERVE_PATH = os.path.join(os.path.dirname(BASE_DIR), "Ausbildungs-Bot", "data", "reserve.json")
-# Aeltere Reservierungen (Bot aus) zaehlen nicht.
-RESERVE_MAX_ALTER_S = 10 * 60
+# Gemeinsames Reservierungs-Verzeichnis (seekampf_gemeinsam.reservierungen):
+# Einheiten anderer Bots (Truppentransport des Ausbildungs-Bots, Begleitung des
+# Kolonisations-Bots) fahren nicht zum Raiden raus; reservierte Rohstoffe
+# (Kolonisationsschiff) gibt der Rohstoff-Ausgleich nicht ab. Der Ausgleich
+# traegt selbst ein, wo er Handelsschiffe fuer eine Lieferung zurueckhaelt.
+RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "flotte"
 LOG_RETENTION_DAYS = 60

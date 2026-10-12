@@ -28,7 +28,7 @@ schon irgendwo ein freies Kolonisationsschiff (z. B. nach einem Rückruf),
 nimmt das nächste Ziel das nächstgelegene davon.
 
 **Ansparen:** Solange eine Insel spart, stehen die Schiffskosten in
-`data/reserve.json`. Upgrade-Bot, Rohstoff-Ausgleich und Ausbildungs-Bot
+`~/Seekampf/data/reservierungen/kolonisation.json`. Upgrade-Bot, Rohstoff-Ausgleich, Ausbildungs-Bot und Allianzkasse
 geben auf dieser Insel nur aus, was darüber liegt. Ist der Bot aus (Datei älter
 als 10 min), gilt die Reservierung nicht mehr.
 
