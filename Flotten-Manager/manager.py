@@ -435,7 +435,12 @@ class FlottenManager:
 
         if rec.get("mission") != "attack":
             # Handel/Transport (Rohstoff-Ausgleich, Allianz-Bot, von Hand):
-            # kein Raid, kein Kampfbericht - nichts zu verbuchen.
+            # kein Raid, kein Kampfbericht. Nur eine Ausgleichslieferung kommt
+            # jetzt beim Empfaenger in die Rohstoff-Bilanz (am Tag der Ankunft).
+            empfang = rec.pop("bilanz_empfang", None)
+            if isinstance(empfang, dict):
+                self.bilanz.buchen(empfang.get("insel_id"), "Ausgleich erhalten", empfang.get("rohstoffe"),
+                                   zeitpunkt=rec.get("arrive_at") or jetzt)
             rec["verbucht"] = True
             self._dirty = True
             return

@@ -458,7 +458,14 @@ class Ausgleich(Basis):
         self.assertEqual(m.ausgleich.stand()["geliefert"]["stein"], 500)
         tag = m.bilanz.daten["tage"][bilanz.tag()]
         self.assertEqual(tag["447"]["Ausgleich abgegeben"], {"stein": -500.0, "holz": -100.0})
+        self.assertNotIn("20", tag)                                       # erst bei Ankunft
+        api.fleets[-1]["arrive_at"] = iso(time.time() - 60)
+        m.tick()
+        tag = m.bilanz.daten["tage"][bilanz.tag()]
         self.assertEqual(tag["20"]["Ausgleich erhalten"], {"stein": 500.0, "holz": 100.0})
+        m.tick()                                                          # nur einmal gebucht
+        self.assertEqual(m.bilanz.daten["tage"][bilanz.tag()]["20"]["Ausgleich erhalten"],
+                         {"stein": 500.0, "holz": 100.0})
 
     def test_lieferung_von_hand_nimmt_grosse_schiffe_wenn_noetig(self):
         api = self.drei_inseln()

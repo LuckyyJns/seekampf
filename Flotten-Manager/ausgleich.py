@@ -158,11 +158,12 @@ class Ausgleich:
                        for f in flotten_api if f.get("origin_island_id") == insel_id)
         return hafen, hafen + draussen
 
-    def bilanz_buchen(self, von: int, nach: int, rohstoffe: dict) -> None:
-        """Rohstoff-Bilanz: beim Versand ab, beim Empfaenger dazu (gebucht wird
-        beim Losschicken, auch wenn die Ladung erst spaeter ankommt)."""
+    def bilanz_buchen(self, von: int, nach: int, rohstoffe: dict, rec: dict) -> None:
+        """Rohstoff-Bilanz: beim Versand ab; beim Empfaenger erst bei der Ankunft
+        (merkt sich Ziel und Ladung in der Flotte, siehe Manager._ankunft) -
+        sonst stuende die Ladung waehrend der Fahrt als "nicht zugeordnet" da."""
         self.m.bilanz.buchen(von, "Ausgleich abgegeben", rohstoffe, -1)
-        self.m.bilanz.buchen(nach, "Ausgleich erhalten", rohstoffe)
+        rec["bilanz_empfang"] = {"insel_id": nach, "rohstoffe": dict(rohstoffe)}
 
     def reservierung_schreiben(self, alles: dict[int, dict]) -> None:
         """Ins gemeinsame Reservierungs-Verzeichnis: auf welchen Inseln die
@@ -225,7 +226,7 @@ class Ausgleich:
         jetzt = time.time()
         rec = m._record(antwort or {})
         rec.update(insel_id=von, fremd=False, art="ausgleich")
-        self.bilanz_buchen(von, nach, menge)
+        self.bilanz_buchen(von, nach, menge, rec)
         with m.state.lock:
             if rec.get("id") is not None:
                 m.state.data["flotten"][str(rec["id"])] = rec
@@ -429,7 +430,7 @@ class Ausgleich:
         warten.pop(str(sp), None)
         rec = m._record(antwort or {})
         rec.update(insel_id=sp, fremd=False, art="ausgleich")
-        self.bilanz_buchen(sp, ziel_id, lieferung)
+        self.bilanz_buchen(sp, ziel_id, lieferung, rec)
         if rec.get("id") is not None:
             m.state.data["flotten"][str(rec["id"])] = rec
         stand = self.stand()
