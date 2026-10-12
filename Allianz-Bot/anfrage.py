@@ -215,6 +215,7 @@ class Anfrage:
             if x["helfer_id"] == absender and x["status"] == "zugesagt":
                 x["status"] = "versandt"
                 x["geliefert"] = {r: n for r, n in f["rohstoffe"].items() if r in x["zusage"]}
+                self.k.bilanz.buchen(a.get("insel_id"), "Allianz erhalten", x["geliefert"])
                 break
         self.k.state.speichern()
         log.info("Rohstoffe unterwegs von %s: %s, Ankunft %s", self.k.mitglieder.get(absender),

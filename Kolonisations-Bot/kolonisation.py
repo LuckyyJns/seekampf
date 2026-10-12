@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 
 import requests
 from seekampf_gemeinsam import geo, reservierungen
+from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
 from api_client import ApiError
@@ -112,6 +113,7 @@ class Kolonisierer:
         self.client = client
         self.state = state
         self.notifier = notifier
+        self.bilanz = Bilanz("kolonisation", config.BILANZ_ORDNER)
         self.ov: dict[int, dict] = {}
         self.ab_hafen = config.SCHIFF_AB_HAFEN
         self.kosten = dict(config.SCHIFF_KOSTEN)
@@ -439,6 +441,7 @@ class Kolonisierer:
             log.warning("%s: Ausbildung des Schiffs auf %s unklar: %s", e["koordinaten"], self._name(iid),
                         type(err).__name__)
             return
+        self.bilanz.buchen(iid, "Kolonisation", self.kosten, -1)
         e.update(status="baut", auftrag_id=antwort.get("id"), hinweis="Schiff in Ausbildung")
         log.info("%s: Kolonisationsschiff auf %s in Ausbildung gegeben (%s)", e["koordinaten"],
                  self._name(iid), fmt_res(self.kosten))

@@ -35,6 +35,7 @@ if hasattr(steuerung, "BEFEHLE_DIR"):
 import config as _config  # noqa: E402
 # Nie das echte Reservierungs-Verzeichnis lesen.
 _config.RESERVIERUNGEN_ORDNER = os.path.join(_TEST_DATA, "reservierungen")
+_config.BILANZ_ORDNER = os.path.join(_TEST_DATA, "bilanz")
 steuerung._mtime = -1.0  # erzwingt Neuladen -> Standardwerte aus config.py
 steuerung.laden()
 

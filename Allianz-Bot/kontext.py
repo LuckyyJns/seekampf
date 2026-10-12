@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 from seekampf_gemeinsam import geo
+from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
 import protokoll
@@ -81,6 +82,8 @@ class Kontext:
         self.state = state
         self.notifier = notifier
         self.tz = ZoneInfo(config.TIMEZONE_NAME)
+        # Rohstoff-Bilanz: Lieferungen von Mitspielern, Einzahlungen in die Kasse.
+        self.bilanz = Bilanz("allianz", config.BILANZ_ORDNER)
 
         self.ich_id: int | None = None
         self.ich_name: str = ""

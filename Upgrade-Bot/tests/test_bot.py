@@ -18,6 +18,7 @@ logging.disable(logging.CRITICAL)
 
 import bot  # noqa: E402
 import config  # noqa: E402
+config.BILANZ_ORDNER = tempfile.mkdtemp(prefix="bilanz-test-")  # nie in die echte Rohstoff-Bilanz buchen
 import planner  # noqa: E402
 import report  # noqa: E402
 import steuerung  # noqa: E402

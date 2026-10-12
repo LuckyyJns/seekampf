@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam import bilanz, reservierungen
 
 load_dotenv()
 
@@ -77,6 +77,8 @@ VERLAUF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", 
 # was andere Bots an Rohstoffen reservieren (z. B. der Kolonisations-Bot fuer ein
 # Schiff), verbaut der Upgrade-Bot nicht. Veraltete Eintraege (Bot aus) zaehlen nicht.
 RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
+# Rohstoff-Bilanz (seekampf_gemeinsam.bilanz): was der Bot an Rohstoffen bewegt, je Insel und Tag.
+BILANZ_ORDNER = bilanz.ORDNER
 
 # Schlagen die Durchlaeufe so lange am Stueck fehl, geht ein Telegram-Alarm raus.
 ALERT_AFTER_FAILED_MINUTES = 15

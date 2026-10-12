@@ -21,7 +21,7 @@ function zeichneUpgrade() {
   const container = $("up-inseln");
   for (const i of Object.values(st.inseln).sort((a, b) => (a.position ?? 0) - (b.position ?? 0))) {
     const id = String(i.id);
-    const steuer = { aktiv: true, modus: "auto", bis_stufe: null, gesperrt: [], ausbauziele: [], ...(upgrade.steuerung.inseln?.[id] || {}) };
+    const steuer = { aktiv: true, modus: "auto", bis_stufe: null, gesperrt: [], ausbauziele: [], nebenher: true, ...(upgrade.steuerung.inseln?.[id] || {}) };
     const karte = inselKarte(container, id, `
       <div class="zwei-spalten">
         <div class="unterteil"><h2>Lager</h2><div data-teil="lager"></div></div>
@@ -144,7 +144,11 @@ function zeichneUpgradeFormular(karte, id, steuer, i) {
       <div data-teil="ziele-liste">${(steuer.ausbauziele || []).map(z => ausbauzielZeile(z)).join("")}</div>
       <div><button class="klein" data-ziel-neu="${id}">+ Ziel</button></div>
       <span class="hinweis">baut nur das erste noch nicht erreichte Ziel und wartet, bis es bezahlbar ist; nicht verfügbare werden übersprungen;
-        gesperrte Gebäude werden hier trotzdem gebaut; sind alle erreicht, baut der Bot wieder automatisch. „Priorisierung“ oben geht vor.</span></div>`;
+        gesperrte Gebäude werden hier trotzdem gebaut; sind alle erreicht, baut der Bot wieder automatisch. „Priorisierung“ oben geht vor.</span></div>
+    <div class="feld" style="margin-top:12px"><span class="label">Nebenher bauen</span>
+      <div class="chips"><label><input type="checkbox" data-feld="nebenher" ${steuer.nebenher !== false ? "checked" : ""}>Während auf ein Ziel gespart wird</label></div>
+      <span class="hinweis">gilt für Priorisierung und Ausbauziele: nur Ausbauten, die das Ziel nicht später fertig machen –
+        es bleibt trotzdem genauso früh bezahlbar, und die Warteschlange ist bis dahin wieder frei</span></div>`;
 }
 function ausbauzielZeile(z = { gebaeude: "hafen", stufe: 1 }) {
   return `<div class="formular-leiste" data-ausbauziel style="margin:4px 0">
@@ -196,6 +200,7 @@ $("up-inseln").addEventListener("click", async (e) => {
       gesperrt: [...el.querySelectorAll("[data-sperre-geb]:checked")].map(x => x.dataset.sperreGeb),
       ausbauziele: [...el.querySelectorAll("[data-ausbauziel]")].map(z => ({
         gebaeude: z.querySelector("[data-z-geb]").value, stufe: Number(z.querySelector("[data-z-stufe]").value) })),
+      nebenher: el.querySelector('[data-feld="nebenher"]').checked,
     };
     if (nutzlast.modus !== "auto" && nutzlast.gesperrt.includes(nutzlast.modus)) {
       melde(`${gname(nutzlast.modus)} ist gleichzeitig priorisiert und gesperrt – bitte eins von beiden ändern.`, "schlecht");

@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest import mock
 
-from seekampf_gemeinsam import api, geo, reservierungen
+from seekampf_gemeinsam import api, bilanz, geo, reservierungen
 from seekampf_gemeinsam.logs import logger_einrichten
 
 
@@ -114,6 +114,58 @@ class Reservierungen(unittest.TestCase):
 
     def test_fehlender_ordner(self):
         self.assertEqual(reservierungen.summe("rohstoffe", ordner=os.path.join(self.ordner, "gibtsnicht")), {})
+
+
+class Bilanz(unittest.TestCase):
+    def setUp(self):
+        self.ordner = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.ordner)
+
+    def test_buchen_zusammenfassen_und_bestand(self):
+        heute = time.time()
+        a = bilanz.Bilanz("flotte", self.ordner)
+        a.buchen(447, "Raids", {"gold": 100, "stein": 50, "holz": 0})
+        a.buchen(447, "Raids", {"gold": 20})
+        a.buchen("447", "Ausgleich abgegeben", {"holz": 300}, -1)
+        a.buchen(447, "Raids", {"gold": 0})                       # Nullbuchung faellt weg
+        a.speichern()
+        b = bilanz.Bilanz("upgrade", self.ordner)
+        b.bestand(447, {"gold": 1, "stein": 2, "holz": 3})
+        b.bestand(447, {"gold": 10, "stein": 20, "holz": 30})
+        b.buchen(447, "Ausbau", {"gold": 500, "stein": 400, "holz": 300}, -1)
+        b.speichern()
+        z = bilanz.zusammenfassen(1, self.ordner)
+        t = bilanz.tag(heute)
+        self.assertEqual(z["buchungen"][t]["447"], {"Raids": {"gold": 120.0, "stein": 50.0},
+                                                     "Ausgleich abgegeben": {"holz": -300.0},
+                                                     "Ausbau": {"gold": -500.0, "stein": -400.0, "holz": -300.0}})
+        self.assertEqual(z["bestand"][t]["447"]["erst"]["gold"], 1)
+        self.assertEqual(z["bestand"][t]["447"]["letzt"]["gold"], 10)
+
+    def test_neu_laden_und_alte_tage_fallen_weg(self):
+        a = bilanz.Bilanz("kolonisation", self.ordner)
+        a.buchen(1, "Kolonisation", {"holz": 35500}, -1, zeitpunkt=time.time() - (bilanz.BEHALTEN_TAGE + 2) * 86400)
+        a.buchen(1, "Kolonisation", {"holz": 35500}, -1)
+        a.speichern()
+        b = bilanz.Bilanz("kolonisation", self.ordner)              # nach einem Neustart
+        self.assertEqual(list(b.daten["tage"]), [bilanz.tag()])
+        b.buchen(1, "Kolonisation", {"holz": 1}, -1)
+        b.speichern()
+        self.assertEqual(bilanz.zusammenfassen(1, self.ordner)["buchungen"][bilanz.tag()]["1"]["Kolonisation"]["holz"],
+                         -35501.0)
+
+    def test_seltenes_schreiben(self):
+        a = bilanz.Bilanz("ausbildung", self.ordner)
+        a.buchen(1, "Ausbildung", {"gold": 1}, -1)                 # erstes Buchen schreibt sofort
+        pfad = os.path.join(self.ordner, "ausbildung.json")
+        vorher = os.stat(pfad).st_mtime_ns
+        a.buchen(1, "Ausbildung", {"gold": 1}, -1)                 # innerhalb von SPEICHERN_S: nur im Speicher
+        self.assertEqual(os.stat(pfad).st_mtime_ns, vorher)
+        a.speichern()
+        with open(pfad) as f:
+            self.assertEqual(json.load(f)["tage"][bilanz.tag()]["1"]["Ausbildung"]["gold"], -2.0)
 
 
 class Logs(unittest.TestCase):

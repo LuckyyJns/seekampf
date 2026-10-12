@@ -152,6 +152,7 @@ function aktualisieren() {
   if (tab === "upgrade") { upgradeHolen(); verlaufUpHolen(); }
   if (tab === "allianz") allianzHolen();
   if (tab === "ausgleich") ausgleichHolen();
+  if (tab === "bilanz") bilanzHolen();
   if (tab === "gesundheit") gesundheitHolen();
   if (tab === "kolonie") kolonieHolen();
   if (tab === "ausbildung") ausbildungHolen();

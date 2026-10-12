@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 
 import requests
 from seekampf_gemeinsam import geo, reservierungen
+from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
 import scanner
@@ -102,6 +103,8 @@ class FlottenManager:
         self.client = client
         self.state = state
         self.notifier = notifier
+        # Rohstoff-Bilanz: Raid-Beute und Lieferungen des Rohstoff-Ausgleichs.
+        self.bilanz = Bilanz("flotte", config.BILANZ_ORDNER)
 
         # Insel, die im Spiel gerade ausgewaehlt ist - bekommt beim Umstieg
         # auf mehrere Inseln den Altbestand und ist als einzige sofort aktiv.
@@ -631,6 +634,7 @@ class FlottenManager:
             if iid is not None:
                 self.state.verlauf_buchen(iid, iso_zu_epoch(nachricht.get("created_at")) or time.time(),
                                           beute=beute)
+                self.bilanz.buchen(iid, "Raids", beute)
             if ziel is not None:
                 ziel["niederlagen"] = 0
                 ziel["letzte_beute"] = beute

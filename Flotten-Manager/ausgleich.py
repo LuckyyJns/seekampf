@@ -158,6 +158,12 @@ class Ausgleich:
                        for f in flotten_api if f.get("origin_island_id") == insel_id)
         return hafen, hafen + draussen
 
+    def bilanz_buchen(self, von: int, nach: int, rohstoffe: dict) -> None:
+        """Rohstoff-Bilanz: beim Versand ab, beim Empfaenger dazu (gebucht wird
+        beim Losschicken, auch wenn die Ladung erst spaeter ankommt)."""
+        self.m.bilanz.buchen(von, "Ausgleich abgegeben", rohstoffe, -1)
+        self.m.bilanz.buchen(nach, "Ausgleich erhalten", rohstoffe)
+
     def reservierung_schreiben(self, alles: dict[int, dict]) -> None:
         """Ins gemeinsame Reservierungs-Verzeichnis: auf welchen Inseln die
         Handelsschiffe gerade fuer eine Lieferung zurueckgehalten werden (die
@@ -219,6 +225,7 @@ class Ausgleich:
         jetzt = time.time()
         rec = m._record(antwort or {})
         rec.update(insel_id=von, fremd=False, art="ausgleich")
+        self.bilanz_buchen(von, nach, menge)
         with m.state.lock:
             if rec.get("id") is not None:
                 m.state.data["flotten"][str(rec["id"])] = rec
@@ -422,6 +429,7 @@ class Ausgleich:
         warten.pop(str(sp), None)
         rec = m._record(antwort or {})
         rec.update(insel_id=sp, fremd=False, art="ausgleich")
+        self.bilanz_buchen(sp, ziel_id, lieferung)
         if rec.get("id") is not None:
             m.state.data["flotten"][str(rec["id"])] = rec
         stand = self.stand()

@@ -6,7 +6,7 @@ data/state.json und werden im Seekampf-Hub gepflegt; hier nur Konstanten.
 import os
 
 from dotenv import load_dotenv
-from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam import bilanz, reservierungen
 
 load_dotenv()
 
@@ -27,6 +27,8 @@ STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
 # raidet nicht damit); was andere Bots an Rohstoffen reservieren (z. B. der
 # Kolonisations-Bot fuer ein Schiff), wird nicht fuer Ausbildung ausgegeben.
 RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
+# Rohstoff-Bilanz (seekampf_gemeinsam.bilanz): was der Bot an Rohstoffen bewegt, je Insel und Tag.
+BILANZ_ORDNER = bilanz.ORDNER
 
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "ausbildung"

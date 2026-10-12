@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam.bilanz import Bilanz
 from seekampf_gemeinsam.telegram import TelegramNotifier
 
 import config
@@ -72,6 +73,42 @@ def _stop_low_priority(store, key: str) -> None:
     LOW_PRIORITY_SINCE.pop(key, None)
     if (store.data.get("low_priority_since") or {}).pop(key, None) is not None:
         store.save()
+
+
+# ----------------------------------------------------------------------
+# Rohstoff-Bilanz (seekampf_gemeinsam.bilanz): Produktion, Ausbaukosten und
+# der Lagerstand je Tag, aus dem der Hub "nicht zugeordnet" errechnet.
+# ----------------------------------------------------------------------
+_BILANZ: Bilanz | None = None
+_PRODUKTION_ZULETZT: dict[str, float] = {}
+PRODUKTION_LUECKE_MAX_S = 3600   # nach laengerem Ausfall nicht raten - der Rest landet unter "nicht zugeordnet"
+
+
+def _bilanz() -> Bilanz:
+    global _BILANZ
+    if _BILANZ is None:
+        _BILANZ = Bilanz("upgrade", config.BILANZ_ORDNER)
+    return _BILANZ
+
+
+def _bilanz_beobachten(island_id, resources: dict, now_ts: float) -> None:
+    """Lagerstand festhalten und die Produktion seit dem letzten Durchlauf buchen.
+    Steht ein Rohstoff am Lagerlimit, verpufft seine Produktion - dann wird nichts gebucht."""
+    key = str(island_id)
+    vorher = _PRODUKTION_ZULETZT.get(key)
+    _PRODUKTION_ZULETZT[key] = now_ts
+    _bilanz().bestand(island_id, resources, now_ts)
+    if vorher is None:
+        return
+    dt = min(max(0.0, now_ts - vorher), PRODUKTION_LUECKE_MAX_S)
+    prod = resources.get("produktion_pro_h") or {}
+    kap = float(resources.get("kapazitaet", 0) or 0)
+    menge = {}
+    for r in config.RESOURCE_KEYS:
+        if kap and float(resources.get(r, 0) or 0) >= kap - 1:
+            continue
+        menge[r] = float(prod.get(r, 0) or 0) * dt / 3600.0
+    _bilanz().buchen(island_id, "Produktion", menge, 1, now_ts)
 
 
 def _usable_resources(resources: dict) -> dict:
@@ -493,11 +530,14 @@ def _auftraege_ausfuehren(client, island_id, auftraege: list, logger) -> None:
     for befehl in auftraege:
         gebaeude = befehl.get("gebaeude")
         try:
+            kosten = next((b.get("kosten") for b in client.get_island_buildings(island_id)
+                           if b.get("typ") == gebaeude), None) or {}
             client.start_upgrade(island_id, gebaeude)
         except ApiError as exc:
             logger.error("Insel %s: Ausbau '%s' von Hand fehlgeschlagen: %s", island_id, gebaeude, exc)
             _befehl_ergebnis(befehl, False, f"{gebaeude}: {exc.message}")
             continue
+        _bilanz().buchen(island_id, "Ausbau", kosten, -1)
         logger.info("Insel %s: Ausbau '%s' von Hand gestartet (Seekampf-Hub)", island_id, gebaeude)
         _befehl_ergebnis(befehl, True, f"{gebaeude} in die Warteschlange gestellt")
 
@@ -518,6 +558,7 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
     orders = client.get_construction_queue(island_id)
     resources = client.get_island_resources(island_id)
     buildings = client.get_island_buildings(island_id)
+    _bilanz_beobachten(island_id, resources, time.time())
 
     store.observe(buildings, resources, storage_key=_lager_key(buildings), island_key=key)
 
@@ -604,6 +645,7 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
         logger.info(
             "Insel %s: Ausbau '%s' gestartet (Kosten: %s)", island_id, chosen["building"], chosen["cost"]
         )
+        _bilanz().buchen(island_id, "Ausbau", chosen["cost"], -1)
         label = f"{chosen['building']} → {chosen['target_level']}"
         if nebenher:
             label += f" (nebenher, verzoegert {ziel} nicht)"
@@ -907,6 +949,7 @@ def main():
                 logger.exception("Unerwarteter Fehler im Tick, laeuft beim naechsten Intervall weiter")
                 ok = False
             letzter = time.time()
+            _bilanz().speichern()   # ohne SIGTERM-Handler liefe atexit beim Stoppen nicht
             _track_health(ok, logger)
             # Wird vor dem naechsten planmaessigen Durchlauf ein Bauplatz frei
             # oder ein Ausbau bezahlbar, genau dann nachsehen (kurz danach,

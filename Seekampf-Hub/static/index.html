@@ -25,6 +25,7 @@
   <a href="#flotte" data-tab="flotte"><span class="plate k"><img class="ict" src="/static/icons/kleines_kriegsschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
   <a href="#ausbildung" data-tab="ausbildung"><span class="plate k"><img class="ict" src="/static/icons/kaserne.png" width="26" height="26" alt="" aria-hidden="true"></span>Ausbildung<span class="dot" id="nav-dot-ausbildung"></span></a>
   <a href="#ausgleich" data-tab="ausgleich"><span class="plate k"><img class="ict" src="/static/icons/rohstoffausgleich.png" width="26" height="26" alt="" aria-hidden="true"></span>Rohstoff-Ausgleich<span class="dot" id="nav-dot-ausgleich"></span></a>
+  <a href="#bilanz" data-tab="bilanz"><span class="plate k"><img class="ict" src="/static/icons/handelsroute.png" width="26" height="26" alt="" aria-hidden="true"></span>Rohstoff-Bilanz</a>
   <a href="#kolonie" data-tab="kolonie"><span class="plate k"><img class="ict" src="/static/icons/koloschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Kolonisation<span class="dot" id="nav-dot-kolonie"></span></a>
   <a href="#allianz" data-tab="allianz"><span class="plate k"><img class="ict" src="/static/icons/allianz_hilfe.png" width="26" height="26" alt="" aria-hidden="true"></span>Allianz-Bot<span class="dot" id="nav-dot-allianz"></span></a>
   <div class="fuss">
@@ -232,6 +233,32 @@
       <section class="karte" style="margin-top:16px">
         <div class="kopfzeile"><h2>Letzte Lieferungen</h2></div>
         <div id="aus-lieferungen"></div>
+      </section>
+    </div>
+
+    <!-- ======================= Rohstoff-Bilanz ======================= -->
+    <div class="tab" id="tab-bilanz">
+      <div class="fehler" id="bi-fehler" hidden></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Woher und wohin</h2>
+          <div class="rechts">
+            <select id="bi-insel" class="eingabe" aria-label="Insel"><option value="alle">Alle Inseln</option></select>
+            <div class="segment" role="group" aria-label="Zeitraum" id="bi-zeitraum">
+              <button data-zeitraum="heute" class="an">Heute</button><button data-zeitraum="gestern">Gestern</button><button data-zeitraum="7">7 Tage</button><button data-zeitraum="14">14 Tage</button>
+            </div>
+          </div></div>
+        <div id="bi-tabelle"><div class="leise klein-text laden">wird geladen<i></i><i></i><i></i></div></div>
+        <div class="leise klein-text" style="margin-top:8px">Gebucht wird, wenn ein Bot Rohstoffe bewegt (Lieferungen beim Losschicken).
+          „Nicht zugeordnet“ ist der Rest zur tatsächlichen Lagerveränderung: Quests, Plünderung, Handarbeit im Spiel.
+          Erfasst ab Einführung der Bilanz (12.10.2026).</div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Je Insel</h2><div class="rechts leise klein-text">Summe aus Gold, Stein und Holz im gewählten Zeitraum · Zeile anklicken = Insel wählen</div></div>
+        <div id="bi-inseln"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Reservierungen</h2><div class="rechts leise klein-text">was die Bots gerade zurückhalten (andere Bots geben es nicht aus)</div></div>
+        <div id="bi-reservierungen"></div>
       </section>
     </div>
 
@@ -470,6 +497,7 @@
 <script src="/static/js/ausgleich.js"></script>
 <script src="/static/js/gesundheit.js"></script>
 <script src="/static/js/verlauf.js"></script>
+<script src="/static/js/bilanz.js"></script>
 <script src="/static/js/start.js"></script>
 </body>
 </html>

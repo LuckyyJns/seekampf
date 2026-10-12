@@ -8,7 +8,7 @@ import os
 from datetime import timedelta
 
 from dotenv import load_dotenv
-from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam import bilanz, reservierungen
 
 load_dotenv()
 
@@ -116,3 +116,5 @@ KASSE_MIN_MENGE = 200    # kleinste Einzahlung je Insel
 # Rohstoff-Ausgleich Handelsschiffe fuer eine Lieferung zurueck, wird dort nicht
 # eingezahlt. Veraltete Eintraege (Bot aus) zaehlen nicht.
 RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
+# Rohstoff-Bilanz (seekampf_gemeinsam.bilanz): was der Bot an Rohstoffen bewegt, je Insel und Tag.
+BILANZ_ORDNER = bilanz.ORDNER

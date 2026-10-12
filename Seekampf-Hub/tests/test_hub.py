@@ -16,6 +16,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 import gesundheit  # noqa: E402
 import hub  # noqa: E402
+from seekampf_gemeinsam import bilanz, reservierungen  # noqa: E402
 
 # Ohne "with": der Lifespan (Kartenplaner-Thread) startet im Test nicht.
 client = TestClient(hub.app)
@@ -53,6 +54,41 @@ class Gesundheit(unittest.TestCase):
         self.assertEqual(erg["fehler"], 1)
         self.assertEqual(erg["leerlauf"]["20"]["leer_s"], 600)
         self.assertEqual(len(erg["haeufig"]), 1)
+
+
+class Bilanz(unittest.TestCase):
+    def test_nicht_zugeordnet_ist_lagerveraenderung_minus_buchungen(self):
+        ordner = tempfile.mkdtemp()
+        alt = bilanz.ORDNER
+        bilanz.ORDNER = ordner
+        try:
+            f = bilanz.Bilanz("flotte", ordner)
+            f.buchen(447, "Raids", {"gold": 1000})
+            f.speichern()
+            u = bilanz.Bilanz("upgrade", ordner)
+            u.bestand(447, {"gold": 5000, "stein": 100, "holz": 0})
+            u.buchen(447, "Ausbau", {"stein": 50}, -1)
+            u.bestand(447, {"gold": 6500, "stein": 50, "holz": 0})
+            u.speichern()
+            d = client.get("/api/bilanz?tage=1").json()
+        finally:
+            bilanz.ORDNER = alt
+        insel = d["tage"][bilanz.tag()]["447"]
+        self.assertEqual(insel["Raids"], {"gold": 1000.0})
+        # Gold +1500 im Lager, davon 1000 gebucht -> 500 nicht zugeordnet; Stein passt genau.
+        self.assertEqual(insel[d["rest"]], {"gold": 500, "stein": 0, "holz": 0})
+
+    def test_reservierungen_mit_inselnamen(self):
+        ordner = tempfile.mkdtemp()
+        alt = reservierungen.ORDNER
+        reservierungen.ORDNER = ordner
+        try:
+            reservierungen.schreiben("ausbildung", {"447": {"einheiten": {"kleines_kriegsschiff": 2}, "grund": "Truppentransport"}})
+            d = client.get("/api/reservierungen").json()
+        finally:
+            reservierungen.ORDNER = alt
+        self.assertEqual([(e["bot_titel"], e["insel_id"], e["grund"], e["aktuell"]) for e in d["eintraege"]],
+                         [("Ausbildungs-Bot", "447", "Truppentransport", True)])
 
 
 class VerlaufSchnittstelle(unittest.TestCase):

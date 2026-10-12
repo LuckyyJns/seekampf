@@ -271,6 +271,18 @@
   @keyframes auf { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
   .unterteil { margin-top: 20px; }
   .unterteil > h2 { margin-bottom: 10px; }
+  /* Einklappbare Unterbereiche: Klick auf die Ueberschrift (akkordeon.js) */
+  .klapp-titel { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px; }
+  .klapp-titel .pfeil { transition: transform .18s; color: var(--schwach); width: 14px; font-size: 11px; transform: rotate(90deg); }
+  .klapp-titel:hover .pfeil, .klapp-titel:focus-visible .pfeil { color: var(--akzent); }
+  .klapp-titel .klapp-anzahl { color: var(--schwach); font-size: .8em; font-weight: 500; }
+  .unterteil.zu .klapp-titel .pfeil { transform: none; }
+  .unterteil.zu > :not(h2):not(.kopfzeile) { display: none; }
+  .unterteil.zu > h2, .unterteil.zu > .kopfzeile { margin-bottom: 0; }
+  /* Rohstoff-Bilanz */
+  #tab-bilanz tr.zwischensumme td { border-top: 2px solid var(--rand-stark); }
+  #bi-inseln tr.aktiv td { background: color-mix(in srgb, var(--akzent) 12%, transparent); }
+  #bi-inseln tr[data-bi-insel]:hover td { background: color-mix(in srgb, var(--akzent) 7%, transparent); }
 
   /* Insel-Karten der Uebersicht */
   .insel-raster { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }

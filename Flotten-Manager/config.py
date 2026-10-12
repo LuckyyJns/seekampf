@@ -8,7 +8,7 @@ steht, aendert sich nur durch einen Neustart.
 import os
 
 from dotenv import load_dotenv
-from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam import bilanz, reservierungen
 
 load_dotenv()
 
@@ -35,6 +35,8 @@ UPGRADE_STATUS_PATH = os.path.join(os.path.dirname(BASE_DIR), "Upgrade-Bot", "da
 # (Kolonisationsschiff) gibt der Rohstoff-Ausgleich nicht ab. Der Ausgleich
 # traegt selbst ein, wo er Handelsschiffe fuer eine Lieferung zurueckhaelt.
 RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
+# Rohstoff-Bilanz (seekampf_gemeinsam.bilanz): was der Bot an Rohstoffen bewegt, je Insel und Tag.
+BILANZ_ORDNER = bilanz.ORDNER
 LOG_DIR = os.path.join(BASE_DIR, "logs")
 LOG_FILE_PREFIX = "flotte"
 LOG_RETENTION_DAYS = 60

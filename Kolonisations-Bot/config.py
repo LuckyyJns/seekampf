@@ -6,7 +6,7 @@ die Warteschlange), steht in data/state.json; hier nur Konstanten.
 import os
 
 from dotenv import load_dotenv
-from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam import bilanz, reservierungen
 
 load_dotenv()
 
@@ -28,6 +28,8 @@ STATE_PATH = os.path.join(BASE_DIR, "data", "state.json")
 # darueber liegt), und die Begleitung kurz vor der Abfahrt. Laeuft der Bot nicht
 # (Datei aelter als 10 min), gilt nichts davon.
 RESERVIERUNGEN_ORDNER = reservierungen.ORDNER
+# Rohstoff-Bilanz (seekampf_gemeinsam.bilanz): was der Bot an Rohstoffen bewegt, je Insel und Tag.
+BILANZ_ORDNER = bilanz.ORDNER
 # Die Begleitung (weitere Schiffe/Truppen) eines bewohnten Ziels wird erst so lange
 # vor Fertigstellung des Kolonisationsschiffs reserviert (dann bis zur Abfahrt).
 BEGLEITUNG_VORLAUF_S = 10 * 60

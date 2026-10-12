@@ -17,8 +17,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
+config.BILANZ_ORDNER = tempfile.mkdtemp(prefix="bilanz-test-")  # nie in die echte Rohstoff-Bilanz buchen
 from api_client import ApiError  # noqa: E402
-from seekampf_gemeinsam import reservierungen  # noqa: E402
+from seekampf_gemeinsam import bilanz, reservierungen  # noqa: E402
 from manager import FlottenManager  # noqa: E402
 from state import State  # noqa: E402
 
@@ -92,12 +93,13 @@ class FakeApi:
 class Basis(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
-        self._alt = (config.UPGRADE_STATUS_PATH, config.RESERVIERUNGEN_ORDNER)
+        self._alt = (config.UPGRADE_STATUS_PATH, config.RESERVIERUNGEN_ORDNER, config.BILANZ_ORDNER)
         config.UPGRADE_STATUS_PATH = os.path.join(self.tmp, "upgrade-status.json")
         config.RESERVIERUNGEN_ORDNER = os.path.join(self.tmp, "reservierungen")
+        config.BILANZ_ORDNER = os.path.join(self.tmp, "bilanz")
 
     def tearDown(self):
-        config.UPGRADE_STATUS_PATH, config.RESERVIERUNGEN_ORDNER = self._alt
+        config.UPGRADE_STATUS_PATH, config.RESERVIERUNGEN_ORDNER, config.BILANZ_ORDNER = self._alt
 
     def reserve(self, bot, art, werte, alter_s=0):
         """Reservierung eines anderen Bots ins (Test-)Verzeichnis schreiben."""
@@ -270,6 +272,7 @@ class Postfach(Basis):
     def lauf(self, sieg, name, besitzer=None):
         api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000))], ziele=[("53:48:1", False)])
         m, st = self.manager(api)
+        self.m = m
         st.data["laeuft"] = False
         if besitzer:
             api.besitzer["53:48:1"] = besitzer
@@ -282,6 +285,11 @@ class Postfach(Basis):
     def test_sieg_auf_freier_insel_wird_ausgeblendet(self):
         api, _ = self.lauf(True, "53:48:1")
         self.assertEqual(api.archiviert, [500])
+
+    def test_beute_landet_in_der_rohstoff_bilanz(self):
+        self.lauf(True, "53:48:1")
+        heute = bilanz.tag()
+        self.assertEqual(self.m.bilanz.daten["tage"][heute]["447"]["Raids"], {"gold": 5.0})
 
     def test_niederlage_bleibt_stehen(self):
         api, _ = self.lauf(False, "53:48:1")
@@ -448,6 +456,9 @@ class Ausgleich(Basis):
         self.assertTrue(eintrag["von_hand"])
         self.assertEqual((eintrag["von"], eintrag["nach"]), (447, 20))
         self.assertEqual(m.ausgleich.stand()["geliefert"]["stein"], 500)
+        tag = m.bilanz.daten["tage"][bilanz.tag()]
+        self.assertEqual(tag["447"]["Ausgleich abgegeben"], {"stein": -500.0, "holz": -100.0})
+        self.assertEqual(tag["20"]["Ausgleich erhalten"], {"stein": 500.0, "holz": 100.0})
 
     def test_lieferung_von_hand_nimmt_grosse_schiffe_wenn_noetig(self):
         api = self.drei_inseln()

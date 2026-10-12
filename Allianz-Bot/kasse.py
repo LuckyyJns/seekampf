@@ -114,6 +114,7 @@ class Kasse:
                 self.hinweis = f"Einzahlung von {k.name(iid)} fehlgeschlagen: {e.message}"
                 log.error("KASSE Einzahlung von %s fehlgeschlagen: %s", k.name(iid), e)
                 continue
+            k.bilanz.buchen(iid, "Allianzkasse", menge, -1)
             stand = self.stand()
             for r, n in menge.items():
                 stand["eingezahlt"][r] = stand["eingezahlt"].get(r, 0.0) + n

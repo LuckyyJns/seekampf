@@ -2,13 +2,14 @@
 // ======================================================================
 // Navigation: Hamburger + Tabs ueber den Hash
 // ======================================================================
-const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot", kolonie: "Kolonisations-Bot", ausbildung: "Ausbildungs-Bot" };
+const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", bilanz: "Rohstoff-Bilanz", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot", kolonie: "Kolonisations-Bot", ausbildung: "Ausbildungs-Bot" };
 const UNTERTITEL = {
   uebersicht: "Alle Bots und Inseln auf einen Blick",
   karte: "Die ganze Welt – Spieler, Allianzen und deine Flotten",
   flotte: "Raids auf freie Inseln – je Insel steuerbar",
   ausgleich: "Überschuss der Hauptinsel an die Ausbauinseln liefern",
   gesundheit: "Läuft alles – und tut es auch etwas?",
+  bilanz: "Woher die Rohstoffe jeder Insel kommen und wohin sie gehen",
   upgrade: "Bau-Warteschlangen, Priorisierung und Ausbau von Hand",
   allianz: "Allianz-Protokoll: Notrufe, Beistand, Rohstoff-Anfragen",
   kolonie: "Freie Inseln aus deiner Warteschlange kolonisieren",

@@ -150,17 +150,18 @@ function zeichneFlotte() {
         <div class="rechts"><button class="klein" data-tabelle-fuer="fl-diagramm-${id}">Tabelle</button></div></div>
         <div id="fl-diagramm-${id}"></div></div>
       <div class="unterteil"><h2>Im Hafen</h2><div data-teil="hafen" class="klein-text"></div></div>
-      <div class="unterteil"><h2>Flotten unterwegs</h2><div data-teil="flotten"></div></div>
+      <div class="unterteil" data-klapp="flotten">${klappTitel("Flotten unterwegs")}<div data-teil="flotten"></div></div>
       <div class="unterteil"><div class="kopfzeile"><h2>Einstellungen dieser Insel</h2>
         <div class="rechts"><span class="ungespeichert-marke" data-dirty-anzeige="fl-insel-${id}" hidden>● ungespeichert</span>
           <button class="klein" data-fl-insel-speichern="${id}">Speichern</button></div></div>
         <div class="formular" data-form="fl-insel-${id}" data-teil="einstellungen"></div>
         <span class="hinweis">leer = globaler Wert (unten unter Einstellungen)</span></div>
-      <div class="unterteil"><div class="kopfzeile"><h2>Zielrotation</h2>
+      <div class="unterteil" data-klapp="ziele"><div class="kopfzeile">${klappTitel("Zielrotation")}
         <div class="rechts"><span class="leise klein-text" data-teil="scaninfo"></span>
           <button class="klein" data-scan="${id}">Jetzt scannen</button></div></div>
         <div data-teil="ziele"></div></div>`);
     karte.classList.toggle("offen", offeneInseln.flotte.has(id));
+    if (!karte.dataset.klappBereit) { klappZustand("flotte", karte); karte.dataset.klappBereit = "1"; }
     const fl = flotte.flotten.filter(f => f.insel_id === i.id);
     const b = flottenBestand(i);
     karte.querySelector(".insel-kopf").innerHTML = `
@@ -186,6 +187,8 @@ function zeichneFlotte() {
         + `<div class="leise" style="margin-top:4px">reicht für ${i.freie_flotten} weitere Flotte(n) nach den Einstellungen</div>`
       : `<span class="leise">nichts daheim</span>`;
     karte.querySelector('[data-teil="flotten"]').innerHTML = flottenTabelle(fl);
+    klappAnzahl(karte, "flotten", String(fl.length));
+    klappAnzahl(karte, "ziele", `${(i.ziele || []).length} Ziele`);
     karte.querySelector('[data-teil="scaninfo"]').textContent = i.letzter_scan ? `letzter Scan ${vor(i.letzter_scan)}` : "noch kein Scan";
     const zielBox = karte.querySelector('[data-teil="ziele"]');
     const zielScroll = zielBox.querySelector(".tabelle-rahmen")?.scrollTop || 0;
@@ -199,6 +202,7 @@ function zeichneFlotte() {
   zeichneFlotteFormular(flotte.settings);
 }
 akkordeonKlick("flotte", $("fl-inseln"));
+klappKlick("flotte", $("fl-inseln"));
 $("fl-inseln").addEventListener("change", async (e) => {
   const cb = e.target.closest("[data-fl-aktiv]");
   if (!cb) return;

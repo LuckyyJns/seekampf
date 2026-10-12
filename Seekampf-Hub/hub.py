@@ -38,7 +38,7 @@ import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from seekampf_gemeinsam import reservierungen
+from seekampf_gemeinsam import bilanz, reservierungen
 
 import gesundheit
 from karte import Karte
@@ -516,6 +516,45 @@ def reservierungen_daten():
                               "zeit": daten["zeit"], "aktuell": daten["aktuell"]})
     eintraege.sort(key=lambda e: (not e["aktuell"], e["insel"], e["bot"]))
     return {"eintraege": eintraege, "max_alter_s": reservierungen.MAX_ALTER_S, "serverzeit": time.time()}
+
+
+# ----------------------------------------------------------- Rohstoff-Bilanz
+NICHT_ZUGEORDNET = "nicht zugeordnet"
+
+
+@app.get("/api/bilanz")
+def bilanz_daten(tage: int = 14):
+    """Woher die Rohstoffe jeder Insel kamen und wohin sie gingen, je Tag
+    (seekampf_gemeinsam.bilanz). "nicht zugeordnet" = Bestandsaenderung des
+    Tages (erster -> letzter Blick des Upgrade-Bots) minus alle Buchungen:
+    Quests, Pluenderung, Handarbeit im Spiel, Rundungen."""
+    tage = max(1, min(int(tage), bilanz.BEHALTEN_TAGE))
+    z = bilanz.zusammenfassen(tage)
+    status = _json_lesen(_pfad("upgrade", "status.json")) or {}
+    inseln = sorted(((iid, i) for iid, i in (status.get("inseln") or {}).items() if isinstance(i, dict)),
+                    key=lambda x: x[1].get("position", 99))
+    namen = [{"id": iid, "name": i.get("name") or f"Insel {iid}"} for iid, i in inseln]
+    bekannt = {n["id"] for n in namen}
+    daten: dict = {}
+    for t in sorted(set(z["buchungen"]) | set(z["bestand"]), reverse=True):
+        tag_daten = daten.setdefault(t, {})
+        for iid, kategorien in (z["buchungen"].get(t) or {}).items():
+            tag_daten[iid] = {k: dict(v) for k, v in kategorien.items()}
+        for iid, b in (z["bestand"].get(t) or {}).items():
+            erst, letzt = b.get("erst") or {}, b.get("letzt") or {}
+            eintrag = tag_daten.setdefault(iid, {})
+            eintrag["_bestand"] = {"erst": erst, "letzt": letzt}
+            gebucht = {r: sum((v or {}).get(r, 0) for k, v in eintrag.items() if not k.startswith("_"))
+                       for r in bilanz.ROHSTOFFE}
+            rest = {r: round(float(letzt.get(r, 0)) - float(erst.get(r, 0)) - gebucht[r]) for r in bilanz.ROHSTOFFE}
+            if any(rest.values()):
+                eintrag[NICHT_ZUGEORDNET] = rest
+        for iid in tag_daten:
+            if iid not in bekannt:
+                namen.append({"id": iid, "name": f"Insel {iid}"})
+                bekannt.add(iid)
+    return {"tage": daten, "inseln": namen, "zugaenge": list(bilanz.ZUGAENGE), "abgaenge": list(bilanz.ABGAENGE),
+            "rest": NICHT_ZUGEORDNET, "serverzeit": time.time()}
 
 
 # --------------------------------------------------------------- Gesundheit

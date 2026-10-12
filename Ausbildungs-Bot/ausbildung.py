@@ -31,6 +31,7 @@ import time
 
 import requests
 from seekampf_gemeinsam import geo, reservierungen
+from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
 from api_client import ApiError
@@ -54,6 +55,7 @@ class Ausbilder:
         self.client = client
         self.state = state
         self.notifier = notifier
+        self.bilanz = Bilanz("ausbildung", config.BILANZ_ORDNER)
         self.lock = threading.RLock()            # Takt und Ausbildung von Hand nicht gleichzeitig
         self.ov: dict[int, dict] = {}
         self.katalog: dict[int, dict] = {}       # Insel -> {posten: Katalogeintrag}, nur baubare
@@ -246,6 +248,8 @@ class Ausbilder:
                 try:
                     self.client.start_training(iid, anlage, e, n)
                     belegt[anlage] += 1
+                    self.bilanz.buchen(iid, "Ausbildung", {r: n * float(kosten.get(r, 0) or 0)
+                                                           for r in config.RESOURCE_KEYS}, -1)
                 except ApiError as err:
                     if err.code == "queue_full":
                         belegt[anlage] = config.MAX_AUFTRAEGE   # Zaehlung war veraltet - bis zum naechsten Lesen sperren
@@ -294,6 +298,9 @@ class Ausbilder:
             if int(insel_id) not in self.ov:
                 raise ValueError("unbekannte Insel")
             self.client.start_training(int(insel_id), config.ANLAGE[posten], posten, anzahl)
+            kosten = (self.katalog_voll.get(posten) or {}).get("kosten") or {}
+            self.bilanz.buchen(insel_id, "Ausbildung", {r: anzahl * float(kosten.get(r, 0) or 0)
+                                                        for r in config.RESOURCE_KEYS}, -1)
             self._gelesen.pop(int(insel_id), None)
             text = f"{self._name(insel_id)}: {anzahl} {posten} von Hand in Ausbildung gegeben"
             log.info(text)

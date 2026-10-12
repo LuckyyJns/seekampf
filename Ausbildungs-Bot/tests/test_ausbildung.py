@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
 import config  # noqa: E402
+config.BILANZ_ORDNER = tempfile.mkdtemp(prefix="bilanz-test-")  # nie in die echte Rohstoff-Bilanz buchen
 from api_client import ApiError  # noqa: E402
 from seekampf_gemeinsam import reservierungen  # noqa: E402
 from ausbildung import Ausbilder  # noqa: E402
