@@ -17,12 +17,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logging.disable(logging.CRITICAL)
 
 import bot  # noqa: E402
-from seekampf_gemeinsam import reservierungen  # noqa: E402
 import config  # noqa: E402
 import planner  # noqa: E402
 import report  # noqa: E402
 import steuerung  # noqa: E402
 import verlauf as verlauf_modul  # noqa: E402
+from seekampf_gemeinsam import reservierungen  # noqa: E402
 
 TZ = ZoneInfo(config.TIMEZONE_NAME)
 
@@ -101,6 +101,68 @@ class Ausbauziele(unittest.TestCase):
 
     def test_ohne_liste_wie_bisher(self):
         self.assertEqual(bot._zielgebaeude({"modus": "auto"}, {}, self.by_typ), (None, None))
+
+
+class Nebenher(unittest.TestCase):
+    """Waehrend auf ein Ausbauziel gespart wird, nur bauen, was es nicht verzoegert."""
+    jetzt = datetime(2026, 10, 12, 10, 0, tzinfo=TZ)
+    # GiG am 12.10.: Haupthaus wartet auf Gold und vor allem Holz, Stein liegt im Ueberfluss.
+    lager = {"gold": 8616, "stein": 39843, "holz": 924, "kapazitaet": 50000,
+             "produktion_pro_h": {"gold": 1190, "stein": 1190, "holz": 1190}}
+    ziel_kosten = {"gold": 11853, "stein": 5000, "holz": 7929}     # bezahlbar in ~5,9 h (Holz)
+
+    def kandidaten(self, **extra):
+        k = {"haupthaus": kandidat("haupthaus", 17, self.ziel_kosten)}
+        for name, kosten in extra.items():
+            k[name] = kandidat(name, 5, kosten)
+        return k
+
+    def by_typ(self, bauzeit=3600, **extra):
+        b = {"haupthaus": {"typ": "haupthaus", "stufe": 17, "bauzeit_s": 20000}}
+        for name in extra:
+            b[name] = {"typ": name, "stufe": 5, "bauzeit_s": bauzeit}
+        return b
+
+    def waehlen(self, kandidaten, by_typ, auftraege=()):
+        levels = {n: b["stufe"] for n, b in by_typ.items()}
+        current = bot._usable_resources(self.lager)
+        return bot._nebenher_waehlen("haupthaus", kandidaten, self.lager, current, 50000, KeinStore(), by_typ,
+                                     levels, list(auftraege), self.jetzt, False)
+
+    def test_nur_ueberschuss_wird_verbaut(self):
+        extra = {"steingrube": {"gold": 0, "stein": 3000, "holz": 0}}
+        self.assertEqual(self.waehlen(self.kandidaten(**extra), self.by_typ(**extra))["building"], "steingrube")
+
+    def test_was_das_ziel_verzoegert_bleibt_liegen(self):
+        extra = {"saegewerk": {"gold": 0, "stein": 0, "holz": 500}}       # Holz bestimmt den Zeitpunkt
+        self.assertIsNone(self.waehlen(self.kandidaten(**extra), self.by_typ(**extra)))
+
+    def test_nicht_bindender_rohstoff_darf_bis_zur_grenze_sinken(self):
+        # Gold reicht nach 2000 Ausgabe in ~4,4 h - frueher als das Holz (~5,9 h).
+        extra = {"goldmine": {"gold": 2000, "stein": 0, "holz": 0}}
+        self.assertEqual(self.waehlen(self.kandidaten(**extra), self.by_typ(**extra))["building"], "goldmine")
+
+    def test_zu_lange_bauzeit_blockiert_das_ziel(self):
+        extra = {"steingrube": {"gold": 0, "stein": 3000, "holz": 0}}
+        self.assertIsNone(self.waehlen(self.kandidaten(**extra), self.by_typ(bauzeit=8 * 3600, **extra)))
+
+    def test_laufende_warteschlange_zaehlt_mit(self):
+        extra = {"steingrube": {"gold": 0, "stein": 3000, "holz": 0}}
+        fertig = (self.jetzt + timedelta(hours=5)).isoformat()
+        self.assertIsNone(self.waehlen(self.kandidaten(**extra), self.by_typ(**extra),
+                                       [{"building_typ": "kaserne", "finish_at": fertig}]))
+        # Auftrag ohne Fertigstellungszeit: nicht sicher - lieber nichts nebenher.
+        self.assertIsNone(self.waehlen(self.kandidaten(**extra), self.by_typ(**extra),
+                                       [{"building_typ": "kaserne", "finish_at": None}]))
+
+    def test_ziel_bezahlbar_oder_unerreichbar(self):
+        extra = {"steingrube": {"gold": 0, "stein": 3000, "holz": 0}}
+        unerreichbar = dict(self.lager, produktion_pro_h={"gold": 1190, "stein": 1190, "holz": 0})
+        current = bot._usable_resources(unerreichbar)
+        by_typ = self.by_typ(**extra)
+        levels = {n: b["stufe"] for n, b in by_typ.items()}
+        self.assertIsNone(bot._nebenher_waehlen("haupthaus", self.kandidaten(**extra), unerreichbar, current, 50000,
+                                                KeinStore(), by_typ, levels, [], self.jetzt, False))
 
 
 class KoloReserve(unittest.TestCase):

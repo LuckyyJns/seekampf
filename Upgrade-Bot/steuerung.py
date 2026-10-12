@@ -34,7 +34,9 @@ BEFEHLE_DIR = os.path.join(DATA_DIR, "befehle")
 
 # ausbauziele: [{"gebaeude": ..., "stufe": ...}, ...] - der Reihe nach abarbeiten,
 # danach wieder automatisch (siehe bot._zielgebaeude).
-STANDARD = {"aktiv": True, "modus": "auto", "bis_stufe": None, "gesperrt": [], "ausbauziele": []}
+# nebenher: waehrend auf ein Ziel gespart wird, bauen, was es nicht verzoegert
+# (siehe bot._nebenher_waehlen).
+STANDARD = {"aktiv": True, "modus": "auto", "bis_stufe": None, "gesperrt": [], "ausbauziele": [], "nebenher": True}
 
 _NIE = object()  # noch nie nachgesehen - anders als "Datei fehlt" (None)
 _mtime_gesehen = _NIE

@@ -354,6 +354,62 @@ def _waehlen(candidates: dict, current: dict, capacity: float, store, allow_low:
     return choose_upgrade(candidates, current, capacity, store, allow_low, ueberlauf)
 
 
+def _warteschlange_frei_in(active_orders: list, now: datetime) -> float | None:
+    """Sekunden, bis die (nacheinander bauende) Warteschlange leer ist. None,
+    wenn das nicht sicher feststeht (ein Auftrag ohne Fertigstellungszeit)."""
+    ende = 0.0
+    for order in active_orders:
+        finish = _parse_api_dt(order.get("finish_at"))
+        if finish is None:
+            return None
+        ende = max(ende, (finish - now).total_seconds())
+    return ende
+
+
+def _nebenher_waehlen(ziel: str, candidates: dict, planbar: dict, current: dict, capacity: float,
+                      store, buildings_by_typ: dict, levels: dict, active_orders: list,
+                      now: datetime, ueberlauf: bool):
+    """Waehrend auf das Zielgebaeude (Priorisierung/Ausbauziel) gespart wird:
+    ein anderer Ausbau, der das Ziel NICHT verzoegert - oder None.
+
+    Harmlos ist ein Ausbau nur, wenn
+      1. das Ziel nach dem Bezahlen trotzdem spaetestens zum selben Zeitpunkt
+         bezahlbar ist (gleiche Produktion, weniger Lager - nur was das Ziel
+         ohnehin nicht braucht, darf ausgegeben werden), und
+      2. die Warteschlange - sie baut nacheinander - samt diesem Ausbau fertig
+         ist, bevor das Ziel bezahlbar wird; das Ziel kann dann sofort starten.
+    Ist der Zeitpunkt nicht sicher bestimmbar (Ziel nie erreichbar, Auftrag ohne
+    Fertigstellungszeit, Gebaeude schon in der Warteschlange), wird nichts
+    nebenher gebaut. Unter den harmlosen entscheidet die normale Kaskade."""
+    c_ziel = candidates.get(ziel)
+    if c_ziel is None:
+        return None
+    eta, _ = _eta_seconds(c_ziel["cost"], planbar, current)
+    if eta is None or eta <= 0:
+        return None
+    belegt = _warteschlange_frei_in(active_orders, now)
+    if belegt is None:
+        return None
+    harmlos = {}
+    for name, c in candidates.items():
+        b = buildings_by_typ.get(name) or {}
+        if name == ziel or levels.get(name, 0) != int(b.get("stufe", 0) or 0):
+            continue
+        if not affordable(c["cost"], current):
+            continue
+        bauzeit = b.get("bauzeit_s")
+        if bauzeit is None or belegt + float(bauzeit) > eta:
+            continue
+        danach = {r: current.get(r, 0.0) - float(c["cost"].get(r, 0) or 0) for r in config.RESOURCE_KEYS}
+        eta_danach, _ = _eta_seconds(c_ziel["cost"], planbar, danach)
+        if eta_danach is None or eta_danach > eta + 1.0:
+            continue
+        harmlos[name] = c
+    if not harmlos:
+        return None
+    return choose_upgrade(harmlos, current, capacity, store, False, ueberlauf)
+
+
 def _ziel_grund(ziel: str, candidates: dict, buildings_by_typ: dict, resources: dict, now: datetime) -> str:
     """Warum das priorisierte Gebaeude gerade nicht gebaut wird."""
     c = candidates.get(ziel)
@@ -504,6 +560,12 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
         ueberlauf, volle = _ueberlauf(resources, verlauf, island_id, now, active_orders)
         chosen = _waehlen(candidates, current, capacity, store, allow_low, ziel, ueberlauf)
 
+        nebenher = False
+        if chosen is None and ziel is not None and einstellung.get("nebenher", True):
+            chosen = _nebenher_waehlen(ziel, candidates, planbar, current, capacity, store, by_typ, levels,
+                                       active_orders, now_dt, ueberlauf)
+            nebenher = chosen is not None
+
         if chosen is None:
             if ziel is not None:
                 # Priorisierung: warten, bis das Zielgebaeude bezahlbar ist. Die
@@ -543,6 +605,8 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
             "Insel %s: Ausbau '%s' gestartet (Kosten: %s)", island_id, chosen["building"], chosen["cost"]
         )
         label = f"{chosen['building']} → {chosen['target_level']}"
+        if nebenher:
+            label += f" (nebenher, verzoegert {ziel} nicht)"
         if ueberlauf and chosen["building"] == "lagerhaus":
             label += f" (Lager laeuft ueber: {'/'.join(volle)})"
         if chosen["building"] in config.RESOURCE_BUILDINGS:
