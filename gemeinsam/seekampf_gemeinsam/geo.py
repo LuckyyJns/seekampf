@@ -14,12 +14,12 @@ from __future__ import annotations
 
 import math
 
-import config
+from . import spiel
 
 
 def feld(x: int, y: int, z: int) -> tuple[int, int]:
     """Weltkoordinate -> absolute Feldkoordinate."""
-    kante = config.SEKTOR_KANTE
+    kante = spiel.SEKTOR_KANTE
     return (x * kante + (z - 1) % kante, y * kante + (z - 1) // kante)
 
 
@@ -31,14 +31,14 @@ def distanz_felder(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
 
 def flotten_knoten(ships: dict) -> float:
     """Eine Flotte faehrt so schnell wie ihr langsamstes Schiff."""
-    werte = [config.SCHIFF_KNOTEN[typ] for typ, n in ships.items()
-             if n and typ in config.SCHIFF_KNOTEN]
+    werte = [spiel.SCHIFF_KNOTEN[typ] for typ, n in ships.items()
+             if n and typ in spiel.SCHIFF_KNOTEN]
     return float(min(werte)) if werte else 0.0
 
 
 def ladevolumen(ships: dict) -> int:
     """Wie viel Beute die Flotte hoechstens mitnehmen kann."""
-    return sum(config.SCHIFF_LADEVOLUMEN.get(typ, 0) * n for typ, n in ships.items())
+    return sum(spiel.SCHIFF_LADEVOLUMEN.get(typ, 0) * n for typ, n in ships.items())
 
 
 def fahrzeit_s(a: tuple[int, int, int], b: tuple[int, int, int], knoten: float) -> float:
@@ -46,8 +46,8 @@ def fahrzeit_s(a: tuple[int, int, int], b: tuple[int, int, int], knoten: float) 
     if knoten <= 0:
         return 0.0
     dauer = distanz_felder(a, b) / knoten * 600.0
-    untergrenze = (config.MIN_FAHRZEIT_SELBER_SEKTOR_S
-                   if (a[0], a[1]) == (b[0], b[1]) else config.MIN_FAHRZEIT_S)
+    untergrenze = (spiel.MIN_FAHRZEIT_SELBER_SEKTOR_S
+                   if (a[0], a[1]) == (b[0], b[1]) else spiel.MIN_FAHRZEIT_S)
     return max(untergrenze, dauer)
 
 

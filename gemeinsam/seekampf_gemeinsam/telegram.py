@@ -1,8 +1,9 @@
-"""Telegram-Benachrichtigung fuer den Morgenreport.
+"""Telegram-Benachrichtigung, gemeinsam fuer alle Bots.
 
-Uebernommen aus dem Upgrade-Bot, auf das Noetige gekuerzt: HTML statt
-Markdown (an Unterstrichen und Klammern scheitert Telegrams Markdown-Parser
-regelmaessig) und Aufteilung langer Texte auf mehrere Nachrichten.
+HTML statt Markdown (an Unterstrichen und Klammern scheitert Telegrams
+Markdown-Parser regelmaessig); **fett** wird zu <b>fett</b>. Lange Texte werden
+an Zeilengrenzen auf mehrere Nachrichten verteilt (Telegram schneidet bei 4096
+Zeichen ab).
 """
 from __future__ import annotations
 
@@ -13,15 +14,16 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-log = logging.getLogger("seekampf_kolonisation")
-
 
 class TelegramNotifier:
     LIMIT = 3900
 
-    def __init__(self, bot_token: str, chat_id: str):
+    def __init__(self, bot_token: str, chat_id: str, silent: bool = False,
+                 logger: str = "seekampf"):
         self.bot_token = bot_token
         self.chat_id = chat_id
+        self.silent = silent
+        self.log = logging.getLogger(logger)
 
     @property
     def aktiv(self) -> bool:
@@ -33,6 +35,7 @@ class TelegramNotifier:
         return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
 
     def _chunks(self, text: str):
+        """An Zeilengrenzen teilen, damit keine Formatierung zerrissen wird."""
         buf: list[str] = []
         size = 0
         for line in text.split("\n"):
@@ -48,24 +51,26 @@ class TelegramNotifier:
         payload = urllib.parse.urlencode({
             "chat_id": self.chat_id, "text": html, "parse_mode": "HTML",
             "disable_web_page_preview": "true",
+            "disable_notification": "true" if self.silent else "false",
         }).encode()
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         try:
             with urllib.request.urlopen(urllib.request.Request(url, data=payload), timeout=15) as r:
                 res = json.loads(r.read())
         except urllib.error.HTTPError as e:
-            log.error("Telegram lehnte ab: %s", e.read().decode("utf-8", "replace")[:300])
+            self.log.error("Telegram lehnte ab: %s", e.read().decode("utf-8", "replace")[:300])
             return False
         except Exception as e:
-            log.error("Telegram fehlgeschlagen: %s", e)
+            self.log.error("Telegram fehlgeschlagen: %s", e)
             return False
         if not res.get("ok"):
-            log.error("Telegram: %s", res.get("description"))
+            self.log.error("Telegram: %s", res.get("description"))
         return bool(res.get("ok"))
 
-    def send(self, title: str, body: str) -> bool:
+    def send(self, title: str, body: str, priority: str = "default", tags=None) -> bool:
+        # priority/tags: nur fuer die Aufrufe des Upgrade-Bots, Telegram kennt sie nicht.
         if not self.aktiv:
-            log.error("Telegram nicht eingerichtet - TELEGRAM_BOT_TOKEN/CHAT_ID fehlen in der .env")
+            self.log.error("Telegram nicht eingerichtet - TELEGRAM_BOT_TOKEN/CHAT_ID fehlen in der .env")
             return False
         ok = True
         for chunk in self._chunks(self._to_html(f"**{title}**\n\n{body}")):

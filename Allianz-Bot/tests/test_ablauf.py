@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -238,6 +239,18 @@ class Merker:
     def send(self, titel, text):
         self.gesendet.append((titel, text))
         return True
+
+
+class Fehleranzeige(Basis):
+    def test_fehler_verschwindet_nach_fehlerfreiem_takt(self):
+        original = self.api.get_incoming
+        self.api.get_incoming = mock.Mock(side_effect=ApiError(500, "unknown", "Internal Server Error",
+                                                               anfrage="GET /fleets/incoming"))
+        self.lauf()
+        self.assertIn("GET /fleets/incoming", self.bot.letzter_fehler)
+        self.api.get_incoming = original
+        self.lauf()
+        self.assertIsNone(self.bot.letzter_fehler)
 
 
 class Allianzkasse(Basis):

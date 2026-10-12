@@ -98,13 +98,10 @@ BASIS_INSELVERTEIDIGUNG = 50
 MAUER_BONUS_JE_STUFE = 0.05
 # Truppen fahren auf Kriegsschiffen (Kaempfer-Kapazitaet); Reihenfolge = Vorliebe.
 TRUPPEN_SCHIFFE = {"kleines_kriegsschiff": 8, "grosses_kriegsschiff": 30}
-SCHIFF_KNOTEN = {
-    "spaehschiff": 20, "kleines_kriegsschiff": 12, "grosses_kriegsschiff": 8,
-    "kleines_handelsschiff": 10, "grosses_handelsschiff": 7, "kolonisationsschiff": 3,
-}
-SEKTOR_KANTE = 5
-MIN_FAHRZEIT_S = 300
-MIN_FAHRZEIT_SELBER_SEKTOR_S = 120
+# Knoten, Sektorkante, Mindestfahrzeiten: seekampf_gemeinsam/spiel.py.
+from seekampf_gemeinsam.spiel import (  # noqa: F401 - feste Spielwerte, gemeinsam fuer alle Bots
+    MIN_FAHRZEIT_S, MIN_FAHRZEIT_SELBER_SEKTOR_S, SCHIFF_KNOTEN, SCHIFF_LADEVOLUMEN, SEKTOR_KANTE,
+)
 
 # --- Ueberlauf in die Allianzkasse (kasse.py) -----------------------------
 # Eigenstaendige Option; was im Seekampf-Hub gesetzt ist (steuerung.json,

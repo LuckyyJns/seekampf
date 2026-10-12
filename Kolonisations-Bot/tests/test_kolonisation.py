@@ -547,7 +547,7 @@ class ClientCreateFleet(unittest.TestCase):
         ok = mock.Mock(status_code=200, headers={}, content=b"{}")
         ok.json.return_value = {"ok": 1}
         c.session.request = mock.Mock(side_effect=[zu_viel, ok])
-        with mock.patch("api_client.time.sleep") as schlaf:
+        with mock.patch("seekampf_gemeinsam.api.time.sleep") as schlaf:
             self.assertEqual(c._request("POST", "/fleets", json={}), {"ok": 1})
         self.assertEqual(c.session.request.call_count, 2)
         schlaf.assert_called_once()

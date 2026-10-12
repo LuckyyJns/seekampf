@@ -1,6 +1,6 @@
 """Zugriff auf die Seekampf-API fuer den Allianz-Bot.
 
-Wie bei den anderen Bots: eine Session, Backoff nur fuer GET. POST und DELETE
+Session, Wiederholungen und Serverzeit aus `seekampf_gemeinsam.api`; Backoff nur fuer GET. POST und DELETE
 sind nicht idempotent und werden nie automatisch wiederholt.
 
 Loeschen von Forenbeitraegen gibt es hier bewusst NUR als private Methode
@@ -10,84 +10,14 @@ loescht der Bot nie - dafuer gibt es gar keine Methode.
 """
 from __future__ import annotations
 
-import time
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
-
-import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-
 import config
+from seekampf_gemeinsam.api import MAX_429_VERSUCHE, ApiBasis, ApiError  # noqa: F401 - ApiError/MAX_429_VERSUCHE fuer die Aufrufer
 
 
-class ApiError(Exception):
-    def __init__(self, status_code, code, message):
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-        super().__init__(f"{status_code} {code}: {message}")
-
-
-MAX_429_VERSUCHE = 3
-
-
-def _warten_bei_429(response, versuch):
-    """Sekunden bis zum naechsten Versuch nach HTTP 429 (Retry-After, sonst 2, 4, 8 ... s, hoechstens 30)."""
-    try:
-        sek = float(response.headers.get("Retry-After", ""))
-    except (TypeError, ValueError):
-        sek = 2.0 ** (versuch + 1)
-    return max(0.5, min(sek, 30.0))
-
-
-class SeekampfClient:
+class SeekampfClient(ApiBasis):
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(
-            {"X-API-Key": config.API_KEY, "Content-Type": "application/json"}
-        )
-        retry = Retry(total=3, backoff_factor=1.5, status_forcelist=(502, 503, 504),
-                      allowed_methods=("GET",), raise_on_status=False)
-        adapter = HTTPAdapter(max_retries=retry)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
-        # Abstand Serveruhr - lokale Uhr. Das Protokoll rechnet mit Serverzeit.
-        self._uhr_versatz = 0.0
+        super().__init__(config.API_KEY, config.API_BASE_URL)
 
-    def jetzt(self) -> datetime:
-        """Serverzeit (aus dem Date-Header der letzten Antwort fortgeschrieben)."""
-        return datetime.fromtimestamp(time.time() + self._uhr_versatz, timezone.utc)
-
-    def _request(self, method, path, **kwargs):
-        url = f"{config.API_BASE_URL}{path}"
-        response = self.session.request(method, url, timeout=15, **kwargs)
-        # 429 heisst: nichts verarbeitet - Wiederholen ist auch bei POST sicher.
-        for versuch in range(MAX_429_VERSUCHE):
-            if response.status_code != 429:
-                break
-            time.sleep(_warten_bei_429(response, versuch))
-            response = self.session.request(method, url, timeout=15, **kwargs)
-        datum = response.headers.get("Date")
-        if datum:
-            try:
-                self._uhr_versatz = parsedate_to_datetime(datum).timestamp() + 0.5 - time.time()
-            except (TypeError, ValueError):
-                pass
-        if response.status_code >= 400:
-            body = {}
-            try:
-                body = response.json()
-            except ValueError:
-                pass
-            error = body.get("error", {}) if isinstance(body, dict) else {}
-            raise ApiError(response.status_code, error.get("code", "unknown"),
-                           error.get("message", response.text[:300]))
-        if response.status_code == 204 or not response.content:
-            return None
-        return response.json()
-
-    # ---------------------------------------------------------------- Konto
     def get_me(self):
         return self._request("GET", "/me")
 

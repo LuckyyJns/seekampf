@@ -13,7 +13,7 @@ import report
 import steuerung
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
-from notify import build_notifier
+from seekampf_gemeinsam.telegram import TelegramNotifier
 from planner import (
     affordable,
     choose_upgrade,
@@ -627,11 +627,7 @@ def _notifier():
     """Telegram-Notifier, oder None wenn nicht konfiguriert."""
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         return None
-    return build_notifier({
-        "service": "telegram",
-        "bot_token": config.TELEGRAM_BOT_TOKEN,
-        "chat_id": config.TELEGRAM_CHAT_ID,
-    })
+    return TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_bot")
 
 
 def _alert(logger, title: str, text: str) -> bool:

@@ -33,9 +33,9 @@ import threading
 import time
 
 import requests
+from seekampf_gemeinsam import geo
 
 import config
-import geo
 from api_client import ApiError
 
 log = logging.getLogger("seekampf_ausbildung")

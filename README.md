@@ -14,6 +14,17 @@ und gestoppt werden koennen.
 | [`Ausbildungs-Bot/`](Ausbildungs-Bot/) | `seekampf-ausbildungs-bot.service` | Hält die Truppen je Insel auf Soll: bildet aus oder verlegt per Handel. |
 | [`Seekampf-Hub/`](Seekampf-Hub/) | `seekampf-hub.service` | Gemeinsame Weboberflaeche fuer alle Bots (https://seekampf-hub.com): Status, Steuerung, Logs, Dienste starten/stoppen, Rohstoff-Ausgleich, Gesundheit. |
 
+## Gemeinsamer Code
+
+[`gemeinsam/`](gemeinsam/) (Paket `seekampf_gemeinsam`) enthaelt, was alle
+Bots gleich brauchen: API-Kern (Session, Wiederholungen bei 429 und - nur GET -
+bei 500/502/503/504, Fehlermeldung mit Methode und Pfad), Telegram, Tages-Logs,
+Spielwerte und Fahrzeiten (`geo`), das Reservierungs-Verzeichnis und den
+Ausfall-Alarm. Jeder Bot bindet es ueber seine `pyproject.toml` als lokale,
+editierbare Abhaengigkeit ein; nach einer Aenderung dort `./tests.sh` und die
+betroffenen Dienste neu starten. Endpunkte, API-Schluessel und Einstellungen
+bleiben je Bot getrennt.
+
 Der Raspberry Pi laeuft als Dauerbetrieb-Host; die Einrichtung dort beschreibt
 [`Upgrade-Bot/SETUP-PI.md`](Upgrade-Bot/SETUP-PI.md).
 

@@ -4,9 +4,13 @@ version = "0.1.0"
 description = "Raid- und Flottensteuerung fuer Seekampf.de mit Weboberflaeche"
 requires-python = ">=3.12"
 dependencies = [
+    "seekampf-gemeinsam",
     "requests>=2.31",
     "python-dotenv>=1.0",
     "tzdata>=2024.1",
     "fastapi>=0.115",
     "uvicorn>=0.30",
 ]
+
+[tool.uv.sources]
+seekampf-gemeinsam = { path = "../gemeinsam", editable = true }

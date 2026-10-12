@@ -52,12 +52,10 @@ MAX_AUFTRAEGE = 5
 # (kaempfer_kap aus dem Ausbildungs-Katalog, das hier ist der Fallback).
 KRIEGSSCHIFF_PLATZ = {"grosses_kriegsschiff": 30, "kleines_kriegsschiff": 8}
 
-# --- Spielkonstanten fuer geo.py (wie im Flotten-Manager) ---
-SEKTOR_KANTE = 5
-MIN_FAHRZEIT_S = 300
-MIN_FAHRZEIT_SELBER_SEKTOR_S = 120
-SCHIFF_KNOTEN = {"kleines_kriegsschiff": 12, "grosses_kriegsschiff": 8}
-SCHIFF_LADEVOLUMEN: dict[str, int] = {}
+# --- Spielkonstanten (seekampf_gemeinsam/spiel.py, gemeinsam fuer alle Bots) ---
+from seekampf_gemeinsam.spiel import (  # noqa: F401 - feste Spielwerte, gemeinsam fuer alle Bots
+    MIN_FAHRZEIT_S, MIN_FAHRZEIT_SELBER_SEKTOR_S, SCHIFF_KNOTEN, SCHIFF_LADEVOLUMEN, SEKTOR_KANTE,
+)
 
 TICK_S = 60
 # Ausbildung/Katalog von Inseln ohne Soll nur so selten neu lesen (nur fuer die Anzeige im Hub).

@@ -44,7 +44,7 @@ class Zuviele(unittest.TestCase):
         ok = mock.Mock(status_code=200, headers={}, content=b"{}")
         ok.json.return_value = {"ok": 1}
         c.session.request = mock.Mock(side_effect=[zu_viel, ok])
-        with mock.patch("api_client.time.sleep") as schlaf:
+        with mock.patch("seekampf_gemeinsam.api.time.sleep") as schlaf:
             self.assertEqual(c._request("POST", "/x"), {"ok": 1})
         schlaf.assert_called_once_with(3.0)
 
@@ -53,7 +53,7 @@ class Zuviele(unittest.TestCase):
         zu_viel = mock.Mock(status_code=429, headers={}, content=b"", text="langsam")
         zu_viel.json.side_effect = ValueError
         c.session.request = mock.Mock(return_value=zu_viel)
-        with mock.patch("api_client.time.sleep"):
+        with mock.patch("seekampf_gemeinsam.api.time.sleep"):
             with self.assertRaises(api_client.ApiError) as ctx:
                 c._request("GET", "/x")
         self.assertEqual(ctx.exception.status_code, 429)

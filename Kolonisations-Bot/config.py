@@ -47,12 +47,10 @@ SCHIFF = "kolonisationsschiff"
 SCHIFF_AB_HAFEN = 20
 SCHIFF_KOSTEN = {"gold": 19525, "stein": 4260, "holz": 35500}
 
-# --- Spielkonstanten fuer geo.py (wie im Flotten-Manager) ---
-SEKTOR_KANTE = 5
-MIN_FAHRZEIT_S = 300
-MIN_FAHRZEIT_SELBER_SEKTOR_S = 120
-SCHIFF_KNOTEN = {"kolonisationsschiff": 3}
-SCHIFF_LADEVOLUMEN: dict[str, int] = {}
+# --- Spielkonstanten (seekampf_gemeinsam/spiel.py, gemeinsam fuer alle Bots) ---
+from seekampf_gemeinsam.spiel import (  # noqa: F401 - feste Spielwerte, gemeinsam fuer alle Bots
+    MIN_FAHRZEIT_S, MIN_FAHRZEIT_SELBER_SEKTOR_S, SCHIFF_KNOTEN, SCHIFF_LADEVOLUMEN, SEKTOR_KANTE,
+)
 
 # Takt der Bot-Schleife.
 TICK_S = 30

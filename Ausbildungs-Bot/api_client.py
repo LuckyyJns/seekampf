@@ -1,85 +1,24 @@
 """Zugriff auf die Seekampf-API, beschraenkt auf das, was der Ausbildungs-Bot
 braucht.
 
-Aufgebaut wie der Client des Upgrade-Bots: eine Session, automatischer
-Backoff bei transienten Netzwerkfehlern - aber nur fuer GET. POST /fleets ist
+Session, Wiederholungen und Fehlerauswertung kommen aus
+`seekampf_gemeinsam.api` (gemeinsam fuer alle Bots); automatisch wiederholt
+wird nur GET und HTTP 429. POST /fleets ist
 NICHT idempotent: geht die Antwort auf dem Rueckweg verloren, waere die Flotte
 trotzdem unterwegs, und ein zweiter Versuch schickte eine zweite los.
 """
 from __future__ import annotations
 
-import time
-
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 import config
+from seekampf_gemeinsam.api import MAX_429_VERSUCHE, ApiBasis, ApiError  # noqa: F401 - ApiError/MAX_429_VERSUCHE fuer die Aufrufer
 
 
-class ApiError(Exception):
-    def __init__(self, status_code, code, message):
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-        super().__init__(f"{status_code} {code}: {message}")
-
-
-MAX_429_VERSUCHE = 3
-
-
-def _warten_bei_429(response, versuch):
-    """Sekunden bis zum naechsten Versuch nach HTTP 429 (Retry-After, sonst 2, 4, 8 ... s, hoechstens 30)."""
-    try:
-        sek = float(response.headers.get("Retry-After", ""))
-    except (TypeError, ValueError):
-        sek = 2.0 ** (versuch + 1)
-    return max(0.5, min(sek, 30.0))
-
-
-class SeekampfClient:
+class SeekampfClient(ApiBasis):
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update(
-            {"X-API-Key": config.API_KEY, "Content-Type": "application/json"}
-        )
-        retry = Retry(
-            total=3,
-            backoff_factor=1.5,
-            status_forcelist=(502, 503, 504),
-            allowed_methods=("GET",),
-            raise_on_status=False,
-        )
-        adapter = HTTPAdapter(max_retries=retry)
-        self.session.mount("https://", adapter)
-        self.session.mount("http://", adapter)
+        super().__init__(config.API_KEY, config.API_BASE_URL)
 
-    def _request(self, method, path, **kwargs):
-        url = f"{config.API_BASE_URL}{path}"
-        response = self.session.request(method, url, timeout=15, **kwargs)
-        # 429 heisst: nichts verarbeitet - Wiederholen ist auch bei POST sicher.
-        for versuch in range(MAX_429_VERSUCHE):
-            if response.status_code != 429:
-                break
-            time.sleep(_warten_bei_429(response, versuch))
-            response = self.session.request(method, url, timeout=15, **kwargs)
-        if response.status_code >= 400:
-            body = {}
-            try:
-                body = response.json()
-            except ValueError:
-                pass
-            error = body.get("error", {}) if isinstance(body, dict) else {}
-            raise ApiError(
-                response.status_code,
-                error.get("code", "unknown"),
-                error.get("message", response.text[:300]),
-            )
-        if response.status_code == 204 or not response.content:
-            return None
-        return response.json()
-
-    # ---------------------------------------------------------------- Konto
     def get_me(self):
         """GET /me -> u. a. current_island_id."""
         return self._request("GET", "/me")

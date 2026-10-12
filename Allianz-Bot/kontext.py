@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
+from seekampf_gemeinsam import geo
 
 import config
 import protokoll
@@ -47,12 +48,7 @@ def koord_tupel(text: str) -> tuple[int, int, int]:
 
 def fahrzeit(von: str, nach: str, knoten: float) -> timedelta:
     """Fahrzeit nach legal/regeln: Felder / Knoten * 10 min, mit Untergrenze."""
-    def feld(k):
-        x, y, z = koord_tupel(k)
-        kante = config.SEKTOR_KANTE
-        return x * kante + (z - 1) % kante, y * kante + (z - 1) // kante
-    a, b = feld(von), feld(nach)
-    sek = math.dist(a, b) / knoten * 600.0 if knoten > 0 else 0.0
+    sek = geo.distanz_felder(koord_tupel(von), koord_tupel(nach)) / knoten * 600.0 if knoten > 0 else 0.0
     gleich = koord_tupel(von)[:2] == koord_tupel(nach)[:2]
     return timedelta(seconds=max(config.MIN_FAHRZEIT_SELBER_SEKTOR_S if gleich
                                  else config.MIN_FAHRZEIT_S, sek))
@@ -76,8 +72,7 @@ def truppen_kapazitaet(hafen: dict) -> int:
 
 
 def knoten(schiffe: dict) -> float:
-    werte = [config.SCHIFF_KNOTEN[t] for t, n in schiffe.items() if n and t in config.SCHIFF_KNOTEN]
-    return float(min(werte)) if werte else 0.0
+    return geo.flotten_knoten(schiffe)
 
 
 class Kontext:

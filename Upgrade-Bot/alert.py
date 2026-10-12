@@ -1,47 +1,21 @@
-"""Telegram-Alarm fuer systemd.
+"""Telegram-Alarm fuer systemd, wenn seekampf-upgrade-bot.service ausfaellt.
 
-Wird von seekampf-upgrade-bot-alert.service aufgerufen, sobald systemd den Bot-Dienst
-als fehlgeschlagen markiert (Absturzschleife, Fehlstart, `systemctl stop` nach
-Fehler). Greift also auch dann, wenn der Bot selbst gar nicht mehr laeuft und
-deshalb keinen eigenen Alarm mehr senden kann.
+Wird von seekampf-upgrade-bot-alert.service aufgerufen (OnFailure=). Ausfall heisst:
+der Bot baut nichts mehr aus.
+
+Die Arbeit macht seekampf_gemeinsam.alarm - nur Standardbibliothek, damit der
+Alarm auch bei kaputter .venv rausgeht (deshalb Import ueber den Pfad, nicht
+ueber das installierte Paket).
 
     python alert.py "Text der Meldung"
 """
-import subprocess
+import os
 import sys
 
-import config
-from notify import build_notifier
+BOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(os.path.dirname(BOT_DIR), "gemeinsam"))
 
-
-def _last_log_lines(count: int = 8) -> str:
-    try:
-        out = subprocess.run(
-            ["journalctl", "-u", "seekampf-upgrade-bot.service", "-n", str(count), "--no-pager", "-o", "cat"],
-            capture_output=True, text=True, timeout=10,
-        ).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return ""
-    return out
-
-
-def main() -> int:
-    text = " ".join(sys.argv[1:]) or "seekampf-upgrade-bot.service wurde als fehlgeschlagen markiert."
-    tail = _last_log_lines()
-    if tail:
-        text = f"{text}\n\nLetzte Logzeilen:\n{tail}"
-
-    if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
-        print("Telegram nicht konfiguriert - kein Alarm moeglich.", file=sys.stderr)
-        return 1
-
-    notifier = build_notifier({
-        "service": "telegram",
-        "bot_token": config.TELEGRAM_BOT_TOKEN,
-        "chat_id": config.TELEGRAM_CHAT_ID,
-    })
-    return 0 if notifier.send("Upgrade-Bot ausgefallen", text) else 1
-
+from seekampf_gemeinsam.alarm import ausfall_melden  # noqa: E402
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(ausfall_melden(BOT_DIR, "seekampf-upgrade-bot.service", "Upgrade-Bot ausgefallen", sys.argv[1:]))

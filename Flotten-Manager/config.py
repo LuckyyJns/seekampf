@@ -45,21 +45,11 @@ LOG_TO_STDOUT = True
 RESOURCE_KEYS = ("gold", "stein", "holz")
 
 # --- Spielkonstanten (aus https://seekampf.de/legal/regeln, Referenztabellen) ---
-# Ein Sektor ist ein 5x5-Raster; die Inselnummer z (1..25) ist der Platz darin.
-SEKTOR_KANTE = 5
-# Fahrzeit = Distanz in Feldern / Knoten * 10 Minuten, aber nie unter dieser
-# Untergrenze - 2 Minuten innerhalb desselben Sektors, sonst 5.
-MIN_FAHRZEIT_S = 300
-MIN_FAHRZEIT_SELBER_SEKTOR_S = 120
-# Knoten je Schiffstyp. Eine Flotte faehrt so schnell wie ihr langsamstes Schiff.
-SCHIFF_KNOTEN = {
-    "spaehschiff": 20, "kleines_kriegsschiff": 12, "grosses_kriegsschiff": 8,
-    "kleines_handelsschiff": 10, "grosses_handelsschiff": 7, "kolonisationsschiff": 3,
-}
-# Rohstoff-Kapazitaet je Schiff - begrenzt, wie viel Beute mitkommt.
-SCHIFF_LADEVOLUMEN = {
-    "kleines_handelsschiff": 75, "grosses_handelsschiff": 460,
-}
+# Sektorkante, Mindestfahrzeiten, Knoten und Ladevolumen je Schiffstyp stehen
+# in seekampf_gemeinsam/spiel.py (gemeinsam fuer alle Bots).
+from seekampf_gemeinsam.spiel import (  # noqa: F401 - feste Spielwerte, gemeinsam fuer alle Bots
+    MIN_FAHRZEIT_S, MIN_FAHRZEIT_SELBER_SEKTOR_S, SCHIFF_KNOTEN, SCHIFF_LADEVOLUMEN, SEKTOR_KANTE,
+)
 # Welche Typen als Kriegs- bzw. Handelsschiff zaehlen. Die Einstellungen geben
 # nur vor, WIE VIELE Schiffe je Klasse mitfahren - welcher Typ das konkret ist,
 # entscheidet der Bestand daheim. Frueher stand der Typ fest, dann blieb ein

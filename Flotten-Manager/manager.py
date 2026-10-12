@@ -22,9 +22,9 @@ import time
 from datetime import datetime, timezone
 
 import requests
+from seekampf_gemeinsam import geo
 
 import config
-import geo
 import scanner
 from api_client import ApiError
 from ausgleich import Ausgleich, reserve_lesen

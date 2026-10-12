@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import time
 
-import geo
+from seekampf_gemeinsam import geo
 
 log = logging.getLogger("seekampf_flotten_manager")
 

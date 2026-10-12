@@ -33,7 +33,7 @@ from kasse import Kasse
 from api_client import ApiError, SeekampfClient
 from helfer import Helfer
 from kontext import ABSCHLUSS, ERSETZBAR, Kontext, NichtGesendet, iso, zeit
-from notify import TelegramNotifier
+from seekampf_gemeinsam.telegram import TelegramNotifier
 from state import State
 from verteidiger import Verteidiger
 
@@ -47,7 +47,7 @@ class AllianzBot:
     def __init__(self):
         self.state = State()
         self.client = SeekampfClient()
-        notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
+        notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_allianz_bot")
         self.k = Kontext(self.client, self.state, notifier)
         if self.state.defekt:
             log.error("data/state.json war unlesbar und liegt jetzt unter %s - Bot startet mit leerem Stand",
@@ -63,9 +63,12 @@ class AllianzBot:
         self._faellig: dict[str, float] = {}
         self._frisch_gestartet = True
         self._stop = threading.Event()
-        # Fuer den Seekampf-Hub: Ergebnisse der letzten Befehle und der letzte Fehler.
+        # Fuer den Seekampf-Hub: Ergebnisse der letzten Befehle und der Fehler des
+        # letzten Takts (None, sobald ein Takt wieder fehlerfrei durchlief - sonst
+        # zeigte die Gesundheitsseite einen laengst behobenen Fehler dauerhaft an).
         self.befehl_ergebnisse: deque = deque(maxlen=20)
         self.letzter_fehler: str | None = None
+        self._fehler_im_takt: str | None = None
         self._status_zuletzt: tuple[str, float] = ("", 0.0)
 
     # ------------------------------------------------------------------ Takt
@@ -82,13 +85,14 @@ class AllianzBot:
             fn()
         except (ApiError, requests.RequestException, NichtGesendet) as e:
             log.error("%s fehlgeschlagen: %s", name, e)
-            self.letzter_fehler = f"{name}: {e}"
+            self._fehler_im_takt = self.letzter_fehler = f"{name}: {e}"
         except Exception as e:  # noqa: BLE001 - der Bot darf an einem Fehler nie sterben
             log.exception("Unerwarteter Fehler in %s", name)
-            self.letzter_fehler = f"{name}: {type(e).__name__}: {e}"
+            self._fehler_im_takt = self.letzter_fehler = f"{name}: {type(e).__name__}: {e}"
 
     def tick(self) -> None:
         k = self.k
+        self._fehler_im_takt = None
         steuerung.laden()
         # Was in der Praesenz steht: gewuenscht plus das, was laufende Vorgaenge
         # noch brauchen. Aendert es sich, postet praesenz_pflegen neu.
@@ -119,6 +123,8 @@ class AllianzBot:
         eigene = k.praesenzen.get(k.ich_id)
         if eigene is not None and eigene["faehigkeiten"] != config.FAEHIGKEITEN:
             self._schritt("Praesenz", self.praesenz_pflegen)
+        if self._fehler_im_takt is None:
+            self.letzter_fehler = None
         self._schritt("Status", self.status_schreiben)
 
     def run(self) -> None:

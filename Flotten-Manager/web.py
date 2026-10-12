@@ -26,13 +26,13 @@ import report as report_modul
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
 from manager import FlottenManager
-from notify import TelegramNotifier
+from seekampf_gemeinsam.telegram import TelegramNotifier
 from state import TZ, State
 
 log = get_logger()
 state = State()
 client = SeekampfClient()
-notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
+notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_flotten_manager")
 manager = FlottenManager(client, state, notifier)
 
 if state.defekt:

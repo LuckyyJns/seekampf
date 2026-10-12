@@ -23,13 +23,13 @@ import config
 from api_client import ApiError, SeekampfClient
 from kolonisation import Kolonisierer, begleitung_bereinigen, ziel_status
 from logger_setup import get_logger
-from notify import TelegramNotifier
+from seekampf_gemeinsam.telegram import TelegramNotifier
 from state import State
 
 log = get_logger()
 state = State()
 client = SeekampfClient()
-notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID)
+notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_kolonisation")
 bot = Kolonisierer(client, state, notifier)
 _stop = threading.Event()
 

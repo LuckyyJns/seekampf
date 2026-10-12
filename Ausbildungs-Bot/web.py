@@ -21,13 +21,13 @@ import config
 from api_client import ApiError, SeekampfClient
 from ausbildung import Ausbilder
 from logger_setup import get_logger
-from notify import TelegramNotifier
+from seekampf_gemeinsam.telegram import TelegramNotifier
 from state import State
 
 log = get_logger()
 state = State()
 client = SeekampfClient()
-bot = Ausbilder(client, state, TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID))
+bot = Ausbilder(client, state, TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_ausbildung"))
 _stop = threading.Event()
 _jetzt = threading.Event()   # Soll geaendert: sofort einen Durchlauf
 
