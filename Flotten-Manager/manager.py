@@ -791,6 +791,13 @@ class FlottenManager:
             moeglich = min(moeglich, grenze - len(self._flotten_von(insel_id)))
         return max(0, moeglich)
 
+    def belegte_ziele(self) -> set[str]:
+        """Ziele, die IRGENDEINE eigene Flotte gerade anfaehrt - zwei eigene
+        Inseln greifen nie gleichzeitig dasselbe Ziel an. Eine Flotte, die schon
+        angekommen ist (Rueckweg) oder zurueckgerufen wurde, belegt nichts mehr."""
+        return {rec["koordinaten"] for rec in self.state.data["flotten"].values()
+                if not rec.get("angekommen") and not rec.get("zurueckgerufen")}
+
     def naechstes_ziel_vorschau(self, insel: dict) -> str | None:
         rotation = insel["rotation"]
         return rotation[insel["rotation_index"] % len(rotation)] if rotation else None
@@ -909,9 +916,7 @@ class FlottenManager:
         if offen <= 0:
             self._insel_pause(insel, None)
             return
-        # Belegt sind Ziele, die IRGENDEINE eigene Flotte gerade anfaehrt -
-        # zwei eigene Inseln greifen nie gleichzeitig dasselbe Ziel an.
-        belegt = {rec["koordinaten"] for rec in self.state.data["flotten"].values()}
+        belegt = self.belegte_ziele()
         units = self.flotte_units(insel_id)
         # Was noch im Hafen liegt. Jede losgeschickte Flotte wird abgezogen,
         # damit die naechste nicht dieselben Schiffe einplant.

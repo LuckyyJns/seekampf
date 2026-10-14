@@ -141,7 +141,8 @@ function zeichneFlotte() {
   $("fl-kacheln").innerHTML = kachelnHtml(flotte.stats);
 
   const container = $("fl-inseln");
-  const unterwegs = new Set(flotte.flotten.map(f => f.koordinaten));
+  // "angefahren" = eine eigene Flotte ist auf dem Hinweg (wie belegte_ziele im Manager)
+  const unterwegs = new Set(flotte.flotten.filter(f => !f.angekommen && !f.zurueckgerufen).map(f => f.koordinaten));
   for (const i of flotte.inseln) {
     const id = String(i.id);
     const karte = inselKarte(container, id, `

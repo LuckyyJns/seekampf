@@ -11,7 +11,9 @@ Jede eigene Insel hat einen An/Aus-Schalter, eine eigene Zielliste mit
 Rotation, eine eigene Statistik und einen eigenen Beute-Verlauf je Tag. Aus
 heisst: keine neuen Flotten; was unterwegs ist, faehrt zu Ende. Neue Inseln
 starten ausgeschaltet. Zwei eigene Inseln greifen nie gleichzeitig dasselbe
-Ziel an, und ein Ziel mit neuem Besitzer fliegt aus allen Ziellisten.
+Ziel an (belegt ist ein Ziel nur, solange eine Flotte auf dem Hinweg ist -
+auf dem Rueckweg ist es wieder frei), und ein Ziel mit neuem Besitzer fliegt
+aus allen Ziellisten.
 Bedrohung und "Lager voll" gelten je Insel; beim Rueckruf werden nur die
 Flotten der bedrohten Insel geholt.
 

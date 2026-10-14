@@ -156,6 +156,21 @@ class Raids(Basis):
         self.assertEqual(ziele["53:48:2"]["blacklist_grund"], "Anfaengerschutz")
         self.assertEqual([p["target"]["z"] for p in api.created], [1])
 
+    def test_flotte_auf_dem_rueckweg_belegt_ihr_ziel_nicht_mehr(self):
+        api = FakeApi([insel(447, "GiG", "53:49:8", (0, 0, 0, 1000), {"kleines_kriegsschiff": 2,
+                       "kleines_handelsschiff": 2}, {"steinewerfer": 2})], ziele=[("53:48:1", False)])
+        m, _ = self.manager(api)
+        m.tick()
+        self.assertEqual(len(api.created), 1)                 # zweite Flotte: Ziel ist angefahren
+        self.assertEqual(m.belegte_ziele(), {"53:48:1"})
+        m.tick()
+        self.assertEqual(len(api.created), 1)
+        api.fleets[0].update(state="returning", arrive_at=iso(time.time() - 30), return_at=ZUKUNFT)
+        m._overview_zeit = 0
+        m.tick()                                              # angekommen, faehrt heim
+        self.assertEqual(len(api.created), 2)
+        self.assertEqual([p["target"]["z"] for p in api.created], [1, 1])
+
 
 class InselEinstellungen(Basis):
     def zwei_inseln(self):
