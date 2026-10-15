@@ -482,6 +482,44 @@ class Ausgleich(Basis):
         self.assertEqual(m.bilanz.daten["tage"][bilanz.tag()]["20"]["Ausgleich erhalten"],
                          {"stein": 500.0, "holz": 100.0})
 
+    def handelsbericht(self, i, koord, res, ueb=None, alter_s=0):
+        return {"id": i, "folder": "combat", "created_at": iso(time.time() - alter_s),
+                "payload": {"typ": "handel", "insel_koordinaten": koord, "resources": res,
+                            "ueberschuss": ueb or {"gold": 0, "stein": 0, "holz": 0}, "units": {}}}
+
+    def test_handelsbericht_der_lieferung_wird_archiviert(self):
+        api = self.drei_inseln()
+        m, st = self.manager(api)
+        m.ausgleich.liefern_von_hand(447, 20, {"stein": 500, "holz": 100})
+        m.ausgleich.liefern_von_hand(447, 20, {"stein": 200})
+        api.berichte += [
+            self.handelsbericht(1, "46:55:6", {"gold": 0, "stein": 500, "holz": 100}, alter_s=3600),  # zu alt
+            self.handelsbericht(2, "46:55:6", {"gold": 0, "stein": 300, "holz": 0}),    # andere Ladung (Allianz?)
+            self.handelsbericht(3, "46:55:9", {"gold": 0, "stein": 500, "holz": 100}),  # andere Insel
+            self.handelsbericht(4, "46:55:6", {"gold": 0, "stein": 500, "holz": 100}),
+            self.handelsbericht(5, "46:55:6", {"gold": 0, "stein": 150, "holz": 0}, {"gold": 0, "stein": 50, "holz": 0}),
+        ]
+        m.tick()
+        self.assertEqual(api.archiviert, [])                                # noch unterwegs
+        for f in api.fleets:
+            f["arrive_at"] = iso(time.time() - 30)
+        m.tick()
+        self.assertEqual(sorted(api.archiviert), [4, 5])
+        self.assertEqual(st.data["offene_handelsberichte"], [])
+        m.tick()
+        self.assertEqual(sorted(api.archiviert), [4, 5])                    # nichts doppelt
+
+    def test_handelsberichte_bleiben_wenn_abgeschaltet(self):
+        api = self.drei_inseln()
+        m, st = self.manager(api)
+        st.settings["handelsberichte_archivieren"] = False
+        m.ausgleich.liefern_von_hand(447, 20, {"stein": 500})
+        api.fleets[-1]["arrive_at"] = iso(time.time() - 30)
+        api.berichte.append(self.handelsbericht(4, "46:55:6", {"gold": 0, "stein": 500, "holz": 0}))
+        m.tick()
+        self.assertEqual(api.archiviert, [])
+        self.assertEqual(st.data["offene_handelsberichte"], [])
+
     def test_lieferung_von_hand_nimmt_kleine_erst_wenn_grosse_nicht_reichen(self):
         api = self.drei_inseln()
         m, _ = self.manager(api)

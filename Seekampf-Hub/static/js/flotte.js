@@ -29,6 +29,7 @@ const FELDER = [
   { key: "pruef_vorlauf_s", label: "Letzte Prüfung vor Rückrufende (s)", typ: "number", schritt: 5 },
   { gruppe: "Postfach" },
   { key: "berichte_archivieren", label: "Eigene Kampfberichte ausblenden", typ: "checkbox", hinweis: "nur Siege auf freien Inseln; Niederlagen und Angriffe auf besiedelte Inseln bleiben stehen; nicht umkehrbar" },
+  { key: "handelsberichte_archivieren", label: "Handelsberichte des Ausgleichs ausblenden", typ: "checkbox", hinweis: "nur Lieferungen des Rohstoff-Ausgleichs (auch von Hand im Hub); andere Handelsberichte bleiben stehen; nicht umkehrbar" },
   { gruppe: "Takt & Telegram" },
   { key: "tick_sekunden", label: "Takt (Sekunden)", typ: "number", schritt: 1 },
   { key: "telegram_report", label: "Telegram-Morgenreport", typ: "checkbox" },

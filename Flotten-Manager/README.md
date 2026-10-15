@@ -120,6 +120,7 @@ Alle Einstellungen greifen sofort, ohne Neustart. Die wichtigsten:
 | `niederlagen_bis_blacklist` / `blacklist_tage` | wann ein Ziel gesperrt wird und wie lange |
 | `rueckruf_bei_bedrohung` | holt fahrende Raid-Flotten zurueck, wenn ein Angriff im Anflug ist (Handelsfahrten nie) |
 | `berichte_archivieren` | blendet die Kampfberichte der eigenen Raids aus dem Postfach aus |
+| `handelsberichte_archivieren` | blendet die Handelsberichte der Lieferungen des Rohstoff-Ausgleichs aus |
 
 ### Postfach aufraeumen
 
@@ -146,6 +147,12 @@ Technisch ist das `POST /messages/{id}/archive`. Die Nachricht verschwindet aus
 lesbar, und die oeffentliche Inselseite zeigt die letzten zehn Berichte zu einer
 Insel ohnehin weiter an. **Einen unarchive-Endpunkt gibt es nicht** – ueber die
 API ist das Ausblenden nicht umkehrbar.
+
+Steht `handelsberichte_archivieren` an (Standard), blendet der Manager auch den
+**Handelsbericht** jeder Lieferung des Rohstoff-Ausgleichs aus (automatisch
+oder von Hand im Hub), sobald sie angekommen ist. Zugeordnet wird ueber
+Zielinsel, Zeitpunkt und Ladung; Handelsberichte, die zu keiner eigenen
+Ausgleichslieferung passen (Allianz, von Hand im Spiel), bleiben stehen.
 
 ### Beute-Priorisierung
 

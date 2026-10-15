@@ -440,6 +440,12 @@ class FlottenManager:
             if isinstance(empfang, dict):
                 self.bilanz.buchen(empfang.get("insel_id"), "Ausgleich erhalten", empfang.get("rohstoffe"),
                                    zeitpunkt=rec.get("arrive_at") or jetzt)
+            if rec.get("art") == "ausgleich" and not rec.get("fremd", True):
+                # Den Handelsbericht dazu spaeter ausblenden (_handelsberichte_aufloesen).
+                ladung = (empfang or {}).get("rohstoffe") or rec.get("resources") or {}
+                self.state.data.setdefault("offene_handelsberichte", []).append({
+                    "koordinaten": koord, "flotte": rec["id"], "rohstoffe": ladung,
+                    "arrive_at": rec.get("arrive_at") or jetzt, "seit": jetzt})
             rec["verbucht"] = True
             self._dirty = True
             return
@@ -542,13 +548,14 @@ class FlottenManager:
         kein Sieg/Niederlage-Kennzeichen, und genau daran haengt die Blacklist.
         """
         offen = self.state.data.get("offene_berichte") or []
-        if not offen:
+        if not offen and not self.state.data.get("offene_handelsberichte"):
             return
         try:
             nachrichten = self.client.get_combat_messages(limit=50)
         except ApiError as e:
             log.warning("Kampfberichte nicht abrufbar: %s", e)
             return
+        self._handelsberichte_aufloesen(nachrichten)
 
         verbucht = self.state.data["verbuchte_berichte"]
         jetzt = time.time()
@@ -571,6 +578,61 @@ class FlottenManager:
 
         self.state.data["offene_berichte"] = uebrig
         del verbucht[:-500]  # nur die juengsten IDs behalten
+
+    def _handelsberichte_aufloesen(self, nachrichten: list) -> None:
+        """Handelsberichte angekommener Ausgleichslieferungen ausblenden.
+
+        Ein Bericht gehoert zu einer Lieferung, wenn Zielkoordinate, Zeitpunkt
+        (ab Ankunft) und Ladung passen - so bleibt jeder andere Handelsbericht
+        (Allianz, von Hand im Spiel) stehen. Ohne passenden Bericht nach 15 min
+        wird nicht weiter gesucht.
+        """
+        offen = self.state.data.get("offene_handelsberichte") or []
+        if not offen:
+            return
+        verbucht = self.state.data["verbuchte_berichte"]
+        jetzt = time.time()
+        uebrig = []
+        for eintrag in offen:
+            treffer = self._passender_handelsbericht(nachrichten, eintrag, verbucht)
+            if treffer is None:
+                if jetzt - eintrag["seit"] <= 900:
+                    uebrig.append(eintrag)
+                continue
+            verbucht.append(treffer["id"])
+            if not self.settings["handelsberichte_archivieren"]:
+                continue
+            try:
+                self.client.archive_message(treffer["id"])
+            except ApiError as e:
+                log.warning("Handelsbericht #%s zu %s nicht archivierbar: %s",
+                            treffer["id"], eintrag["koordinaten"], e)
+                continue
+            log.info("ARCHIV     Handelsbericht #%s zu %s ausgeblendet", treffer["id"], eintrag["koordinaten"])
+        if uebrig != offen:
+            self._dirty = True
+        self.state.data["offene_handelsberichte"] = uebrig
+        del verbucht[:-500]
+
+    @staticmethod
+    def _passender_handelsbericht(nachrichten: list, eintrag: dict, verbucht: list) -> dict | None:
+        ladung = eintrag.get("rohstoffe") or {}
+        for m in nachrichten:
+            p = m.get("payload") or {}
+            if p.get("typ") != "handel" or p.get("insel_koordinaten") != eintrag["koordinaten"]:
+                continue
+            if m.get("id") in verbucht:
+                continue
+            erstellt = iso_zu_epoch(m.get("created_at"))
+            if erstellt is None or erstellt < eintrag["arrive_at"] - 120:
+                continue
+            res, ueb = p.get("resources") or {}, p.get("ueberschuss") or {}
+            # abgeliefert (+ was nicht ins Lager passte) = geschickte Ladung
+            if all(abs(float(ladung.get(r, 0) or 0) - float(res.get(r, 0) or 0)) < 1 or
+                   abs(float(ladung.get(r, 0) or 0) - float(res.get(r, 0) or 0) - float(ueb.get(r, 0) or 0)) < 1
+                   for r in config.RESOURCE_KEYS):
+                return m
+        return None
 
     def _besiedelt_pruefen(self, eintrag: dict, nachricht: dict) -> None:
         """Traf die Flotte auf eine inzwischen besiedelte Insel? Der Bericht

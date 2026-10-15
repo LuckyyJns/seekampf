@@ -116,6 +116,10 @@ DEFAULT_SETTINGS = {
     # Angriffe auf inzwischen besiedelte Inseln, Berichte zu von Hand
     # gestarteten Angriffen und alles andere im Postfach bleiben stehen.
     "berichte_archivieren": True,
+    # Blendet den Handelsbericht jeder Lieferung des Rohstoff-Ausgleichs (auch
+    # von Hand im Hub) aus, sobald die Lieferung angekommen ist. Andere
+    # Handelsberichte (Allianz, von Hand im Spiel) bleiben stehen.
+    "handelsberichte_archivieren": True,
 
     # --- Rohstoff-Ausgleich zwischen den eigenen Inseln (siehe ausgleich.py) ---
     "ausgleich_aktiv": False,

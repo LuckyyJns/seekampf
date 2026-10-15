@@ -100,6 +100,7 @@ class State:
             "letzter_report": None,  # ISO-Datum des letzten Telegram-Reports
             "report_basis": None,    # Statistik-Stand beim letzten Report
             "verbuchte_berichte": [],  # message_ids, damit nichts doppelt zaehlt
+            "offene_handelsberichte": [],  # angekommene Ausgleichslieferungen, Bericht noch im Postfach
             "pause_grund": None,
             "ausgleich": None,       # Rohstoff-Ausgleich: Fahrten, Summen, letzte Lieferungen
         }
