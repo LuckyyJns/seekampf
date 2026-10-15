@@ -465,7 +465,7 @@ class Ausgleich(Basis):
         self.assertEqual((p["origin_island_id"], p["mission_type"]), (447, "handel"))
         self.assertEqual((p["target"]["x"], p["target"]["y"], p["target"]["z"]), (46, 55, 6))
         self.assertEqual(p["resources"], {"stein": 500, "holz": 100})
-        self.assertEqual(p["ships"], {"kleines_handelsschiff": 8})      # 600 Ladung / 75
+        self.assertEqual(p["ships"], {"grosses_handelsschiff": 2})      # grosse zuerst: 600 Ladung / 460
         self.assertEqual(r["rohstoffe"], {"stein": 500, "holz": 100})
         eintrag = m.ausgleich.stand()["lieferungen"][0]
         self.assertTrue(eintrag["von_hand"])
@@ -482,11 +482,25 @@ class Ausgleich(Basis):
         self.assertEqual(m.bilanz.daten["tage"][bilanz.tag()]["20"]["Ausgleich erhalten"],
                          {"stein": 500.0, "holz": 100.0})
 
-    def test_lieferung_von_hand_nimmt_grosse_schiffe_wenn_noetig(self):
+    def test_lieferung_von_hand_nimmt_kleine_erst_wenn_grosse_nicht_reichen(self):
         api = self.drei_inseln()
         m, _ = self.manager(api)
-        m.ausgleich.liefern_von_hand(447, 20, {"stein": 1600})
-        self.assertEqual(api.created[-1]["ships"], {"kleines_handelsschiff": 10, "grosses_handelsschiff": 2})
+        m.ausgleich.liefern_von_hand(447, 20, {"stein": 400})
+        self.assertEqual(api.created[-1]["ships"], {"grosses_handelsschiff": 1})
+        m, _ = self.manager(api := self.drei_inseln())
+        m.ausgleich.liefern_von_hand(447, 20, {"stein": 1600})        # 2 x 460 + 10 x 75
+        self.assertEqual(api.created[-1]["ships"], {"grosses_handelsschiff": 2, "kleines_handelsschiff": 10})
+
+    def test_schiffe_fuer_grosse_zuerst(self):
+        from ausgleich import schiffe_fuer
+        self.assertEqual(schiffe_fuer(50, {"kleines_handelsschiff": 5, "grosses_handelsschiff": 1}),
+                         {"grosses_handelsschiff": 1})
+        self.assertEqual(schiffe_fuer(1000, {"kleines_handelsschiff": 5, "grosses_handelsschiff": 3}),
+                         {"grosses_handelsschiff": 3})
+        self.assertEqual(schiffe_fuer(1000, {"kleines_handelsschiff": 5, "grosses_handelsschiff": 2}),
+                         {"grosses_handelsschiff": 2, "kleines_handelsschiff": 2})
+        self.assertEqual(schiffe_fuer(200, {"kleines_handelsschiff": 5}),       # alle grossen unterwegs
+                         {"kleines_handelsschiff": 3})
 
     def test_lieferung_von_hand_lehnt_unsinn_ab(self):
         api = self.drei_inseln()
@@ -501,17 +515,30 @@ class Ausgleich(Basis):
                 m.ausgleich.liefern_von_hand(von, nach, menge)
         self.assertEqual([p for p in api.created if p["mission_type"] == "handel"], [])
 
-    def test_wartet_auf_schiffe_und_haelt_sie_zurueck(self):
+    def warten_auf(self, unterwegs: dict):
+        """447 hat nur 1 kleines Handelsschiff daheim, `unterwegs` ist auf Raid."""
         api = self.drei_inseln()
         api.ov[0]["schiffe"] = {"kleines_handelsschiff": 1}
         api.fleets.append({"id": 5, "mission": "attack", "origin_island_id": 447,
-                           "target": {"x": 1, "y": 1, "z": 1}, "ships": {"grosses_handelsschiff": 3},
+                           "target": {"x": 1, "y": 1, "z": 1}, "ships": unterwegs,
                            "state": "returning", "arrive_at": VERGANGEN})
         m, st = self.manager(api)
         self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
         m.tick()
         self.assertEqual(self.lieferungen(api), {})
         self.assertIn(447, m.ausgleich.reserviert)
+        return m, api
+
+    def test_wartet_auf_grosse_schiffe_und_laesst_kleine_raiden(self):
+        m, api = self.warten_auf({"grosses_handelsschiff": 3})
+        self.assertEqual(m.ausgleich.reserviert[447], ("grosses_handelsschiff",))
+        self.assertEqual(m.vorrat_fuer_raids(447, api.ov[0]).get("kleines_handelsschiff"), 1)
+        eintrag = reservierungen.von("ausgleich", config.RESERVIERUNGEN_ORDNER)["447"]
+        self.assertNotIn("einheiten", eintrag)                         # kein grosses daheim
+        self.assertIn("Lieferung an", eintrag["grund"])
+
+    def test_reichen_die_grossen_nicht_wartet_er_auf_alle(self):
+        m, api = self.warten_auf({"kleines_handelsschiff": 20})
         self.assertEqual(m.vorrat_fuer_raids(447, api.ov[0]).get("kleines_handelsschiff"), 0)
         # ... und traegt das ins gemeinsame Reservierungs-Verzeichnis ein (Allianzkasse, Hub).
         eintrag = reservierungen.von("ausgleich", config.RESERVIERUNGEN_ORDNER)["447"]
@@ -519,6 +546,19 @@ class Ausgleich(Basis):
         self.assertIn("Lieferung an", eintrag["grund"])
         # Die eigene Reservierung zaehlt fuer die Raids nicht doppelt.
         self.assertEqual(reservierungen.summe("einheiten", ausser="ausgleich", ordner=config.RESERVIERUNGEN_ORDNER), {})
+
+    def test_alle_grossen_unterwegs_kleine_fahren_sofort(self):
+        api = self.drei_inseln()
+        api.ov[0]["schiffe"] = {"kleines_handelsschiff": 30}
+        api.fleets.append({"id": 5, "mission": "transport", "origin_island_id": 447,
+                           "target": {"x": 1, "y": 1, "z": 1}, "ships": {"grosses_handelsschiff": 2},
+                           "state": "returning", "arrive_at": VERGANGEN})
+        m, st = self.manager(api)
+        self.einstellen(st, i447={"gibt": True}, i20={"bekommt": True})
+        m.tick()
+        handel = [p for p in api.created if p["mission_type"] == "handel"]
+        self.assertEqual(len(handel), 1)
+        self.assertEqual(set(handel[0]["ships"]), {"kleines_handelsschiff"})
 
     def test_neue_insel_erbt_einstellung(self):
         api = self.drei_inseln()

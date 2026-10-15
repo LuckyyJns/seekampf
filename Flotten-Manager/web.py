@@ -270,6 +270,7 @@ def ausgleich_status():
             **{k: b.get(k) for k in ("bedarf", "ueberschuss", "unterwegs", "grenze", "soll", "ziel",
                                      "reserve", "max_abgabe", "schiffe_kap", "upgrade", "hinweis")},
             "reserviert": int(iid_text) in manager.ausgleich.reserviert,
+            "reserviert_typen": list(manager.ausgleich.reserviert.get(int(iid_text), ())),
         })
     s = daten["settings"]
     return {

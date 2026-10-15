@@ -49,7 +49,8 @@ function zeichneAusgleichInsel(i, st) {
   const e = i.einstellung || {}, r = i.rohstoffe || {}, kap = r.kapazitaet || 1;
   let marke = "";
   if (i.bedrohung) marke = `<span class="marke warn"><span class="punkt"></span>Bedrohung</span>`;
-  else if (i.reserviert) marke = `<span class="marke warn"><span class="punkt"></span>hält Handelsschiffe zurück</span>`;
+  else if (i.reserviert) marke = `<span class="marke warn"><span class="punkt"></span>hält ${
+    (i.reserviert_typen || []).length === 1 && i.reserviert_typen[0] === "grosses_handelsschiff" ? "große " : ""}Handelsschiffe zurück</span>`;
   else if (!e.gibt && !e.bekommt) marke = `<span class="marke grau"><span class="punkt"></span>nimmt nicht teil</span>`;
   k.querySelector('[data-teil="kopf"]').innerHTML = `${avatar(i.name, i.id)}
     <span class="namenblock" style="display:flex;flex-direction:column"><b>${esc(i.name)}</b><span class="leise mono klein-text">${esc(i.koordinaten)}</span></span>

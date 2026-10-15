@@ -20,10 +20,12 @@ Je Tick:
      liefern kann - bei Gleichstand die naechstgelegene -, ab
      `ausgleich_min_menge` Rohstoffen je Fahrt, per Handel (mission "handel").
 
-Handelsschiffe sind auch das, womit geraidet wird. Reichen die im Hafen nicht
-fuer die Lieferung, haelt der Manager die Handelsschiffe des Gebers zurueck
-(`reserviert`), bis genug heimgekehrt sind - nach WARTEN_HOECHSTENS faehrt,
-was da ist. Inseln ganz ohne Handelsschiffe geben nichts ab. Bedrohte Inseln
+Handelsschiffe sind auch das, womit geraidet wird. Deshalb faehrt der
+Ausgleich zuerst mit grossen Handelsschiffen (die meist nicht raiden), kleine
+nimmt er nur fuer den Rest - oder wenn alle grossen unterwegs sind. Reichen die
+im Hafen nicht fuer die Lieferung, haelt der Manager Handelsschiffe des Gebers
+zurueck (`reserviert`), bis genug heimgekehrt sind: nur die grossen, wenn die
+allein reichen wuerden, sonst alle - nach WARTEN_HOECHSTENS faehrt, was da ist. Inseln ganz ohne Handelsschiffe geben nichts ab. Bedrohte Inseln
 liefern nicht und bekommen nichts (die Ladung waere Beute fuer den Angreifer).
 """
 from __future__ import annotations
@@ -76,12 +78,19 @@ def _summe(werte: dict) -> float:
     return sum(float(werte.get(r, 0) or 0) for r in config.RESOURCE_KEYS)
 
 
+# Reihenfolge, in der der Ausgleich Handelsschiffe nimmt: erst grosse - die
+# fahren bei den Raids meist nicht mit -, kleine nur fuer den Rest, damit die
+# Raidflotten ihre kleinen Handelsschiffe behalten.
+HANDEL_REIHENFOLGE = ("grosses_handelsschiff", "kleines_handelsschiff")
+
+
 def schiffe_fuer(ladung: float, hafen: dict) -> dict:
-    """Handelsschiffe fuer `ladung` aus dem Hafen: erst kleine (schneller),
-    dann grosse. Reicht der Hafen nicht, alle vorhandenen."""
+    """Handelsschiffe fuer `ladung` aus dem Hafen: so viele grosse wie noetig
+    (bzw. da), kleine nur fuer das, was die grossen nicht tragen. Reicht der
+    Hafen nicht, alle vorhandenen."""
     gewaehlt: dict[str, int] = {}
     rest = ladung
-    for typ in ("kleines_handelsschiff", "grosses_handelsschiff"):
+    for typ in HANDEL_REIHENFOLGE:
         if rest <= 0:
             break
         volumen = config.SCHIFF_LADEVOLUMEN[typ]
@@ -89,17 +98,14 @@ def schiffe_fuer(ladung: float, hafen: dict) -> dict:
         if n > 0:
             gewaehlt[typ] = n
             rest -= n * volumen
-    # Grosse Schiffe machen kleine ueberfluessig? Ueberzaehlige kleine wieder abgeben.
-    while gewaehlt.get("kleines_handelsschiff") and \
-            geo.ladevolumen(gewaehlt) - config.SCHIFF_LADEVOLUMEN["kleines_handelsschiff"] >= ladung:
-        gewaehlt["kleines_handelsschiff"] -= 1
-    return {t: n for t, n in gewaehlt.items() if n > 0}
+    return gewaehlt
 
 
 class Ausgleich:
     def __init__(self, manager):
         self.m = manager
-        self.reserviert: set[int] = set()
+        # Geber -> Handelsschiff-Typen, die fuer eine wartende Lieferung im Hafen bleiben
+        self.reserviert: dict[int, tuple[str, ...]] = {}
         self.reserviert_fuer: dict[int, int] = {}   # Geber -> Empfaenger der wartenden Lieferung
         self.bericht: dict = {"inseln": {}, "hinweis": None, "zeit": None}
         self._pause_bis: dict[str, float] = {}
@@ -175,7 +181,7 @@ class Ausgleich:
             nach = self.reserviert_fuer.get(sp)
             name = self.m.state.insel(nach).get("name") if nach is not None else None
             inseln[str(sp)] = {
-                "einheiten": {t: int(schiffe.get(t, 0) or 0) for t in config.HANDELSSCHIFF_TYPEN},
+                "einheiten": {t: int(schiffe.get(t, 0) or 0) for t in self.reserviert[sp]},
                 "grund": f"Rohstoff-Ausgleich: Lieferung an {name or nach or '?'}",
             }
         reservierungen.schreiben("ausgleich", inseln, config.RESERVIERUNGEN_ORDNER)
@@ -184,7 +190,7 @@ class Ausgleich:
     def liefern_von_hand(self, von, nach, rohstoffe: dict) -> dict:
         """Rohstoffe sofort von einer eigenen Insel zu einer anderen schicken,
         unabhaengig vom automatischen Ausgleich. Faehrt mit den Handelsschiffen
-        im Hafen der Start-Insel (kleine zuerst). ValueError bei ungueltigen
+        im Hafen der Start-Insel (grosse zuerst). ValueError bei ungueltigen
         Angaben, ApiError wenn das Spiel ablehnt."""
         m = self.m
         try:
@@ -248,7 +254,7 @@ class Ausgleich:
 
     # --------------------------------------------------------------- Tick
     def tick(self, alles: dict[int, dict], flotten_api: list, jetzt: float) -> None:
-        self.reserviert = set()
+        self.reserviert = {}
         self.reserviert_fuer = {}
         s = self.s
         inseln = self.m.state.data["inseln"]
@@ -390,7 +396,13 @@ class Ausgleich:
         lange_genug = seit is not None and jetzt - seit >= WARTEN_HOECHSTENS_S
         if kap_hafen < noetig and not (lange_genug and kap_hafen >= mindestens):
             warten.setdefault(str(sp), jetzt)
-            self.reserviert.add(sp)
+            # Tragen die grossen Schiffe (daheim + unterwegs) die Lieferung allein,
+            # wird nur auf sie gewartet - die kleinen raiden weiter.
+            gross = "grosses_handelsschiff"
+            gross_gesamt = config.SCHIFF_LADEVOLUMEN[gross] * (
+                hafen[gross] + sum(int((f.get("ships") or {}).get(gross, 0) or 0)
+                                   for f in flotten_api if f.get("origin_island_id") == sp))
+            self.reserviert[sp] = (gross,) if gross_gesamt >= noetig else config.HANDELSSCHIFF_TYPEN
             self.reserviert_fuer[sp] = ziel_id
             eintrag["hinweis"] = (f"wartet auf Handelsschiffe von {m.state.insel(sp).get('name')}: "
                                   f"{kap_hafen:.0f} von {noetig:.0f} Ladung im Hafen")

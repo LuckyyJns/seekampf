@@ -153,9 +153,8 @@ class FlottenManager:
         """Wie vorrat(), aber ohne die Handelsschiffe, die der Rohstoff-Ausgleich
         gerade fuer eine Lieferung zurueckhaelt."""
         bestand = self.vorrat(ov)
-        if insel_id in self.ausgleich.reserviert:
-            for typ in config.HANDELSSCHIFF_TYPEN:
-                bestand[typ] = 0
+        for typ in self.ausgleich.reserviert.get(insel_id, ()):
+            bestand[typ] = 0
         # Einheiten, die andere Bots im gemeinsamen Reservierungs-Verzeichnis
         # zurueckhalten: Kriegsschiffe fuer einen Truppentransport (Ausbildungs-Bot),
         # Begleitung fuer ein bewohntes Ziel kurz vor der Abfahrt (Kolonisations-Bot).
@@ -280,7 +279,7 @@ class FlottenManager:
         self._berichte_aufloesen()
 
         if not self.state.data["laeuft"]:
-            self.ausgleich.reserviert = set()
+            self.ausgleich.reserviert = {}
             self.ausgleich.reservierung_schreiben({})
             self._pause("gestoppt")
             self._speichern_wenn_noetig(jetzt)
