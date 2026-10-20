@@ -202,6 +202,7 @@
   .kacheln.klein { grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 10px; }
   .kacheln.klein .kachel { box-shadow: none; background: var(--flaeche-2); padding: 11px 13px; }
   .kacheln.klein .wert { font-size: 19px; margin-top: 5px; }
+  .kacheln.sp-kacheln { grid-template-columns: repeat(auto-fit, minmax(min(165px, calc(50% - 5px)), 1fr)); }
 
   /* Heldenleiste der Uebersicht */
   .held { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(200px, calc(50% - 7px)), 1fr)); margin-bottom: 20px; }
@@ -254,6 +255,7 @@
                  margin-bottom: 12px; min-width: 0; box-shadow: var(--schatten); transition: border-color .15s; }
   .insel-karte:hover { border-color: var(--rand-stark); }
   .insel-karte.offen { border-color: color-mix(in srgb, var(--akzent) 35%, var(--rand)); }
+  .insel-karte.ich { border-left: 3px solid var(--gut); }
   .insel-kopf { display: flex; align-items: center; gap: 14px; padding: 14px 18px; cursor: pointer; flex-wrap: wrap; }
   .insel-kopf .pfeil { transition: transform .18s; color: var(--schwach); width: 14px; font-size: 11px; }
   .insel-karte.offen .insel-kopf .pfeil { transform: rotate(90deg); color: var(--akzent); }

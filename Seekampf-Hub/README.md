@@ -113,6 +113,26 @@ Gescannt wird täglich um 1:00 Uhr und per Knopf „Karte jetzt scannen“
 API-Schlüssel in `.env` (`SEEKAMPF_API_KEY=…`). Ergebnis in `data/karte.json`,
 der vorige Stand in `data/karte_vorher.json` (für die Änderungen).
 
+## Spieler
+
+Menüpunkt **Spieler**: die anderen Spieler Tag für Tag (`spieler.py`).
+
+- Ganz oben: wie viele **Schiffe und Truppen** weltweit dazugekommen sind, je
+  Typ und Tag (Häfen/Garnisonen + auf See, wie im Spiel unter „Statistiken“),
+  dazu Spieler und bewohnte Inseln. Je Spieler gibt das Spiel Schiffe und
+  Truppen nicht heraus.
+- Allianzen: Rang, Mitglieder, Punkte, Veränderung am letzten Tag.
+- Alle Spieler in der Reihenfolge der Rangliste, aufklappbar. Je Tag: Rang,
+  Punkte, Inseln; welche Inseln dazugekommen sind und verloren gingen (bei
+  einem Wechsel unter Spielern: von wem / an wen), Allianzwechsel, neu
+  erfüllte Quests, welche Inseln ausgebaut wurden (Inselpunkte).
+
+Stand täglich um 1:00 Uhr (beim allerersten Start sofort als Ausgangsstand;
+war der Hub um 1:00 aus, wird nachgeholt): Rangliste, Profil jedes Spielers,
+Allianz-Rangliste und `GET /stats/overview` - gut 60 Abfragen, rund 10 s, mit
+dem API-Schlüssel des Hubs. Gespeichert in `data/spieler.json` (365 Tage,
+gut 50 KB je Stand); ein „Tag“ ist der Vergleich zweier Stände. `GET /api/spieler`.
+
 ## Zugriff von unterwegs: https://seekampf-hub.com
 
 Über einen **Cloudflare Tunnel** mit **Cloudflare Access** davor – ohne
@@ -179,6 +199,7 @@ Neustart des Seekampf-Hubs – ohne Platzhalter und ohne gespeichertes Passwort.
 | Datei | Aufgabe |
 | --- | --- |
 | `karte.py` | Welt-Scan, täglicher Planer, Vergleich, Angriffe |
+| `spieler.py` | Spieler-Tracker: täglicher Stand um 1:00, Vergleich je Tag |
 | `gesundheit.py` | Auswertung für die Gesundheitsseite |
 | `alert.py` / `seekampf-hub-alert.service` | Telegram-Alarm, wenn systemd den Hub aufgibt (Token in `.env`) |
 | `hub.py` | FastAPI-App: Seite, Dienste, Logs, Weiterleitung, Steuerdateien |

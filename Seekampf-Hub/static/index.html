@@ -20,6 +20,7 @@
   <a href="#uebersicht" data-tab="uebersicht"><span class="plate k"><img class="ict" src="/static/icons/eigene_insel.png" width="26" height="26" alt="" aria-hidden="true"></span>Übersicht</a>
   <a href="#karte" data-tab="karte"><span class="plate k"><img class="ict" src="/static/icons/hinterland.png" width="26" height="26" alt="" aria-hidden="true"></span>Karte</a>
   <a href="#gesundheit" data-tab="gesundheit"><span class="plate k"><img class="ict" src="/static/icons/gesundheit.png" width="26" height="26" alt="" aria-hidden="true"></span>Gesundheit<span class="dot" id="nav-dot-gesundheit"></span></a>
+  <a href="#spieler" data-tab="spieler"><span class="plate k"><img class="ict" src="/static/icons/invasions_verband.png" width="26" height="26" alt="" aria-hidden="true"></span>Spieler</a>
   <div class="rubrik">Bots</div>
   <a href="#upgrade" data-tab="upgrade"><span class="plate k"><img class="ict" src="/static/icons/haupthaus.png" width="26" height="26" alt="" aria-hidden="true"></span>Upgrade-Bot<span class="dot" id="nav-dot-upgrade"></span></a>
   <a href="#flotte" data-tab="flotte"><span class="plate k"><img class="ict" src="/static/icons/kleines_kriegsschiff.png" width="26" height="26" alt="" aria-hidden="true"></span>Flotten-Manager<span class="dot" id="nav-dot-flotte"></span></a>
@@ -233,6 +234,25 @@
       <section class="karte" style="margin-top:16px">
         <div class="kopfzeile"><h2>Letzte Lieferungen</h2></div>
         <div id="aus-lieferungen"></div>
+      </section>
+    </div>
+
+    <!-- ======================= Spieler-Tracker ======================= -->
+    <div class="tab" id="tab-spieler">
+      <div class="fehler" id="sp-fehler" hidden></div>
+      <div class="leise klein-text" id="sp-status" style="margin-bottom:12px"></div>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Schiffe und Truppen weltweit</h2><div class="rechts leise klein-text">Zuwachs am letzten Tag</div></div>
+        <div class="kacheln klein sp-kacheln" id="sp-kacheln"></div>
+        <div id="sp-welt"><div class="leise klein-text laden">wird geladen<i></i><i></i><i></i></div></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Allianzen</h2></div>
+        <div id="sp-allianzen"></div>
+      </section>
+      <section class="karte">
+        <div class="kopfzeile"><h2>Spieler</h2><div class="rechts leise klein-text">Reihenfolge der Rangliste · aufklappen = Veränderungen je Tag</div></div>
+        <div id="sp-liste"></div>
       </section>
     </div>
 
@@ -498,6 +518,7 @@
 <script src="/static/js/gesundheit.js"></script>
 <script src="/static/js/verlauf.js"></script>
 <script src="/static/js/bilanz.js"></script>
+<script src="/static/js/spieler.js"></script>
 <script src="/static/js/start.js"></script>
 </body>
 </html>

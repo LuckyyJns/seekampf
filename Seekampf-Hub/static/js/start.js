@@ -80,6 +80,7 @@ gesundheitHolen();
 ausgleichHolen();
 setInterval(() => { if (tab === "karte") angriffeHolen(); }, 20000);
 setInterval(() => { if (tab === "bilanz") bilanzHolen(); }, 30000);
+setInterval(() => { if (tab === "spieler") spielerHolen(); }, 300000);
 setInterval(() => { if (tab === "karte") karteHolen(); }, 300000);
 setInterval(dienstHolen, 5000);
 setInterval(logsHolen, 5000);

@@ -2,7 +2,7 @@
 // ======================================================================
 // Akkordeon-Helfer: offene Inseln bleiben beim Neuzeichnen offen
 // ======================================================================
-const offeneInseln = { flotte: new Set(), upgrade: new Set(), ausbildung: new Set() };
+const offeneInseln = { flotte: new Set(), upgrade: new Set(), ausbildung: new Set(), spieler: new Set() };
 try {
   for (const k of Object.keys(offeneInseln)) (JSON.parse(localStorage.getItem(`offen-${k}`) || "[]")).forEach(x => offeneInseln[k].add(String(x)));
 } catch (e) { /* egal */ }

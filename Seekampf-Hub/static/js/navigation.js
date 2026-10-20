@@ -2,7 +2,7 @@
 // ======================================================================
 // Navigation: Hamburger + Tabs ueber den Hash
 // ======================================================================
-const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", bilanz: "Rohstoff-Bilanz", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot", kolonie: "Kolonisations-Bot", ausbildung: "Ausbildungs-Bot" };
+const TABS = { uebersicht: "Übersicht", karte: "Karte", gesundheit: "Gesundheit", flotte: "Flotten-Manager", ausgleich: "Rohstoff-Ausgleich", bilanz: "Rohstoff-Bilanz", spieler: "Spieler", upgrade: "Upgrade-Bot", allianz: "Allianz-Bot", kolonie: "Kolonisations-Bot", ausbildung: "Ausbildungs-Bot" };
 const UNTERTITEL = {
   uebersicht: "Alle Bots und Inseln auf einen Blick",
   karte: "Die ganze Welt – Spieler, Allianzen und deine Flotten",
@@ -10,6 +10,7 @@ const UNTERTITEL = {
   ausgleich: "Überschuss der Hauptinsel an die Ausbauinseln liefern",
   gesundheit: "Läuft alles – und tut es auch etwas?",
   bilanz: "Woher die Rohstoffe jeder Insel kommen und wohin sie gehen",
+  spieler: "Andere Spieler Tag für Tag – Stand jeden Morgen um 1:00 Uhr",
   upgrade: "Bau-Warteschlangen, Priorisierung und Ausbau von Hand",
   allianz: "Allianz-Protokoll: Notrufe, Beistand, Rohstoff-Anfragen",
   kolonie: "Freie Inseln aus deiner Warteschlange kolonisieren",
@@ -48,7 +49,7 @@ function zeigeTab(ziel) {
   }
   zeigeTabJetzt(neu);
 }
-const TAB_ICON_NAME = { uebersicht: "eigene_insel", karte: "hinterland", gesundheit: "gesundheit", upgrade: "haupthaus", flotte: "kleines_kriegsschiff", ausbildung: "kaserne", ausgleich: "rohstoffausgleich", kolonie: "koloschiff", allianz: "allianz_hilfe" };
+const TAB_ICON_NAME = { uebersicht: "eigene_insel", karte: "hinterland", gesundheit: "gesundheit", upgrade: "haupthaus", flotte: "kleines_kriegsschiff", ausbildung: "kaserne", ausgleich: "rohstoffausgleich", spieler: "invasions_verband", kolonie: "koloschiff", allianz: "allianz_hilfe" };
 /** Koordinate als Link: Klick oeffnet die Karte mit dieser Insel */
 function koordLink(k) {
   if (!k) return `<span class="mono">–</span>`;

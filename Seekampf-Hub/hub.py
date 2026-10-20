@@ -42,6 +42,7 @@ from seekampf_gemeinsam import bilanz, reservierungen
 
 import gesundheit
 from karte import Karte
+from spieler import SpielerTracker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SEEKAMPF_DIR = os.path.dirname(BASE_DIR)
@@ -92,12 +93,14 @@ _schreib_lock = threading.Lock()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logging.getLogger("httpx").setLevel(logging.WARNING)  # sonst ~1100 Zeilen je Kartenscan
 karte = Karte()
+spieler_tracker = SpielerTracker()
 _stop = threading.Event()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     threading.Thread(target=karte.planer, args=(_stop,), name="karten-planer", daemon=True).start()
+    threading.Thread(target=spieler_tracker.planer, args=(_stop,), name="spieler-planer", daemon=True).start()
     try:
         yield
     finally:
@@ -597,6 +600,12 @@ def karte_flotten():
 @app.get("/api/karte/angriffe")
 def karte_angriffe():
     return {"angriffe": karte.angriffe(), "serverzeit": time.time()}
+
+
+@app.get("/api/spieler")
+def spieler(tage: int = 30):
+    """Spieler-Tracker: aktuelle Rangliste und was sich je Tag (Stand um 1:00 Uhr) geaendert hat."""
+    return {**spieler_tracker.daten(max(1, min(tage, 365))), "ich": karte.ich().get("id"), "serverzeit": time.time()}
 
 
 if __name__ == "__main__":
