@@ -365,6 +365,17 @@ class Ausbilder:
                                       "target": {"x": ziel[0], "y": ziel[1], "z": ziel[2]},
                                       "ships": ships, "units": {e: mit}, "resources": {}})
         except ApiError as err:
+            if err.code == "insufficient_ships":
+                # Zwischen Lesen und Losschicken hat der Flotten-Manager die Schiffe
+                # auf Raid geschickt. Reservieren, dann haelt er die naechsten
+                # heimkehrenden zurueck - sonst wiederholt sich das jeden Takt.
+                plan = self.reserve.setdefault(str(von), {})
+                for typ, k in ships.items():
+                    plan[typ] = plan.get(typ, 0) + k
+                hinweise[nach].append(f"{mit} {e} warten auf {self._name(von)} auf Kriegsschiffe (gerade unterwegs)")
+                log.info("Verlegung von %d %s %s -> %s: Kriegsschiffe gerade unterwegs, reserviert %s", mit, e,
+                         self._name(von), self._name(nach), ships)
+                return
             hinweise[nach].append(f"Verlegung von {self._name(von)} fehlgeschlagen: {err.message}")
             log.error("Verlegung von %d %s %s -> %s fehlgeschlagen: %s", mit, e, self._name(von),
                       self._name(nach), err)

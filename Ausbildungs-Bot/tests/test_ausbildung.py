@@ -186,6 +186,21 @@ class PerHandel(Basis):
         self.assertEqual(reserve, {"1": {"einheiten": {"grosses_kriegsschiff": 1, "kleines_kriegsschiff": 2},
                                          "grund": "Truppentransport"}})
 
+    def test_schiffe_inzwischen_weg_werden_reserviert(self):
+        """Der Flotten-Manager hat die Kriegsschiffe zwischen Lesen und Losschicken
+        auf Raid geschickt: reservieren statt jeden Takt erneut zu scheitern."""
+        api = FakeApi([insel(1, "40:40:1", truppen={"steinewerfer": 103}, schiffe={"kleines_kriegsschiff": 2}),
+                       insel(7, "41:40:1", kaserne=0)])
+
+        def weg(p):
+            raise ApiError(409, "insufficient_ships", "Nicht genug Kleines Kriegsschiff im Hafen.")
+        api.create_fleet = weg
+        b, _ = self.bot(api, {1: {"steinewerfer": 100}, 7: {"steinewerfer": 1}})
+        b.tick()
+        reserve = reservierungen.von("ausbildung", config.RESERVIERUNGEN_ORDNER)
+        self.assertEqual(reserve, {"1": {"einheiten": {"kleines_kriegsschiff": 1}, "grund": "Truppentransport"}})
+        self.assertIn("gerade unterwegs", b.bericht["7"]["hinweise"][0])
+
     def test_bedrohte_insel_gibt_nichts_ab(self):
         api = FakeApi([insel(1, "40:40:1", kaserne=0, truppen={"speerkaempfer": 120},
                              schiffe={"kleines_kriegsschiff": 2}, bedroht=True),
