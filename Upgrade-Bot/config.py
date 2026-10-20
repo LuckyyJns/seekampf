@@ -31,8 +31,8 @@ MID_PRIORITY_BUILDINGS = ("hafen", "kaserne")
 LOW_PRIORITY_BUILDINGS = ("steinmauer", "wachturm")
 TRACKED_BUILDINGS = (*RESOURCE_BUILDINGS, "haupthaus", "lagerhaus", *MID_PRIORITY_BUILDINGS, *LOW_PRIORITY_BUILDINGS)
 
-# Startgewichte fuer die Kandidaten-Bewertung, bis store.py genug echte
-# Produktions-Beobachtungen gelernt hat (siehe planner._resource_score).
+# Gewichte fuer die Kandidaten-Bewertung; bei den Ressourcen-Gebaeuden nur
+# Rueckfall, wenn die Regeltabelle (gamedata.py) fehlt (siehe planner._resource_score).
 PRIORITY_WEIGHTS = {
     "goldmine": 100, "steingrube": 100, "saegewerk": 100,
     "haupthaus": 65, "lagerhaus": 60, "hafen": 55, "kaserne": 30,
@@ -45,7 +45,7 @@ STORAGE_TRIGGER_RATIO = 0.60
 # Hauptgebaeude wird nur priorisiert, wenn es hoechstens diesen Anteil der
 # durchschnittlichen Ressourcen-Gebaeude-Kosten kostet.
 # Alle Gebaeude verteuern sich pro Stufe um denselben Faktor (~1.337, aus
-# data/learned.json gemessen), das Haupthaus ist pro Stufe aber rund doppelt so
+# Beobachtungen gemessen), das Haupthaus ist pro Stufe aber rund doppelt so
 # teuer wie ein Ressourcen-Gebaeude. Der Schwellwert legt damit fest, wie weit
 # das Haupthaus dauerhaft zurueckfaellt: 0.55 hielt es ~3 Stufen zurueck (es kam
 # nie dran), 1.0 haelt es ~2 Stufen hinter dem Schnitt - es waechst mit, ohne
@@ -65,11 +65,10 @@ LOW_PRIORITY_DELAY_SECONDS = 7200
 UEBERLAUF_VOLL_ANTEIL = 0.99
 UEBERLAUF_MIN_STUNDEN_24H = 2
 
-# Heuristik zur Erkennung des Lagerhaus-Gebaeudes anhand von typ/name aus
-# GET /islands/{id}/buildings (typ ist ein freier String ohne Enum).
-WAREHOUSE_BUILDING_KEYWORDS = ("lager", "speicher", "warehouse")
-
-STORE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "learned.json")
+# Leerlauf-Uhren und Morgenreport-Datum ueber Neustarts hinweg (zustand.py).
+# learned.json ist der Vorgaenger und wird beim ersten Start uebernommen und geloescht.
+ZUSTAND_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "zustand.json")
+ALT_LEARNED_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "learned.json")
 # Verlauf je Insel und Tag (Produktion, Punkte, Stufen, Lager-Ueberlauf) - siehe verlauf.py
 VERLAUF_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "verlauf.json")
 

@@ -4,11 +4,9 @@ Live-Feldnamen (kein Alias-Raten noetig, kosten/naechste_stufe/verfuegbar
 kommen bereits exakt aus GET /islands/{id}/buildings - kein separater
 building_detail-Call).
 
-Kombiniert mit store.py: die Ressourcen-Gebaeude (Goldmine/Steingrube/
-Saegewerk) werden nicht mehr nur nach fester Gewichtung bewertet, sondern
-nach dem ECHTEN gelernten Produktionsertrag der naechsten Stufe, sobald
-store.py genug Beobachtungen hat. Bis dahin dienen die Gewichte aus
-config.PRIORITY_WEIGHTS als Startwert.
+Die Ressourcen-Gebaeude (Goldmine/Steingrube/Saegewerk) werden nach dem
+Produktionsertrag der naechsten Stufe aus den Regeltabellen (gamedata.py)
+bewertet; fehlt die Tabelle, dienen die Gewichte aus config.PRIORITY_WEIGHTS.
 """
 from __future__ import annotations
 
@@ -51,23 +49,19 @@ def collect_candidates(buildings: list, levels: dict) -> dict:
     return result
 
 
-def resource_gain(name: str, candidate: dict, store) -> tuple[float | None, str]:
+def resource_gain(name: str, candidate: dict) -> tuple[float | None, str]:
     """Produktionsplus pro Stunde, das dieser Ausbau bringt - und woher der Wert
-    stammt. Erste Wahl sind die offiziellen Regeltabellen (gamedata.py), die
-    jede Stufe kennen; die aus Beobachtungen gelernten Werte greifen nur, wenn
-    die Tabelle fehlt (Datei nicht geholt, Stufe ausserhalb 1-20)."""
+    stammt: aus den offiziellen Regeltabellen (gamedata.py). Fehlt die Tabelle
+    (Datei nicht geholt, Stufe ausserhalb 1-20), entscheidet die Gewichtung."""
     gain = gamedata.production_gain(name, candidate["level"], candidate["target_level"])
     if gain is not None:
         return gain, "Tabelle"
-    learned = store.production_delta(name, candidate["target_level"])
-    if learned is not None:
-        return learned.gold + learned.stein + learned.holz, "gelernt"
     return None, "Gewichtung"
 
 
-def _resource_score(name: str, candidate: dict, capacity: float, store) -> float:
+def _resource_score(name: str, candidate: dict, capacity: float) -> float:
     cost_norm = max(normalized_cost(candidate["cost"], capacity), 1e-6)
-    gain, _ = resource_gain(name, candidate, store)
+    gain, _ = resource_gain(name, candidate)
     if gain is not None and gain > 0:
         return gain / cost_norm
     weight = config.PRIORITY_WEIGHTS.get(name, 100.0)
@@ -116,7 +110,7 @@ def nur_niedrige(candidates: dict) -> bool:
     return bool(candidates) and all(n in config.LOW_PRIORITY_BUILDINGS for n in candidates)
 
 
-def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allow_low: bool,
+def choose_upgrade(candidates: dict, current: dict, capacity: float, allow_low: bool,
                    ueberlauf: bool = False):
     allow_low = allow_low or nur_niedrige(candidates)
     payable = {n: c for n, c in candidates.items() if affordable(c["cost"], current)}
@@ -130,7 +124,7 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, store, allo
     # 1. Ressourcen-Gebaeude zuerst - bewertet nach gelerntem Ertrag pro Kosten,
     #    sonst nach statischer Gewichtung.
     resource_choices = [
-        (_resource_score(n, payable[n], capacity, store), payable[n])
+        (_resource_score(n, payable[n], capacity), payable[n])
         for n in config.RESOURCE_BUILDINGS if n in payable
     ]
     if resource_choices:

@@ -128,6 +128,16 @@ class Basis(unittest.TestCase):
 
 
 class Zuordnung(Basis):
+    def test_leere_warteschlange_fragt_keine_ausbildung_ab(self):
+        api = FakeApi([insel(1, "10:10:1"), insel(2, "40:40:1")])
+        api.get_training = mock.Mock(side_effect=api.get_training)
+        bot, st = self.bot(api)
+        bot.tick()
+        api.get_training.assert_not_called()
+        st.neuer_eintrag(42, 40, 1, "Ziel")
+        bot.tick()
+        self.assertTrue(api.get_training.called)
+
     def test_naechste_geeignete_insel_spart_und_reserviert(self):
         api = FakeApi([insel(1, "10:10:1"), insel(2, "40:40:1"), insel(3, "41:40:1", hafen=9)])
         bot, st = self.bot(api)

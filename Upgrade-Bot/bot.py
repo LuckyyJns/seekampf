@@ -25,13 +25,13 @@ from planner import (
     rejection_reason,
     resource_gain,
 )
-from store import Store
+from zustand import Zustand
 from verlauf import Verlauf
 
 TZ = ZoneInfo(config.TIMEZONE_NAME)
 
 # Seit wann ist die Warteschlange einer Insel leer, ohne dass die
-# Prioritaets-Kaskade etwas Wichtigeres bauen wollte? Wird in data/learned.json
+# Prioritaets-Kaskade etwas Wichtigeres bauen wollte? Wird in data/zustand.json
 # mitgespeichert und beim Start wieder geladen, damit ein Neustart die
 # Leerlauf-Wartezeit nicht von vorne beginnen laesst.
 LOW_PRIORITY_SINCE: dict[str, float] = {}
@@ -50,29 +50,29 @@ BEFEHL_ERGEBNISSE: deque = deque(maxlen=20)
 NAECHSTER_TICK = {"ts": 0.0}
 
 
-def _load_low_priority(store) -> None:
-    """Leerlauf-Uhren aus dem Store in den Speicher holen (einmal beim Start)."""
+def _load_low_priority(zustand) -> None:
+    """Leerlauf-Uhren aus data/zustand.json in den Speicher holen (einmal beim Start)."""
     LOW_PRIORITY_SINCE.clear()
-    for key, value in (store.data.get("low_priority_since") or {}).items():
+    for key, value in (zustand.data.get("low_priority_since") or {}).items():
         try:
             LOW_PRIORITY_SINCE[key] = float(value)
         except (TypeError, ValueError):
             continue
 
 
-def _start_low_priority(store, key: str, now_ts: float) -> None:
+def _start_low_priority(zustand, key: str, now_ts: float) -> None:
     """Uhr starten, falls sie nicht schon laeuft."""
     if key in LOW_PRIORITY_SINCE:
         return
     LOW_PRIORITY_SINCE[key] = now_ts
-    store.data.setdefault("low_priority_since", {})[key] = now_ts
-    store.save()
+    zustand.data.setdefault("low_priority_since", {})[key] = now_ts
+    zustand.save()
 
 
-def _stop_low_priority(store, key: str) -> None:
+def _stop_low_priority(zustand, key: str) -> None:
     LOW_PRIORITY_SINCE.pop(key, None)
-    if (store.data.get("low_priority_since") or {}).pop(key, None) is not None:
-        store.save()
+    if (zustand.data.get("low_priority_since") or {}).pop(key, None) is not None:
+        zustand.save()
 
 
 # ----------------------------------------------------------------------
@@ -132,14 +132,6 @@ def _ohne_reserve(resources: dict, reserve: dict) -> dict:
     for r in config.RESOURCE_KEYS:
         aus[r] = max(0.0, float(resources.get(r, 0) or 0) - reserve.get(r, 0.0))
     return aus
-
-
-def _lager_key(buildings: list) -> str | None:
-    for b in buildings:
-        haystack = f"{b.get('typ', '')} {b.get('name', '')}".lower()
-        if any(kw in haystack for kw in config.WAREHOUSE_BUILDING_KEYWORDS):
-            return b["typ"]
-    return None
 
 
 # ----------------------------------------------------------------------
@@ -248,7 +240,7 @@ def _ueberlauf(resources: dict, verlauf, island_id, now_ts: float,
     return verlauf.voll_letzte_24h(island_id, now_ts) >= config.UEBERLAUF_MIN_STUNDEN_24H * 3600, voll
 
 
-def _forecast(candidates: dict, resources: dict, capacity: float, store, key: str,
+def _forecast(candidates: dict, resources: dict, capacity: float, key: str,
               queue_empty: bool, now: datetime, now_ts: float, ueberlauf: bool = False):
     """Wann erlauben die Regeln den naechsten Ausbau?
 
@@ -272,13 +264,13 @@ def _forecast(candidates: dict, resources: dict, capacity: float, store, key: st
     for seconds in sorted(points):
         projected = _projected_usable(resources, seconds)
         allow_low = _allow_low_at(key, queue_empty, now_ts + seconds)
-        chosen = choose_upgrade(candidates, projected, capacity, store, allow_low, ueberlauf)
+        chosen = choose_upgrade(candidates, projected, capacity, allow_low, ueberlauf)
         if chosen is not None:
             return seconds, chosen, unreachable
     return None, None, unreachable
 
 
-def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key: str,
+def _skip_reason(candidates: dict, resources: dict, capacity: float, key: str,
                  queue_empty: bool, allow_low: bool, now: datetime, now_ts: float,
                  ueberlauf: bool = False) -> str:
     """Warum wurde kein (weiterer) Ausbau gestartet - und wann geht es weiter?"""
@@ -297,7 +289,7 @@ def _skip_reason(candidates: dict, resources: dict, capacity: float, store, key:
         parts.append("kein Ausbau bezahlbar")
 
     seconds, chosen, unreachable = _forecast(
-        candidates, resources, capacity, store, key, queue_empty, now, now_ts, ueberlauf
+        candidates, resources, capacity, key, queue_empty, now, now_ts, ueberlauf
     )
     if chosen is not None:
         missing = missing_resources(chosen["cost"], usable_now)
@@ -381,14 +373,14 @@ def _zielgebaeude(einstellung: dict, levels: dict, buildings_by_typ: dict) -> tu
     return None, "alle Ausbauziele erreicht - baut wieder automatisch"
 
 
-def _waehlen(candidates: dict, current: dict, capacity: float, store, allow_low: bool, ziel: str | None,
+def _waehlen(candidates: dict, current: dict, capacity: float, allow_low: bool, ziel: str | None,
              ueberlauf: bool = False):
     """Mit Priorisierung nur das Zielgebaeude, und nur wenn bezahlbar - sonst
     wird gewartet, statt etwas anderes zu bauen."""
     if ziel is not None:
         c = candidates.get(ziel)
         return c if c is not None and affordable(c["cost"], current) else None
-    return choose_upgrade(candidates, current, capacity, store, allow_low, ueberlauf)
+    return choose_upgrade(candidates, current, capacity, allow_low, ueberlauf)
 
 
 def _warteschlange_frei_in(active_orders: list, now: datetime) -> float | None:
@@ -404,7 +396,7 @@ def _warteschlange_frei_in(active_orders: list, now: datetime) -> float | None:
 
 
 def _nebenher_waehlen(ziel: str, candidates: dict, planbar: dict, current: dict, capacity: float,
-                      store, buildings_by_typ: dict, levels: dict, active_orders: list,
+                      buildings_by_typ: dict, levels: dict, active_orders: list,
                       now: datetime, ueberlauf: bool):
     """Waehrend auf das Zielgebaeude (Priorisierung/Ausbauziel) gespart wird:
     ein anderer Ausbau, der das Ziel NICHT verzoegert - oder None.
@@ -444,7 +436,7 @@ def _nebenher_waehlen(ziel: str, candidates: dict, planbar: dict, current: dict,
         harmlos[name] = c
     if not harmlos:
         return None
-    return choose_upgrade(harmlos, current, capacity, store, False, ueberlauf)
+    return choose_upgrade(harmlos, current, capacity, False, ueberlauf)
 
 
 def _ziel_grund(ziel: str, candidates: dict, buildings_by_typ: dict, resources: dict, now: datetime) -> str:
@@ -468,7 +460,7 @@ def _ziel_grund(ziel: str, candidates: dict, buildings_by_typ: dict, resources: 
             f"bezahlbar in {_fmt_duration(eta or 0)} (ca. {ready_at})")
 
 
-def _plan(candidates: dict, resources: dict, capacity: float, store, key: str, queue_empty: bool,
+def _plan(candidates: dict, resources: dict, capacity: float, key: str, queue_empty: bool,
           active_orders: list, now: datetime, now_ts: float, ziel: str | None,
           ueberlauf: bool = False) -> dict | None:
     """Was der Bot als Naechstes bauen wuerde und fruehestens wann - fuer den
@@ -481,8 +473,7 @@ def _plan(candidates: dict, resources: dict, capacity: float, store, key: str, q
             return None
         seconds, cause = _eta_seconds(chosen["cost"], resources, usable)
     else:
-        seconds, chosen, _ = _forecast(candidates, resources, capacity, store, key, queue_empty, now, now_ts,
-                                       ueberlauf)
+        seconds, chosen, _ = _forecast(candidates, resources, capacity, key, queue_empty, now, now_ts, ueberlauf)
         cause = ""
         if chosen is None:
             return None
@@ -549,7 +540,7 @@ def _befehl_ergebnis(befehl: dict, ok: bool, text: str) -> None:
     })
 
 
-def process_island(client, island_id, store, logger, einstellung: dict | None = None,
+def process_island(client, island_id, zustand, logger, einstellung: dict | None = None,
                    auftraege: list | None = None, verlauf=None, punkte=None):
     einstellung = einstellung or dict(steuerung.STANDARD)
     key = str(island_id)
@@ -559,8 +550,6 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
     resources = client.get_island_resources(island_id)
     buildings = client.get_island_buildings(island_id)
     _bilanz_beobachten(island_id, resources, time.time())
-
-    store.observe(buildings, resources, storage_key=_lager_key(buildings), island_key=key)
 
     active_orders = [
         o for o in orders if o.get("status", "").lower() not in config.FINISHED_CONSTRUCTION_STATUSES
@@ -592,18 +581,18 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
         now = time.time()
         queue_empty = len(active_orders) == 0
         if not queue_empty:
-            _stop_low_priority(store, key)
+            _stop_low_priority(zustand, key)
         allow_low = (
             queue_empty and key in LOW_PRIORITY_SINCE
             and now - LOW_PRIORITY_SINCE[key] >= config.LOW_PRIORITY_DELAY_SECONDS
         )
 
         ueberlauf, volle = _ueberlauf(resources, verlauf, island_id, now, active_orders)
-        chosen = _waehlen(candidates, current, capacity, store, allow_low, ziel, ueberlauf)
+        chosen = _waehlen(candidates, current, capacity, allow_low, ziel, ueberlauf)
 
         nebenher = False
         if chosen is None and ziel is not None and einstellung.get("nebenher", True):
-            chosen = _nebenher_waehlen(ziel, candidates, planbar, current, capacity, store, by_typ, levels,
+            chosen = _nebenher_waehlen(ziel, candidates, planbar, current, capacity, by_typ, levels,
                                        active_orders, now_dt, ueberlauf)
             nebenher = chosen is not None
 
@@ -620,17 +609,17 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
             # Lagerhaus, das noch nicht noetig ist (oder ein zu teures
             # Haupthaus), blockiert die Uhr also nicht mehr.
             if queue_empty:
-                _start_low_priority(store, key, now)
+                _start_low_priority(zustand, key, now)
             else:
-                _stop_low_priority(store, key)
+                _stop_low_priority(zustand, key)
             next_hint = _skip_reason(
-                candidates, planbar, capacity, store, key, queue_empty, allow_low, now_dt, now, ueberlauf
+                candidates, planbar, capacity, key, queue_empty, allow_low, now_dt, now, ueberlauf
             )
             if reserve:
                 next_hint += f"; Kolonisations-Bot spart hier {_fmt_res(reserve)} an"
             break
 
-        _stop_low_priority(store, key)
+        _stop_low_priority(zustand, key)
         try:
             client.start_upgrade(island_id, chosen["building"])
         except ApiError as exc:
@@ -652,7 +641,7 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
         if ueberlauf and chosen["building"] == "lagerhaus":
             label += f" (Lager laeuft ueber: {'/'.join(volle)})"
         if chosen["building"] in config.RESOURCE_BUILDINGS:
-            gain, quelle = resource_gain(chosen["building"], chosen, store)
+            gain, quelle = resource_gain(chosen["building"], chosen)
             if gain:
                 label += f" (+{gain:.0f}/h, {quelle})"
         started.append(label)
@@ -696,7 +685,7 @@ def process_island(client, island_id, store, logger, einstellung: dict | None = 
     plan = None
     if einstellung.get("aktiv", True):
         plan = _plan(candidates, _ohne_reserve(resources, _kolo_reserve(island_id)),
-                     float(resources.get("kapazitaet", 0) or 0), store, key,
+                     float(resources.get("kapazitaet", 0) or 0), key,
                      len(active_orders) == 0, active_orders, now_dt, jetzt_ts, ziel, ueberlauf)
     if verlauf is not None:
         verlauf.erfassen(island_id, resources, buildings, punkte, len(started), jetzt_ts)
@@ -771,10 +760,10 @@ def _track_health(ok: bool, logger) -> None:
         HEALTH["alerted"] = True
 
 
-def _report_window_start(store, now: datetime) -> datetime:
+def _report_window_start(zustand, now: datetime) -> datetime:
     """Beginn des Berichtszeitraums: der letzte gesendete Report, sonst das
     Standardfenster (24h)."""
-    raw = store.data.get("last_report_at")
+    raw = zustand.data.get("last_report_at")
     if raw:
         try:
             last = datetime.fromisoformat(raw)
@@ -784,26 +773,26 @@ def _report_window_start(store, now: datetime) -> datetime:
     return now - timedelta(hours=config.REPORT_FALLBACK_WINDOW_HOURS)
 
 
-def _maybe_send_report(island_reports, store, logger):
+def _maybe_send_report(island_reports, zustand, logger):
     if not config.TELEGRAM_BOT_TOKEN or not config.TELEGRAM_CHAT_ID:
         return
     now = datetime.now(TZ)
     if now.hour < config.REPORT_HOUR:
         return
     today_str = now.date().isoformat()
-    if store.data.get("last_report_date") == today_str or not island_reports:
+    if zustand.data.get("last_report_date") == today_str or not island_reports:
         return
 
-    since = _report_window_start(store, now)
+    since = _report_window_start(zustand, now)
     text = report.build_summary(island_reports, since=since, until=now, log_dir=config.LOG_DIR)
     notifier = _notifier()
     if notifier is None:
         return
     ok = notifier.send("Seekampf Morgenreport", text)
     if ok:
-        store.data["last_report_date"] = today_str
-        store.data["last_report_at"] = now.isoformat()
-        store.save()
+        zustand.data["last_report_date"] = today_str
+        zustand.data["last_report_at"] = now.isoformat()
+        zustand.save()
         logger.info(
             "Morgenreport gesendet (Zeitraum %s bis %s, %s).",
             since.strftime("%d.%m. %H:%M"), now.strftime("%d.%m. %H:%M"),
@@ -829,7 +818,7 @@ def _status_schreiben(logger, inseln: dict, fehler: str | None) -> None:
         logger.error("status.json nicht schreibbar: %s", exc)
 
 
-def tick(client, store, logger, befehle: list | None = None, verlauf=None) -> bool:
+def tick(client, zustand, logger, befehle: list | None = None, verlauf=None) -> bool:
     """Ein Durchlauf ueber alle Inseln. True, wenn mindestens eine Insel
     fehlerfrei bearbeitet werden konnte (siehe _track_health)."""
     befehle = befehle or []
@@ -872,7 +861,7 @@ def tick(client, store, logger, befehle: list | None = None, verlauf=None) -> bo
                    "position": position, "einstellung": einstellung, "zeit": time.time(), "fehler": None}
         try:
             resources, orders, hint, info = process_island(
-                client, island_id, store, logger, einstellung, auftraege.pop(str(island_id), None),
+                client, island_id, zustand, logger, einstellung, auftraege.pop(str(island_id), None),
                 verlauf=verlauf, punkte=island.get("punkte"))
             island_reports[island_id] = (name, resources, orders, hint)
             in_s = (info.get("plan") or {}).get("in_s")
@@ -898,7 +887,7 @@ def tick(client, store, logger, befehle: list | None = None, verlauf=None) -> bo
             verlauf.speichern()
         except OSError as exc:
             logger.error("data/verlauf.json nicht schreibbar: %s", exc)
-    _maybe_send_report(island_reports, store, logger)
+    _maybe_send_report(island_reports, zustand, logger)
     _status_schreiben(logger, status_inseln, None if island_reports else "keine Insel fehlerfrei bearbeitet")
     return bool(island_reports)
 
@@ -907,7 +896,7 @@ def main():
     logger = get_logger()
     logger.info("Upgrade-Bot gestartet (Poll-Intervall: %ss, Planer: Prioritaets-Kaskade, "
                 "Ertragsbewertung aus %s)", config.POLL_INTERVAL_SECONDS,
-                "den Regeltabellen" if gamedata.available() else "gelernten Beobachtungen")
+                "den Regeltabellen" if gamedata.available() else "der Gewichtung")
 
     if not config.API_KEY:
         logger.error("SEEKAMPF_API_KEY ist nicht gesetzt (.env pruefen). Beende.")
@@ -919,9 +908,9 @@ def main():
         # statt den Bot alle 10 Sekunden endlos neu zu starten.
         raise SystemExit(1)
 
-    os.makedirs(os.path.dirname(config.STORE_PATH), exist_ok=True)
-    store = Store(config.STORE_PATH)
-    _load_low_priority(store)
+    os.makedirs(os.path.dirname(config.ZUSTAND_PATH), exist_ok=True)
+    zustand = Zustand(config.ZUSTAND_PATH, alt_path=config.ALT_LEARNED_PATH)
+    _load_low_priority(zustand)
     verlauf = Verlauf()
     client = SeekampfClient()
     steuerung.geaendert()  # Ausgangsstand merken
@@ -942,7 +931,7 @@ def main():
             NAECHSTER_TICK["ts"] = jetzt + config.POLL_INTERVAL_SECONDS
             NAECHSTES_EREIGNIS["ts"] = None
             try:
-                ok = tick(client, store, logger, befehle, verlauf)
+                ok = tick(client, zustand, logger, befehle, verlauf)
             except Exception:
                 # Letztes Sicherheitsnetz: der Dauerprozess soll nie durch einen
                 # einzelnen fehlerhaften Tick sterben.

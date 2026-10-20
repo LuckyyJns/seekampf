@@ -341,13 +341,15 @@ class Kolonisierer:
     # ----------------------------------------------------------- Zuordnung
     def _zuordnen(self) -> None:
         """Jedem Eintrag (in Reihenfolge der Warteschlange) ein Schiff bzw.
-        eine Bau-Insel geben."""
+        eine Bau-Insel geben. Ohne offenen Eintrag wird nichts abgefragt."""
+        offen = [e for e in self.state.warteschlange if e["status"] not in ("unterwegs",)]
+        if not offen:
+            return
         geeignet = [iid for iid in self.ov if self.eignung(iid) is None]
         im_hafen = {iid: int((ov.get("schiffe") or {}).get(config.SCHIFF) or 0) for iid, ov in self.ov.items()}
         in_bau = {iid: self._in_ausbildung(iid) for iid in geeignet}
         belegt: set[int] = set()   # Inseln, die gerade fuer einen Eintrag bauen oder sparen
 
-        offen = [e for e in self.state.warteschlange if e["status"] not in ("unterwegs",)]
         # Zuerst behalten Eintraege, deren Schiff schon gebaut wird, ihre Insel.
         for e in offen:
             iid = e.get("bau_insel")

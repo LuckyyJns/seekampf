@@ -28,11 +28,6 @@ from seekampf_gemeinsam import reservierungen  # noqa: E402
 TZ = ZoneInfo(config.TIMEZONE_NAME)
 
 
-class KeinStore:
-    def production_delta(self, *a):
-        return None
-
-
 def kandidat(name, stufe, kosten):
     return {"building": name, "level": stufe, "target_level": stufe + 1, "cost": kosten}
 
@@ -50,7 +45,7 @@ class NurNochMauerUndTurm(unittest.TestCase):
 
     def test_nur_niedrige_uebrig_baut_sofort(self):
         kandidaten = {"steinmauer": kandidat("steinmauer", 6, {"gold": 429, "stein": 1431, "holz": 215})}
-        wahl = planner.choose_upgrade(kandidaten, self.genug, 50000, KeinStore(), False)
+        wahl = planner.choose_upgrade(kandidaten, self.genug, 50000, False)
         self.assertEqual(wahl["building"], "steinmauer")
         self.assertNotEqual(planner.rejection_reason("steinmauer", kandidaten, 50000, False), "niedrige Prioritaet")
 
@@ -59,7 +54,7 @@ class NurNochMauerUndTurm(unittest.TestCase):
             "steinmauer": kandidat("steinmauer", 6, {"gold": 429, "stein": 1431, "holz": 215}),
             "haupthaus": kandidat("haupthaus", 14, {"gold": 9000, "stein": 9000, "holz": 9000}),
         }
-        self.assertIsNone(planner.choose_upgrade(kandidaten, self.genug, 50000, KeinStore(), False))
+        self.assertIsNone(planner.choose_upgrade(kandidaten, self.genug, 50000, False))
         self.assertEqual(planner.rejection_reason("steinmauer", kandidaten, 50000, False), "niedrige Prioritaet")
 
     def test_keine_kandidaten(self):
@@ -127,7 +122,7 @@ class Nebenher(unittest.TestCase):
     def waehlen(self, kandidaten, by_typ, auftraege=()):
         levels = {n: b["stufe"] for n, b in by_typ.items()}
         current = bot._usable_resources(self.lager)
-        return bot._nebenher_waehlen("haupthaus", kandidaten, self.lager, current, 50000, KeinStore(), by_typ,
+        return bot._nebenher_waehlen("haupthaus", kandidaten, self.lager, current, 50000, by_typ,
                                      levels, list(auftraege), self.jetzt, False)
 
     def test_nur_ueberschuss_wird_verbaut(self):
@@ -163,7 +158,7 @@ class Nebenher(unittest.TestCase):
         by_typ = self.by_typ(**extra)
         levels = {n: b["stufe"] for n, b in by_typ.items()}
         self.assertIsNone(bot._nebenher_waehlen("haupthaus", self.kandidaten(**extra), unerreichbar, current, 50000,
-                                                KeinStore(), by_typ, levels, [], self.jetzt, False))
+                                                by_typ, levels, [], self.jetzt, False))
 
 
 class KoloReserve(unittest.TestCase):
@@ -201,11 +196,11 @@ class Ueberlauf(unittest.TestCase):
         self.genug = {"gold": 1749, "stein": 1000, "holz": 1000}
 
     def test_ohne_ueberlauf_gewinnt_das_ressourcengebaeude(self):
-        wahl = planner.choose_upgrade(self.kandidaten, self.genug, 1749, KeinStore(), False)
+        wahl = planner.choose_upgrade(self.kandidaten, self.genug, 1749, False)
         self.assertEqual(wahl["building"], "goldmine")
 
     def test_bei_ueberlauf_kommt_das_lagerhaus_zuerst(self):
-        wahl = planner.choose_upgrade(self.kandidaten, self.genug, 1749, KeinStore(), False, ueberlauf=True)
+        wahl = planner.choose_upgrade(self.kandidaten, self.genug, 1749, False, ueberlauf=True)
         self.assertEqual(wahl["building"], "lagerhaus")
 
     def _verlauf(self, voll_s):
