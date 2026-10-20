@@ -53,6 +53,14 @@ Netz und ohne echten Zustand). `tests.sh` laeuft automatisch vor jedem
 `git config core.hooksPath githooks`); schlaegt etwas fehl, wird nicht
 committet. Nach Code-Aenderungen erst `./tests.sh`, dann den Dienst neu starten.
 
+Zusammenspiel mehrerer Bots: `gemeinsam/seekampf_gemeinsam/testwelt.py` baut
+eine kleine Spielwelt nach (Inseln, Schiffe, Truppen, Rohstoffe, Flotten,
+Ausbildung, Karte), die sich mehrere Bots mit ihren echten API-Clients teilen.
+`Flotten-Manager/tests/test_zusammenspiel.py` laesst darin Flotten-Manager,
+Ausbildungs- und Kolonisations-Bot gegeneinander laufen - z. B. beide wollen
+dasselbe Kriegsschiff, oder eine Antwort geht genau beim Losschicken verloren.
+Neue Faelle dieser Art gehoeren dorthin.
+
 ## Sicherung
 
 [`sicherung.sh`](sicherung.sh) packt jede Nacht um 3:30 (crontab) Code,
