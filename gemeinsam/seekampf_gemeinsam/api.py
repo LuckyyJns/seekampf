@@ -17,9 +17,11 @@ Jede schreibende Anfrage bekommt einen eigenen `Idempotency-Key` (laut
 API-Spezifikation optional; derselbe Schluessel soll einen Auftrag nur einmal
 ausfuehren). Geht die Antwort verloren (Timeout, Verbindung weg), wird sie mit
 DEMSELBEN Schluessel einmal wiederholt - aber nur, wenn IDEMPOTENZ_WIEDERHOLEN
-an ist. Das bleibt aus, bis ein Test gezeigt hat, dass der Server den
-Schluessel wirklich beachtet (in openapi.json ist er bei keinem Endpunkt
-eingetragen); sonst koennte ein Auftrag doppelt ausgefuehrt werden.
+an ist. Das bleibt AUS: Test am 2026-10-20 (zweimal POST /islands/581/training
+mit demselben Schluessel) ergab zwei Auftraege - der Server beachtet den
+Schluessel nicht (in openapi.json ist er auch bei keinem Endpunkt eingetragen).
+Eine Wiederholung wuerde Auftraege doppelt ausfuehren. Erst nach einem neuen,
+erfolgreichen Test einschalten; mitgeschickt wird der Schluessel trotzdem.
 """
 from __future__ import annotations
 
