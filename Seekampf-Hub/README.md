@@ -25,6 +25,15 @@ leer stand und wie viel Produktion durch volle Lager verloren ging (gestern /
 heute, „läuft über“ = Lagerhaus wird vorgezogen), Temperatur/Drosselung/Speicher des Pi, Cloudflare-Tunnel und die
 nächtliche Sicherung (`~/Seekampf/sicherung.sh`). Code: `gesundheit.py`.
 
+Jeder Bot schreibt nach jedem Takt selbst ein **Lebenszeichen**
+(`seekampf_gemeinsam/lebenszeichen.py`, Datei im Arbeitsspeicher unter
+`/dev/shm/seekampf-lebenszeichen/<bot>.json`): letzter Takt, Fehler in Folge
+und die Warnungen/Fehler der letzten 24 h. Daraus zählt die Seite die Fehler
+(nicht mehr aus den Logdateien) und meldet **„hängt“**, wenn der letzte Takt
+länger als das 5-Fache des Takts zurückliegt, obwohl der Dienst läuft
+(Flotten-Manager 25 s, Allianz-Bot 75 s, Kolonisation 2,5 min, Ausbildung
+5 min, Upgrade-Bot 25 min). Nur im Hub, keine Telegram-Meldung.
+
 ## Upgrade-Bot: Verlauf
 
 Im Bereich **Upgrade-Bot** unten: Linien je Insel über die letzten 60 Tage –
@@ -178,6 +187,18 @@ Webseite, die man im eingeloggten Browser öffnet, unbemerkt Dienste stoppen. Vo
 
 `steuerung.json` des Upgrade-Bots schreiben Hub und Bot (neue Inseln) unter
 derselben Dateisperre `data/steuerung.lock`.
+
+Befehle (`befehle/*.json`) löscht der Upgrade-Bot **vor** der Ausführung
+(`steuerung.befehle_holen`). Das ist gewollt: ein Befehl läuft so nie zweimal,
+auch wenn er scheitert. Stürzt der Bot genau zwischen Löschen und Ausführen
+ab, ist der Befehl verloren – dann im Hub einfach noch einmal auslösen. Das
+Ergebnis jedes Befehls steht in `status.json` unter `befehle`.
+
+Gleichzeitige Zugriffe: Kolonisations- und Ausbildungs-Bot halten während
+ihres Takts die Sperre ihres Zustands; Änderungen aus dem Hub warten so lange
+(Sekunden). Der Flotten-Manager hält sie bewusst nicht über seinen Takt (die
+Seite hinge sonst bei jedem Takt); er kopiert seinen Zustand für die
+Schnittstelle und wiederholt die Kopie, falls sie mitten in eine Änderung fällt.
 
 ## Einrichtung
 

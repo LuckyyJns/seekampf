@@ -189,6 +189,13 @@ class Kolonisierer:
 
     # --------------------------------------------------------------- Tick
     def tick(self) -> None:
+        # Der Takt aendert die Warteschlange; Hinzufuegen/Entfernen/Verschieben
+        # aus dem Hub warten so lange (dieselbe Sperre wie state.py), statt
+        # mitten im Takt eine Aenderung zu verlieren oder einen halben Stand zu zeigen.
+        with self.state.lock:
+            self._tick()
+
+    def _tick(self) -> None:
         jetzt = time.time()
         self._training = {}
         if self.spieler is None:

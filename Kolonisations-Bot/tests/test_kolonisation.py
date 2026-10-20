@@ -127,6 +127,20 @@ class Basis(unittest.TestCase):
         return self._eintraege("rohstoffe")
 
 
+class Sperre(Basis):
+    def test_takt_wartet_auf_aenderungen_aus_dem_hub(self):
+        import threading
+        api = FakeApi([insel(1, "10:10:1")])
+        bot, st = self.bot(api)
+        fertig = threading.Event()
+        with st.lock:                          # der Hub aendert gerade die Warteschlange
+            t = threading.Thread(target=lambda: (bot.tick(), fertig.set()))
+            t.start()
+            self.assertFalse(fertig.wait(0.3))
+        self.assertTrue(fertig.wait(5))
+        t.join()
+
+
 class Zuordnung(Basis):
     def test_leere_warteschlange_fragt_keine_ausbildung_ab(self):
         api = FakeApi([insel(1, "10:10:1"), insel(2, "40:40:1")])

@@ -163,8 +163,11 @@ def hinzufuegen(payload: dict = Body(...)):
         raise HTTPException(409, f"{koord} gehoert schon dir")
     if besitzer and not payload.get("bewohnt"):
         raise HTTPException(409, f"BEWOHNT|{besitzer}")
-    e = state.neuer_eintrag(x, y, z, info.get("name") or "Unbewohnte Insel", bewohnt=bool(besitzer),
-                            begleitung=begleitung_bereinigen(payload.get("begleitung")) if besitzer else None)
+    with state.lock:   # erneut pruefen: waehrend der Abfrage koennte derselbe Eintrag dazugekommen sein
+        if any(e["koordinaten"] == koord for e in state.warteschlange):
+            raise HTTPException(409, f"{koord} steht schon in der Warteschlange")
+        e = state.neuer_eintrag(x, y, z, info.get("name") or "Unbewohnte Insel", bewohnt=bool(besitzer),
+                                begleitung=begleitung_bereinigen(payload.get("begleitung")) if besitzer else None)
     log.info("Seekampf-Hub: %s (%s) in die Warteschlange (Platz %d)", koord, e["name"], len(state.warteschlange))
     return e
 
@@ -174,20 +177,23 @@ def entfernen(eintrag_id: int):
     """Aus der Warteschlange nehmen. Faehrt das Schiff schon, wird es
     zurueckgerufen, solange das noch geht; ein Schiff in Ausbildung nimmt
     danach das naechste Ziel."""
-    e = state.eintrag(eintrag_id)
-    if e is None:
-        raise HTTPException(404, "Eintrag nicht gefunden")
-    text = "von Hand entfernt"
-    if e["status"] == "unterwegs" and not e.get("zurueckgerufen"):
-        if time.time() < float(e.get("rueckruf_bis") or 0):
-            try:
-                client.recall_fleet(e["flotte_id"])
-                text += ", Schiff zurueckgerufen"
-            except ApiError as err:
-                raise HTTPException(502, f"Rueckruf fehlgeschlagen: {err.message}") from err
-        else:
-            text += " (Schiff war nicht mehr zurueckrufbar)"
-    state.abschliessen(e, "entfernt", text)
+    # Unter der Sperre: der Takt darf das Schiff nicht zwischen Pruefen und
+    # Entfernen losschicken (es fuehre sonst ohne Eintrag und ohne Rueckruf).
+    with state.lock:
+        e = state.eintrag(eintrag_id)
+        if e is None:
+            raise HTTPException(404, "Eintrag nicht gefunden")
+        text = "von Hand entfernt"
+        if e["status"] == "unterwegs" and not e.get("zurueckgerufen"):
+            if time.time() < float(e.get("rueckruf_bis") or 0):
+                try:
+                    client.recall_fleet(e["flotte_id"])
+                    text += ", Schiff zurueckgerufen"
+                except ApiError as err:
+                    raise HTTPException(502, f"Rueckruf fehlgeschlagen: {err.message}") from err
+            else:
+                text += " (Schiff war nicht mehr zurueckrufbar)"
+        state.abschliessen(e, "entfernt", text)
     log.info("Seekampf-Hub: %s %s", e["koordinaten"], text)
     return {"ok": True, "text": text}
 
@@ -196,14 +202,14 @@ def entfernen(eintrag_id: int):
 def begleitung(eintrag_id: int, payload: dict = Body(...)):
     """Weitere Schiffe/Truppen fuer ein bewohntes Ziel: {schiffe: {typ: n}, truppen: {typ: n}}.
     Sie muessen beim Start im Hafen der Bau-Insel liegen; der Bot bildet sie nicht aus."""
-    e = state.eintrag(eintrag_id)
-    if e is None:
-        raise HTTPException(404, "Eintrag nicht gefunden")
-    if not e.get("bewohnt"):
-        raise HTTPException(400, "Begleitung gibt es nur bei bewohnten Inseln")
-    if e["status"] == "unterwegs":
-        raise HTTPException(409, "Das Schiff ist schon unterwegs")
     with state.lock:
+        e = state.eintrag(eintrag_id)
+        if e is None:
+            raise HTTPException(404, "Eintrag nicht gefunden")
+        if not e.get("bewohnt"):
+            raise HTTPException(400, "Begleitung gibt es nur bei bewohnten Inseln")
+        if e["status"] == "unterwegs":
+            raise HTTPException(409, "Das Schiff ist schon unterwegs")
         e["begleitung"] = begleitung_bereinigen(payload)
     state.save()
     return {"ok": True, "begleitung": e["begleitung"]}
