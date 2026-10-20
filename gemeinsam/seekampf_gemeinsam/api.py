@@ -12,10 +12,19 @@ Wiederholt wird:
 POST/DELETE werden bei 5xx NIE wiederholt: sie sind nicht idempotent (eine
 Flotte oder ein Ausbau koennte sonst doppelt losgehen, obwohl der erste
 Versuch angekommen ist).
+
+Jede schreibende Anfrage bekommt einen eigenen `Idempotency-Key` (laut
+API-Spezifikation optional; derselbe Schluessel soll einen Auftrag nur einmal
+ausfuehren). Geht die Antwort verloren (Timeout, Verbindung weg), wird sie mit
+DEMSELBEN Schluessel einmal wiederholt - aber nur, wenn IDEMPOTENZ_WIEDERHOLEN
+an ist. Das bleibt aus, bis ein Test gezeigt hat, dass der Server den
+Schluessel wirklich beachtet (in openapi.json ist er bei keinem Endpunkt
+eingetragen); sonst koennte ein Auftrag doppelt ausgefuehrt werden.
 """
 from __future__ import annotations
 
 import time
+import uuid
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
@@ -25,6 +34,8 @@ from urllib3.util.retry import Retry
 
 API_BASE_URL = "https://seekampf.de/api/v1"
 MAX_429_VERSUCHE = 3
+SCHREIBEND = ("POST", "PUT", "PATCH", "DELETE")
+IDEMPOTENZ_WIEDERHOLEN = False
 
 
 class ApiError(Exception):
@@ -70,7 +81,17 @@ class ApiBasis:
 
     def _request(self, method, path, **kwargs):
         url = f"{self.base_url}{path}"
-        response = self.session.request(method, url, timeout=15, **kwargs)
+        if method in SCHREIBEND:
+            kwargs["headers"] = {"Idempotency-Key": uuid.uuid4().hex, **(kwargs.get("headers") or {})}
+        try:
+            response = self.session.request(method, url, timeout=15, **kwargs)
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            if method not in SCHREIBEND or not IDEMPOTENZ_WIEDERHOLEN:
+                raise
+            # Antwort verloren: mit demselben Schluessel noch einmal - der Server
+            # fuehrt den Auftrag hoechstens einmal aus und liefert die Antwort.
+            time.sleep(2)
+            response = self.session.request(method, url, timeout=15, **kwargs)
         # 429 heisst: nichts verarbeitet - Wiederholen ist auch bei POST sicher.
         for versuch in range(MAX_429_VERSUCHE):
             if response.status_code != 429:

@@ -45,6 +45,28 @@ class Api(unittest.TestCase):
             self.assertEqual(c._request("POST", "/x"), {"ok": 1})
         schlaf.assert_called_once_with(2.0)
 
+    def test_schreibende_anfragen_tragen_idempotency_key(self):
+        c = api.ApiBasis("k")
+        c.session.request = mock.Mock(side_effect=[antwort(429), antwort(200, {"ok": 1}), antwort(200, {})])
+        with mock.patch("seekampf_gemeinsam.api.time.sleep"):
+            c._request("POST", "/fleets", json={})
+        schluessel = {k.kwargs["headers"]["Idempotency-Key"] for k in c.session.request.call_args_list}
+        self.assertEqual(len(schluessel), 1)            # 429-Wiederholung mit demselben Schluessel
+        c._request("GET", "/fleets")
+        self.assertNotIn("headers", c.session.request.call_args.kwargs)
+
+    def test_post_nach_netzfehler_nur_mit_schalter_wiederholt(self):
+        import requests
+        c = api.ApiBasis("k")
+        c.session.request = mock.Mock(side_effect=[requests.exceptions.Timeout(), antwort(200, {"id": 7})])
+        with self.assertRaises(requests.exceptions.Timeout):
+            c._request("POST", "/fleets", json={})
+        c.session.request = mock.Mock(side_effect=[requests.exceptions.Timeout(), antwort(200, {"id": 7})])
+        with mock.patch.object(api, "IDEMPOTENZ_WIEDERHOLEN", True), mock.patch("seekampf_gemeinsam.api.time.sleep"):
+            self.assertEqual(c._request("POST", "/fleets", json={}), {"id": 7})
+        k1, k2 = (k.kwargs["headers"]["Idempotency-Key"] for k in c.session.request.call_args_list)
+        self.assertEqual(k1, k2)
+
     def test_serverzeit_aus_date_header(self):
         c = api.ApiBasis("k")
         c.session.request = mock.Mock(return_value=antwort(200, {}, {"Date": "Mon, 12 Oct 2026 10:00:00 GMT"}))
