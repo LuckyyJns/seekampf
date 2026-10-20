@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest import mock
 
-from seekampf_gemeinsam import api, bilanz, geo, reservierungen
+from seekampf_gemeinsam import api, bilanz, geo, lebenszeichen, reservierungen
 from seekampf_gemeinsam.logs import logger_einrichten
 
 
@@ -188,6 +188,41 @@ class Bilanz(unittest.TestCase):
         a.speichern()
         with open(pfad) as f:
             self.assertEqual(json.load(f)["tage"][bilanz.tag()]["1"]["Ausbildung"]["gold"], -2.0)
+
+
+class Lebenszeichen(unittest.TestCase):
+    def setUp(self):
+        self.ordner = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.ordner, ignore_errors=True)
+
+    def test_takt_fehler_in_folge_und_meldungen(self):
+        import logging
+        log = logging.getLogger("lz-test")
+        lz = lebenszeichen.Lebenszeichen("testbot", 10, log, ordner=self.ordner)
+        log.warning("Insel 5: Warnung")
+        lz.takt("Netzwerk: Timeout")
+        log.error("Tick fehlgeschlagen")
+        lz.takt("Netzwerk: Timeout")
+        d = lebenszeichen.lesen("testbot", self.ordner)
+        self.assertEqual((d["fehler_in_folge"], d["letzter_fehler"], d["letzter_erfolg"]), (2, "Netzwerk: Timeout", None))
+        e = lebenszeichen.auswerten(d)
+        self.assertEqual((e["fehler"], e["warnungen"], e["haengt"]), (1, 1, False))
+        self.assertEqual(e["haeufig"][0]["text"], "Insel #: Warnung")
+        lz.takt()
+        self.assertEqual(lebenszeichen.lesen("testbot", self.ordner)["fehler_in_folge"], 0)
+        # Neustart: die Meldungen der letzten 24 h bleiben erhalten.
+        neu = lebenszeichen.Lebenszeichen("testbot", 10, ordner=self.ordner)
+        neu.takt()
+        self.assertEqual(len(lebenszeichen.lesen("testbot", self.ordner)["meldungen"]), 2)
+        log.handlers.clear()
+
+    def test_haengt_ab_dem_fuenffachen_takt(self):
+        d = {"takt_s": 60, "letzter_takt": 1000.0}
+        self.assertFalse(lebenszeichen.auswerten(d, jetzt=1000 + 299)["haengt"])
+        self.assertTrue(lebenszeichen.auswerten(d, jetzt=1000 + 301)["haengt"])
+        self.assertIsNone(lebenszeichen.auswerten(None))
 
 
 class Logs(unittest.TestCase):

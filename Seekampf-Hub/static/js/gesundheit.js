@@ -6,13 +6,20 @@ let gesundheit = null;
 const GES_BOTS = [["flotte", "Flotten-Manager"], ["upgrade", "Upgrade-Bot"], ["allianz", "Allianz-Bot"],
                   ["kolonie", "Kolonisations-Bot"], ["ausbildung", "Ausbildungs-Bot"]];
 
-/** Ampel je Bot: [Klasse, Text]. Frisch heisst: letzter Durchlauf jünger als ein paar Takte. */
+/** Ampel je Bot: [Klasse, Text]. Ein Bot "hängt", wenn sein letzter Takt länger als
+ *  das 5-Fache seines Takts zurückliegt (Lebenszeichen, das der Bot selbst schreibt). */
 function gesBewertung(name, g) {
   const d = g.dienste[name], lauf = g.durchlauf[name] || {}, log = g.logs[name] || {};
+  const lz = (g.lebenszeichen || {})[name];
   if (!d || d.zustand !== "active") return ["schlecht", "Dienst läuft nicht"];
-  const grenze = name === "upgrade" ? (lauf.takt_s || 300) + 180 : Math.max(120, 6 * (lauf.takt_s || 15));
-  if (!lauf.letzter) return ["schlecht", lauf.fehler || "noch kein Durchlauf"];
-  if (g.serverzeit - lauf.letzter > grenze) return ["schlecht", `kein Durchlauf seit ${dauer(g.serverzeit - lauf.letzter)}`];
+  if (lz) {
+    if (lz.haengt) return ["schlecht", `hängt – kein Takt seit ${dauer(g.serverzeit - lz.letzter_takt)}`];
+  } else {
+    const grenze = 5 * (lauf.takt_s || 60);
+    if (!lauf.letzter) return ["schlecht", lauf.fehler || "noch kein Durchlauf"];
+    if (g.serverzeit - lauf.letzter > grenze) return ["schlecht", `kein Durchlauf seit ${dauer(g.serverzeit - lauf.letzter)}`];
+  }
+  if (lz && lz.fehler_in_folge > 1) return ["warn", `${lz.fehler_in_folge} Takte in Folge mit Fehler`];
   if (lauf.fehler) return ["warn", "letzter Durchlauf mit Fehler"];
   if (name === "flotte" && lauf.laeuft === false) return ["warn", "Raiden gestoppt"];
   if ((log.fehler || 0) > 0) return ["warn", `${log.fehler} Fehler in 24 h`];
@@ -44,6 +51,7 @@ function zeichneGesundheit() {
     return `<section class="karte dienst-karte" style="margin:0">
       <div class="oben"><a href="#${name}">${titel} →</a><span class="marke ${klasse}"><span class="punkt"></span>${esc(text)}</span></div>
       <div class="klein-text">Letzter Durchlauf: <b>${lauf.letzter ? vor(lauf.letzter) : "–"}</b>${
+        (g.lebenszeichen || {})[name] ? ` · Lebenszeichen ${vor(g.lebenszeichen[name].letzter_takt)}` : ""}${
         name === "upgrade" && lauf.naechster ? ` · nächster in ${countdown(lauf.naechster, "jetzt")}` : ""}${
         name === "flotte" && lauf.flotten != null ? ` · ${lauf.flotten} Flotten unterwegs` : ""}</div>
       ${lauf.fehler ? `<div class="fehler" style="margin:0">${esc(lauf.fehler)}</div>` : ""}

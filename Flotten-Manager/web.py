@@ -22,6 +22,7 @@ from fastapi import Body, FastAPI, HTTPException
 
 import ausgleich as ausgleich_modul
 import config
+from seekampf_gemeinsam.lebenszeichen import Lebenszeichen
 import report as report_modul
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
@@ -54,6 +55,7 @@ def _kurz(e: Exception) -> str:
             return text[text.index(marke):][:160].rstrip(")'\"")
     return text[:160]
 _thread: threading.Thread | None = None
+_lebenszeichen = Lebenszeichen("flotte", 5, log)
 
 
 def _schleife() -> None:
@@ -75,7 +77,9 @@ def _schleife() -> None:
         except Exception as e:  # noqa: BLE001 - der Thread darf nie enden
             manager.letzter_fehler = f"{type(e).__name__}: {e}"
             log.exception("Unerwarteter Fehler im Tick")
-        _stop.wait(max(1.0, float(state.settings["tick_sekunden"])))
+        takt_s = max(1.0, float(state.settings["tick_sekunden"]))
+        _lebenszeichen.takt(manager.letzter_fehler, takt_s)
+        _stop.wait(takt_s)
 
 
 @asynccontextmanager

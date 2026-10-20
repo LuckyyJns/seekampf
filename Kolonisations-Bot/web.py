@@ -20,6 +20,7 @@ import uvicorn
 from fastapi import Body, FastAPI, HTTPException
 
 import config
+from seekampf_gemeinsam.lebenszeichen import Lebenszeichen
 from api_client import ApiError, SeekampfClient
 from kolonisation import Kolonisierer, begleitung_bereinigen, ziel_status
 from logger_setup import get_logger
@@ -32,6 +33,7 @@ client = SeekampfClient()
 notifier = TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_kolonisation")
 bot = Kolonisierer(client, state, notifier)
 _stop = threading.Event()
+_lebenszeichen = Lebenszeichen("kolonie", config.TICK_S, log)
 
 if state.defekt:
     log.error("data/state.json war unlesbar und liegt jetzt unter %s - Bot startet ANGEHALTEN", state.defekt)
@@ -54,6 +56,7 @@ def _schleife() -> None:
         except Exception as e:  # noqa: BLE001 - der Thread darf nie enden
             bot.letzter_fehler = f"{type(e).__name__}: {e}"
             log.exception("Unerwarteter Fehler im Tick")
+        _lebenszeichen.takt(bot.letzter_fehler)
         _stop.wait(config.TICK_S)
 
 

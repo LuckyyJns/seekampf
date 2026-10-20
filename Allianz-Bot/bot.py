@@ -25,6 +25,7 @@ import requests
 
 import berichte
 import config
+from seekampf_gemeinsam.lebenszeichen import Lebenszeichen
 import logger_setup
 import protokoll
 import steuerung
@@ -68,6 +69,7 @@ class AllianzBot:
         # zeigte die Gesundheitsseite einen laengst behobenen Fehler dauerhaft an).
         self.befehl_ergebnisse: deque = deque(maxlen=20)
         self.letzter_fehler: str | None = None
+        self._lebenszeichen = Lebenszeichen("allianz", config.TICK_S, log)
         self._fehler_im_takt: str | None = None
         self._status_zuletzt: tuple[str, float] = ("", 0.0)
 
@@ -143,6 +145,7 @@ class AllianzBot:
                       f"{' '.join(config.FAEHIGKEITEN)}.")
         while not self._stop.is_set():
             self.tick()
+            self._lebenszeichen.takt(self._fehler_im_takt)
             # In kleinen Schritten warten: ein Befehl aus dem Seekampf-Hub weckt
             # den Bot sofort, statt bis zum naechsten Takt zu liegen.
             ende = time.time() + (config.EIL_TICK_S if self.k.eilig() else config.TICK_S)

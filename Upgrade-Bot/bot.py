@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import requests
 from seekampf_gemeinsam import reservierungen
 from seekampf_gemeinsam.bilanz import Bilanz
+from seekampf_gemeinsam.lebenszeichen import Lebenszeichen
 from seekampf_gemeinsam.telegram import TelegramNotifier
 
 import bauplan_sim
@@ -1010,6 +1011,7 @@ def main():
     _load_low_priority(zustand)
     verlauf = Verlauf()
     client = SeekampfClient()
+    _lebenszeichen = Lebenszeichen("upgrade", config.POLL_INTERVAL_SECONDS, logger)
     steuerung.geaendert()  # Ausgangsstand merken
 
     # Planmaessig alle POLL_INTERVAL_SECONDS; Befehle und geaenderte Steuerung
@@ -1035,6 +1037,7 @@ def main():
                 logger.exception("Unerwarteter Fehler im Tick, laeuft beim naechsten Intervall weiter")
                 ok = False
             letzter = time.time()
+            _lebenszeichen.takt(None if ok else "Durchlauf fehlgeschlagen (Details: Log)")
             _bilanz().speichern()   # ohne SIGTERM-Handler liefe atexit beim Stoppen nicht
             _track_health(ok, logger)
             # Wird vor dem naechsten planmaessigen Durchlauf ein Bauplatz frei

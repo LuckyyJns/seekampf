@@ -5,7 +5,11 @@ Stunden an jedem Durchlauf scheitern. Deshalb je Bot:
 
   - letzter Durchlauf und ob er fehlerfrei war (Statusdateien bzw. die
     Schnittstelle des Flotten-Managers),
-  - Fehler und Warnungen der letzten 24 Stunden aus den Tageslogs,
+  - Lebenszeichen, das jeder Bot selbst schreibt (seekampf_gemeinsam.lebenszeichen):
+    haengt er (kein Takt seit dem 5-Fachen seines Takts)? Fehler in Folge,
+    Fehler und Warnungen der letzten 24 Stunden - ohne Logdateien zu lesen,
+  - Rueckfall, solange ein Bot noch kein Lebenszeichen schreibt: Fehler und
+    Warnungen aus den Tageslogs,
   - beim Upgrade-Bot: wie lange jede Bau-Warteschlange leer stand,
 dazu der Raspberry Pi selbst (Temperatur, Drosselung, Speicher, Laufzeit)
 und die naechtliche Sicherung.
@@ -23,6 +27,8 @@ import shutil
 import subprocess
 import time
 from datetime import datetime
+
+from seekampf_gemeinsam import lebenszeichen
 
 ZEILE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(\w+)\] (.*)$")
 WARTESCHLANGE = re.compile(r"^Insel (\S+) \| Warteschlange (\d+)/(\d+)")
@@ -156,10 +162,24 @@ def berechnen(bots: dict, flotte_status: dict | None, dienst_status, weitere: di
         daten = dict(_cache["daten"])
     else:
         seit = jetzt - FENSTER_S
+        # Logs nur noch fuer den Leerlauf der Bau-Warteschlangen (Upgrade-Bot)
+        # und fuer Bots ohne Lebenszeichen.
         daten = {"logs": {name: _log_auswerten(b["ordner"], b["log"], seit, leerlauf=(name == "upgrade"))
-                          for name, b in bots.items() if b.get("log")},
+                          for name, b in bots.items()
+                          if b.get("log") and (name == "upgrade" or not lebenszeichen.lesen(name))},
                  "system": system(), "sicherung": sicherung()}
         _cache.update(zeit=jetzt, daten=dict(daten))
+
+    logs = dict(daten["logs"])
+    daten["lebenszeichen"] = {}
+    for name, b in bots.items():
+        if not b.get("log"):
+            continue
+        lz = lebenszeichen.auswerten(lebenszeichen.lesen(name), jetzt)
+        daten["lebenszeichen"][name] = lz
+        if lz:
+            logs[name] = {**(logs.get(name) or {}), **{k: lz[k] for k in ("fehler", "warnungen", "letzte", "haeufig")}}
+    daten["logs"] = logs
 
     up = _json(os.path.join(bots["upgrade"]["ordner"], "data", "status.json")) or {}
     verlauf = (_json(os.path.join(bots["upgrade"]["ordner"], "data", "verlauf.json")) or {}).get("inseln") or {}

@@ -18,6 +18,7 @@ import uvicorn
 from fastapi import Body, FastAPI, HTTPException
 
 import config
+from seekampf_gemeinsam.lebenszeichen import Lebenszeichen
 from api_client import ApiError, SeekampfClient
 from ausbildung import Ausbilder
 from logger_setup import get_logger
@@ -29,6 +30,7 @@ state = State()
 client = SeekampfClient()
 bot = Ausbilder(client, state, TelegramNotifier(config.TELEGRAM_BOT_TOKEN, config.TELEGRAM_CHAT_ID, logger="seekampf_ausbildung"))
 _stop = threading.Event()
+_lebenszeichen = Lebenszeichen("ausbildung", config.TICK_S, log)
 _jetzt = threading.Event()   # Soll geaendert: sofort einen Durchlauf
 
 
@@ -47,6 +49,7 @@ def _schleife() -> None:
         except Exception as e:  # noqa: BLE001 - der Thread darf nie enden
             bot.letzter_fehler = f"{type(e).__name__}: {e}"
             log.exception("Unerwarteter Fehler im Tick")
+        _lebenszeichen.takt(bot.letzter_fehler)
         _jetzt.wait(config.TICK_S)
         if _stop.is_set():
             break
