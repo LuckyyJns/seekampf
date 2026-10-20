@@ -65,6 +65,17 @@ LOW_PRIORITY_DELAY_SECONDS = 7200
 UEBERLAUF_VOLL_ANTEIL = 0.99
 UEBERLAUF_MIN_STUNDEN_24H = 2
 
+# Such-Plan (bauplan_sim.py): im automatischen Modus entscheidet er, was als
+# Naechstes gebaut wird - Ziel "wirtschaft" (Ressourcen: verbaut + Bestand +
+# Produktion am Horizont). Ausbauziele, Priorisierung und Sperren aus dem Hub
+# gehen vor; ohne Plan (oder ohne gamedata.json) entscheidet die Kaskade.
+SUCHPLAN_AKTIV = True
+SUCHPLAN_ZIEL = "wirtschaft"
+SUCHPLAN_TAGE = 7
+SUCHPLAN_BREITE = 20
+# Raids/Ausgleich/Ausbildung aus der Rohstoff-Bilanz: so oft neu einlesen.
+SUCHPLAN_EXTERN_NEU_S = 600
+
 # Leerlauf-Uhren und Morgenreport-Datum ueber Neustarts hinweg (zustand.py).
 # learned.json ist der Vorgaenger und wird beim ersten Start uebernommen und geloescht.
 ZUSTAND_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "zustand.json")

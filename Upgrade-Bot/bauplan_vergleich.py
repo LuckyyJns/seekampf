@@ -18,7 +18,6 @@ import time
 from datetime import datetime, timezone
 
 import bauplan_sim as sim
-from seekampf_gemeinsam import bilanz
 
 KURZ = {"haupthaus": "Haupt", "goldmine": "Gold", "steingrube": "Stein", "saegewerk": "Saege", "lagerhaus": "Lager",
         "steinmauer": "Mauer", "wachturm": "Turm", "kaserne": "Kas", "hafen": "Hafen"}
@@ -35,44 +34,14 @@ def _epoch(iso: str | None) -> float | None:
         return None
 
 
-# Was ausser Produktion und Ausbau auf einer Insel ankommt bzw. abgeht. Die
-# Allianzkasse fehlt bewusst: sie nimmt nur den Ueberlauf, den das Modell selbst kennt.
-EXTERN_KATEGORIEN = ("Raids", "Ausgleich erhalten", "Allianz erhalten", "Ausgleich abgegeben",
-                     "Ausbildung", "Kolonisation")
-
-
-def extern_je_stunde(tage: int = 3) -> dict:
-    """{insel_id: {r: je Stunde}} - Durchschnitt der letzten `tage` vollen Tage."""
-    heute = bilanz.tag()
-    buchungen = {t: v for t, v in bilanz.zusammenfassen(tage + 1)["buchungen"].items() if t != heute}
-    out: dict = {}
-    for inseln in buchungen.values():
-        for iid, kat in inseln.items():
-            ziel = out.setdefault(str(iid), {r: 0.0 for r in sim.RES})
-            for k in EXTERN_KATEGORIEN:
-                for r, n in (kat.get(k) or {}).items():
-                    if r in ziel:
-                        ziel[r] += float(n or 0)
-    stunden = max(1, len(buchungen)) * 24
-    return {iid: {r: v / stunden for r, v in werte.items()} for iid, werte in out.items()}
-
-
 def startzustand(eintrag: dict, jetzt: float, horizont: float, extern: dict | None = None) -> sim.Insel:
     """Insel aus status.json; laufende/wartende Auftraege werden vorweg abgearbeitet
     (fuer beide Planer gleich)."""
     stufen = {b["typ"]: int(b.get("stufe") or 0) for b in eintrag.get("gebaeude") or []}
-    insel = sim.Insel(stufen, eintrag.get("rohstoffe") or {}, extern)
     stand = float(eintrag.get("zeit") or jetzt)
-    for o in eintrag.get("warteschlange") or []:
-        g, ziel = o.get("gebaeude"), int(o.get("ziel_stufe") or 0)
-        if g not in insel.stufen or insel.stufen[g] >= ziel:
-            continue
-        if o.get("status") == "aktiv":   # schon bezahlt, laeuft bis finish_at
-            insel.warten(max(0.0, (_epoch(o.get("finish_at")) or stand) - stand - insel.t))
-            insel.stufen[g] = ziel
-        elif insel.stufen[g] + 1 == ziel:
-            insel.bauen(g, horizont)
-    return insel
+    auftraege = [(o.get("gebaeude"), int(o.get("ziel_stufe") or 0), o.get("status"),
+                  (_epoch(o.get("finish_at")) or stand) - stand) for o in eintrag.get("warteschlange") or []]
+    return sim.aus_auftraegen(stufen, eintrag.get("rohstoffe") or {}, auftraege, extern, horizont)
 
 
 def vergleichen(eintrag: dict, horizont: float, breite: int, jetzt: float, extern: dict | None = None) -> dict:
@@ -117,7 +86,7 @@ def main():
         inseln = json.load(f).get("inseln") or {}
     horizont = args.tage * 86400
     jetzt = time.time()
-    extern = {} if args.ohne_extern else extern_je_stunde()
+    extern = {} if args.ohne_extern else sim.extern_je_stunde()
     ergebnisse, summe = [], {"kette": {}, "wirtschaft": {}, "punkte": {}}
     gesamt_s = 0.0
     for eintrag in sorted(inseln.values(), key=lambda e: e.get("position") or 0):

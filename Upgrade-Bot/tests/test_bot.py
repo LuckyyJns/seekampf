@@ -10,6 +10,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -59,6 +60,15 @@ class NurNochMauerUndTurm(unittest.TestCase):
 
     def test_keine_kandidaten(self):
         self.assertFalse(planner.nur_niedrige({}))
+
+    def test_haupthaus_auch_ohne_minen_ausbau(self):
+        """Alle Minen auf 20: die Haupthaus-Regel hat keinen Vergleichswert mehr -
+        das Haupthaus kommt trotzdem dran (frueher nie)."""
+        kandidaten = {
+            "haupthaus": kandidat("haupthaus", 14, {"gold": 3000, "stein": 3000, "holz": 3000}),
+            "steinmauer": kandidat("steinmauer", 6, {"gold": 429, "stein": 1431, "holz": 215}),
+        }
+        self.assertEqual(planner.choose_upgrade(kandidaten, self.genug, 50000, False)["building"], "haupthaus")
 
 
 class Ausbauziele(unittest.TestCase):
@@ -159,6 +169,63 @@ class Nebenher(unittest.TestCase):
         levels = {n: b["stufe"] for n, b in by_typ.items()}
         self.assertIsNone(bot._nebenher_waehlen("haupthaus", self.kandidaten(**extra), unerreichbar, current, 50000,
                                                 by_typ, levels, [], self.jetzt, False))
+
+
+class MauerUndTurm(unittest.TestCase):
+    """Steinmauer/Wachturm nur, wenn sie den naechsten wichtigeren Ausbau nicht verzoegern."""
+    jetzt = Nebenher.jetzt
+    lager = Nebenher.lager            # Holz knapp, Stein im Ueberfluss
+
+    def pruefen(self, mauer_kosten):
+        k = {"goldmine": kandidat("goldmine", 17, {"gold": 2000, "stein": 2000, "holz": 5000}),
+             "steinmauer": kandidat("steinmauer", 5, mauer_kosten)}
+        by_typ = {"goldmine": {"typ": "goldmine", "stufe": 17, "bauzeit_s": 20000},
+                  "steinmauer": {"typ": "steinmauer", "stufe": 5, "bauzeit_s": 1800}}
+        levels = {n: b["stufe"] for n, b in by_typ.items()}
+        current = bot._usable_resources(self.lager)
+        return bot._niedrig_erlaubt(k["steinmauer"], k, self.lager, current, 50000, by_typ, levels, [],
+                                    "test", True, self.jetzt, self.jetzt.timestamp(), False)
+
+    def test_mauer_aus_dem_ueberschuss(self):
+        wahl, verzoegert = self.pruefen({"gold": 0, "stein": 3000, "holz": 0})
+        self.assertEqual((wahl["building"], verzoegert), ("steinmauer", None))
+
+    def test_mauer_die_die_mine_verzoegert_wartet(self):
+        wahl, verzoegert = self.pruefen({"gold": 0, "stein": 0, "holz": 500})
+        self.assertEqual((wahl, verzoegert), (None, "goldmine"))
+
+
+class Suchplan(unittest.TestCase):
+    kand = {"goldmine": kandidat("goldmine", 10, {}), "hafen": kandidat("hafen", 10, {})}
+
+    def test_vorgaben_aus_dem_hub_gehen_vor(self):
+        e = {"modus": "hafen"}
+        self.assertEqual(bot._ziel_bestimmen(e, {}, {"hafen": {"typ": "hafen", "naechste_stufe": 11}}, self.kand, lambda: "goldmine"),
+                         ("hafen", None, False))
+
+    def test_automatisch_entscheidet_der_suchplan(self):
+        ziel, hinweis, such = bot._ziel_bestimmen({"modus": "auto"}, {}, {}, self.kand, lambda: "goldmine")
+        self.assertEqual((ziel, such), ("goldmine", True))
+        self.assertIn("Such-Plan", hinweis)
+
+    def test_ohne_vorschlag_entscheidet_die_kaskade(self):
+        for vorschlag in (None, "steinmauer"):   # nichts, oder gerade nicht ausbaubar
+            self.assertEqual(bot._ziel_bestimmen({"modus": "auto"}, {}, {}, self.kand, lambda: vorschlag),
+                             (None, None, False))
+
+    @unittest.skipUnless(bot.gamedata.available(), "data/gamedata.json fehlt")
+    def test_suchplan_aus_dem_live_stand(self):
+        stufen = {"haupthaus": 8, "goldmine": 8, "steingrube": 8, "saegewerk": 8, "lagerhaus": 8,
+                  "steinmauer": 1, "wachturm": 1, "kaserne": 5, "hafen": 5}
+        buildings = [{"typ": g, "stufe": n} for g, n in stufen.items()]
+        jetzt = datetime(2026, 10, 20, 10, 0, tzinfo=TZ)
+        laufend = [{"id": 1, "building_typ": "goldmine", "ziel_stufe": 9, "status": "aktiv",
+                    "finish_at": (jetzt + timedelta(hours=1)).isoformat(), "queue_position": 1}]
+        with mock.patch.object(bot, "_extern", return_value={}):
+            g = bot._suchplan(1, buildings, {"gold": 2000, "stein": 2000, "holz": 2000}, laufend, set(), jetzt)
+            self.assertIn(g, config.TRACKED_BUILDINGS)
+            self.assertNotEqual(bot._suchplan(1, buildings, {"gold": 2000, "stein": 2000, "holz": 2000}, laufend,
+                                              {g}, jetzt), g)   # Sperren gelten
 
 
 class KoloReserve(unittest.TestCase):

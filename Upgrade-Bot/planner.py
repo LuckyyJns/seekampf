@@ -137,9 +137,12 @@ def choose_upgrade(candidates: dict, current: dict, capacity: float, allow_low: 
     if storage_needed(candidates, capacity) and "lagerhaus" in payable:
         return payable["lagerhaus"]
 
-    # 2b. Hauptgebaeude nur, wenn deutlich guenstiger als der Ressourcen-Durchschnitt.
-    if "haupthaus" in payable and average_cost is not None:
-        if total_cost(payable["haupthaus"]["cost"]) <= config.HAUPTHAUS_MAX_COST_RATIO * average_cost:
+    # 2b. Hauptgebaeude nur, wenn deutlich guenstiger als der Ressourcen-Durchschnitt -
+    #     oder wenn es keinen Minen-Ausbau mehr gibt (alle auf 20 oder gesperrt),
+    #     sonst kaeme das Haupthaus nie mehr dran.
+    if "haupthaus" in payable:
+        if average_cost is None or \
+                total_cost(payable["haupthaus"]["cost"]) <= config.HAUPTHAUS_MAX_COST_RATIO * average_cost:
             return payable["haupthaus"]
 
     # 3. Hafen und Kaserne auf einer Stufe, innerhalb nach Gewichtung pro Kosten.

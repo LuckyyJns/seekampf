@@ -40,6 +40,7 @@ function zeichneUpgrade() {
       : `nur ${gname(steuer.modus)}${steuer.bis_stufe ? ` bis ${steuer.bis_stufe}` : ""}`;
     const modusMarke = steuer.modus === "auto" ? (steuer.ausbauziele?.length
         ? `<span class="marke${i.priorisierung_aktiv ? "" : " grau"}" title="${esc(i.priorisierung_hinweis || "")}">${esc(modusText)}${i.priorisierung_aktiv ? "" : " · erreicht"}</span>`
+        : i.suchplan ? `<span class="marke grau" title="${esc(i.priorisierung_hinweis || "")}">automatisch · Such-Plan</span>`
         : `<span class="marke grau">${modusText}</span>`)
       : i.priorisierung_aktiv ? `<span class="marke">${esc(modusText)}</span>`
       : `<span class="marke grau" title="${esc(i.priorisierung_hinweis || "")}">${esc(modusText)} · erreicht</span>`;

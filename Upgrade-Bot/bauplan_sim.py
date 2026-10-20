@@ -25,6 +25,7 @@ from __future__ import annotations
 import config
 import gamedata
 import planner
+from seekampf_gemeinsam import bilanz
 
 RES = config.RESOURCE_KEYS
 GEBAEUDE = config.TRACKED_BUILDINGS
@@ -302,3 +303,51 @@ def kennzahlen(insel: Insel) -> dict:
         "stufen": dict(insel.stufen),
         "plan": [(round(s / 3600, 2), g, st) for s, _, g, st in insel.plan],
     }
+
+
+# ------------------------------------------------- Start aus dem Live-Stand
+def aus_auftraegen(stufen: dict, lager: dict, auftraege: list, extern: dict | None, horizont: float) -> Insel:
+    """Insel ab jetzt (t = 0), die Warteschlange vorweg abgearbeitet.
+    auftraege: [(gebaeude, ziel_stufe, status, fertig_in_s)] in Reihenfolge; ein
+    'aktiv'er Auftrag ist schon bezahlt und laeuft noch fertig_in_s Sekunden,
+    wartende werden wie normale Ausbauten bezahlt und gebaut."""
+    insel = Insel(stufen, lager, extern)
+    for g, ziel, status, fertig_in in auftraege:
+        if g not in insel.stufen or insel.stufen[g] >= ziel:
+            continue
+        if status == "aktiv":
+            insel.warten(max(0.0, float(fertig_in or 0) - insel.t))
+            insel.stufen[g] = ziel
+        elif insel.stufen[g] + 1 == ziel:
+            insel.bauen(g, horizont)
+    return insel
+
+
+def naechster_schritt(start: Insel, horizont: float, ziel: str, breite: int, gesperrt=()) -> str | None:
+    """Erstes Gebaeude des Such-Plans nach der schon gefuellten Warteschlange."""
+    ergebnis = suchen(start, horizont, ziel, breite, gesperrt)
+    vorweg = len(start.plan)
+    return ergebnis.plan[vorweg][2] if len(ergebnis.plan) > vorweg else None
+
+
+# Was ausser Produktion und Ausbau auf einer Insel ankommt bzw. abgeht. Die
+# Allianzkasse fehlt bewusst: sie nimmt nur den Ueberlauf, den das Modell selbst kennt.
+EXTERN_KATEGORIEN = ("Raids", "Ausgleich erhalten", "Allianz erhalten", "Ausgleich abgegeben",
+                     "Ausbildung", "Kolonisation")
+
+
+def extern_je_stunde(tage: int = 3, ordner: str | None = None) -> dict:
+    """{insel_id: {r: je Stunde}} aus der Rohstoff-Bilanz - Durchschnitt der
+    letzten `tage` vollen Tage (heute zaehlt nicht, er ist noch unvollstaendig)."""
+    heute = bilanz.tag()
+    buchungen = {t: v for t, v in bilanz.zusammenfassen(tage + 1, ordner)["buchungen"].items() if t != heute}
+    out: dict = {}
+    for inseln in buchungen.values():
+        for iid, kat in inseln.items():
+            summe = out.setdefault(str(iid), {r: 0.0 for r in RES})
+            for k in EXTERN_KATEGORIEN:
+                for r, n in (kat.get(k) or {}).items():
+                    if r in summe:
+                        summe[r] += float(n or 0)
+    stunden = max(1, len(buchungen)) * 24
+    return {iid: {r: v / stunden for r, v in werte.items()} for iid, werte in out.items()}

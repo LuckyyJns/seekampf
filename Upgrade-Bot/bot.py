@@ -9,6 +9,7 @@ from seekampf_gemeinsam import reservierungen
 from seekampf_gemeinsam.bilanz import Bilanz
 from seekampf_gemeinsam.telegram import TelegramNotifier
 
+import bauplan_sim
 import config
 import gamedata
 import report
@@ -16,6 +17,7 @@ import steuerung
 from api_client import ApiError, SeekampfClient
 from logger_setup import get_logger
 from planner import (
+    nur_niedrige,
     affordable,
     choose_upgrade,
     collect_candidates,
@@ -48,6 +50,10 @@ BEFEHL_ERGEBNISSE: deque = deque(maxlen=20)
 
 # Zeitpunkt des naechsten planmaessigen Durchlaufs (fuer den Seekampf-Hub).
 NAECHSTER_TICK = {"ts": 0.0}
+
+# Einnahmen/Ausgaben je Insel und Stunde ausser Produktion und Ausbau (Raids,
+# Ausgleich, Ausbildung ...) aus der Rohstoff-Bilanz, fuer den Such-Plan.
+EXTERN = {"ts": 0.0, "werte": {}}
 
 
 def _load_low_priority(zustand) -> None:
@@ -439,24 +445,82 @@ def _nebenher_waehlen(ziel: str, candidates: dict, planbar: dict, current: dict,
     return choose_upgrade(harmlos, current, capacity, False, ueberlauf)
 
 
-def _ziel_grund(ziel: str, candidates: dict, buildings_by_typ: dict, resources: dict, now: datetime) -> str:
+def _extern(island_id) -> dict:
+    if time.time() - EXTERN["ts"] >= config.SUCHPLAN_EXTERN_NEU_S:
+        EXTERN["ts"] = time.time()
+        try:
+            EXTERN["werte"] = bauplan_sim.extern_je_stunde(ordner=config.BILANZ_ORDNER)
+        except (OSError, ValueError):
+            EXTERN["werte"] = {}
+    return EXTERN["werte"].get(str(island_id)) or {}
+
+
+def _suchplan(island_id, buildings: list, planbar: dict, active_orders: list, gesperrt: set,
+              now: datetime) -> str | None:
+    """Erstes Gebaeude des Such-Plans nach der laufenden Warteschlange - oder None."""
+    if not config.SUCHPLAN_AKTIV or not gamedata.available():
+        return None
+    stufen = {b["typ"]: int(b.get("stufe", 0) or 0) for b in buildings}
+    auftraege = []
+    for o in sorted(active_orders, key=lambda o: o.get("queue_position") or 0):
+        fertig = _parse_api_dt(o.get("finish_at"))
+        auftraege.append((o.get("building_typ"), int(o.get("ziel_stufe") or 0), str(o.get("status", "")).lower(),
+                          (fertig - now).total_seconds() if fertig else 0.0))
+    horizont = config.SUCHPLAN_TAGE * 86400
+    start = bauplan_sim.aus_auftraegen(stufen, planbar, auftraege, _extern(island_id), horizont)
+    return bauplan_sim.naechster_schritt(start, horizont, config.SUCHPLAN_ZIEL, config.SUCHPLAN_BREITE, gesperrt)
+
+
+def _ziel_bestimmen(einstellung: dict, levels: dict, by_typ: dict, candidates: dict, suche) -> tuple:
+    """(Zielgebaeude, Hinweis, kommt vom Such-Plan). Vorgaben aus dem Hub gehen
+    vor; sonst gibt der Such-Plan das naechste Gebaeude vor. `suche()` liefert
+    dessen Vorschlag (oder None - dann entscheidet die Kaskade)."""
+    ziel, hinweis = _zielgebaeude(einstellung, levels, by_typ)
+    if ziel is not None:
+        return ziel, hinweis, False
+    vorschlag = suche()
+    if vorschlag not in candidates:
+        return None, hinweis, False
+    text = f"Such-Plan ({config.SUCHPLAN_ZIEL}): {vorschlag} → {candidates[vorschlag]['target_level']}"
+    return vorschlag, f"{hinweis}; {text}" if hinweis else text, True
+
+
+def _niedrig_erlaubt(chosen: dict, candidates: dict, planbar: dict, current: dict, capacity: float,
+                     buildings_by_typ: dict, levels: dict, active_orders: list, key: str,
+                     queue_empty: bool, now: datetime, now_ts: float, ueberlauf: bool):
+    """Steinmauer/Wachturm nur, wenn sie den naechsten wichtigeren Ausbau nicht
+    verzoegern (dieselbe Pruefung wie beim Nebenher-Bauen). Rueckgabe: (Wahl
+    oder None, das verzoegerte Gebaeude)."""
+    wichtig_kand = {n: c for n, c in candidates.items() if n not in config.LOW_PRIORITY_BUILDINGS}
+    _, wichtig, _ = _forecast(wichtig_kand, planbar, capacity, key, queue_empty, now, now_ts, ueberlauf)
+    if wichtig is None:
+        return chosen, None   # nichts Wichtigeres in Sicht
+    pool = {n: c for n, c in candidates.items() if n in config.LOW_PRIORITY_BUILDINGS}
+    pool[wichtig["building"]] = wichtig
+    wahl = _nebenher_waehlen(wichtig["building"], pool, planbar, current, capacity, buildings_by_typ, levels,
+                             active_orders, now, ueberlauf)
+    return wahl, None if wahl is not None else wichtig["building"]
+
+
+def _ziel_grund(ziel: str, candidates: dict, buildings_by_typ: dict, resources: dict, now: datetime,
+                titel: str = "Priorisierung") -> str:
     """Warum das priorisierte Gebaeude gerade nicht gebaut wird."""
     c = candidates.get(ziel)
     if c is None:
         b = buildings_by_typ.get(ziel) or {}
         if not b.get("verfuegbar", True):
-            return f"Priorisierung {ziel}: noch nicht verfuegbar (Haupthaus Stufe {b.get('haupthaus_ab')} noetig)"
-        return f"Priorisierung {ziel}: derzeit nicht ausbaubar"
+            return f"{titel} {ziel}: noch nicht verfuegbar (Haupthaus Stufe {b.get('haupthaus_ab')} noetig)"
+        return f"{titel} {ziel}: derzeit nicht ausbaubar"
     usable = _usable_resources(resources)
     missing = missing_resources(c["cost"], usable)
     eta, cause = _eta_seconds(c["cost"], resources, usable)
     fehlt = ", ".join(f"{v:.0f} {r.capitalize()}" for r, v in missing.items())
     if cause == "lager":
-        return f"Priorisierung {ziel} → {c['target_level']}: passt nicht ins Lager, Lagerhaus noetig"
+        return f"{titel} {ziel} → {c['target_level']}: passt nicht ins Lager, Lagerhaus noetig"
     if cause == "produktion":
-        return f"Priorisierung {ziel} → {c['target_level']}: es fehlen {fehlt}, ohne Produktion"
+        return f"{titel} {ziel} → {c['target_level']}: es fehlen {fehlt}, ohne Produktion"
     ready_at = (now + timedelta(seconds=eta or 0)).strftime("%H:%M")
-    return (f"Priorisierung {ziel} → {c['target_level']}: wartet auf Rohstoffe, es fehlen {fehlt}, "
+    return (f"{titel} {ziel} → {c['target_level']}: wartet auf Rohstoffe, es fehlen {fehlt}, "
             f"bezahlbar in {_fmt_duration(eta or 0)} (ca. {ready_at})")
 
 
@@ -561,6 +625,18 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
     started: list[str] = []
     next_hint = None
     ziel_hinweis = None
+    such_cache: dict = {}
+
+    def suche_fuer(levels, planbar, now_dt):
+        stand = (tuple(sorted(levels.items())), tuple(o.get("id") for o in active_orders))
+        if stand not in such_cache:
+            try:
+                such_cache[stand] = _suchplan(island_id, buildings, planbar, active_orders, gesperrt, now_dt)
+            except Exception:
+                logger.exception("Insel %s: Such-Plan fehlgeschlagen, entscheidet die Kaskade", island_id)
+                such_cache[stand] = None
+        return such_cache[stand]
+
     if not einstellung.get("aktiv", True):
         next_hint = "Insel im Seekampf-Hub ausgeschaltet"
         free_slots = 0  # nichts Neues starten, laufende Auftraege laufen weiter
@@ -574,7 +650,8 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
         alle = collect_candidates(buildings, levels)
         candidates = {n: c for n, c in alle.items() if n not in gesperrt}
         by_typ = {b["typ"]: b for b in buildings}
-        ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
+        ziel, ziel_hinweis, suchplan = _ziel_bestimmen(einstellung, levels, by_typ, candidates,
+                                                       lambda: suche_fuer(levels, planbar, now_dt))
         if ziel is not None and ziel in alle:
             candidates[ziel] = alle[ziel]
 
@@ -589,9 +666,14 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
 
         ueberlauf, volle = _ueberlauf(resources, verlauf, island_id, now, active_orders)
         chosen = _waehlen(candidates, current, capacity, allow_low, ziel, ueberlauf)
+        verzoegert = None
+        if (ziel is None and chosen is not None and chosen["building"] in config.LOW_PRIORITY_BUILDINGS
+                and not nur_niedrige(candidates)):
+            chosen, verzoegert = _niedrig_erlaubt(chosen, candidates, planbar, current, capacity, by_typ, levels,
+                                                  active_orders, key, queue_empty, now_dt, now, ueberlauf)
 
         nebenher = False
-        if chosen is None and ziel is not None and einstellung.get("nebenher", True):
+        if chosen is None and ziel is not None and not suchplan and einstellung.get("nebenher", True):
             chosen = _nebenher_waehlen(ziel, candidates, planbar, current, capacity, by_typ, levels,
                                        active_orders, now_dt, ueberlauf)
             nebenher = chosen is not None
@@ -600,7 +682,10 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
             if ziel is not None:
                 # Priorisierung: warten, bis das Zielgebaeude bezahlbar ist. Die
                 # Leerlauf-Uhr fuer Steinmauer/Wachturm bleibt dabei unberuehrt.
-                next_hint = _ziel_grund(ziel, candidates, by_typ, planbar, now_dt)
+                next_hint = _ziel_grund(ziel, candidates, by_typ, planbar, now_dt,
+                                        "Such-Plan" if suchplan else "Priorisierung")
+                if suchplan and reserve:
+                    next_hint += f"; Kolonisations-Bot spart hier {_fmt_res(reserve)} an"
                 break
             # Die Leerlauf-Uhr fuer Steinmauer/Wachturm laeuft, sobald die
             # Warteschlange leer ist und die Prioritaets-Kaskade nichts
@@ -615,6 +700,9 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
             next_hint = _skip_reason(
                 candidates, planbar, capacity, key, queue_empty, allow_low, now_dt, now, ueberlauf
             )
+            if verzoegert:
+                next_hint += (f"; {'/'.join(config.LOW_PRIORITY_BUILDINGS)} warten, sie wuerden "
+                              f"{verzoegert} verzoegern")
             if reserve:
                 next_hint += f"; Kolonisations-Bot spart hier {_fmt_res(reserve)} an"
             break
@@ -638,6 +726,8 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
         label = f"{chosen['building']} → {chosen['target_level']}"
         if nebenher:
             label += f" (nebenher, verzoegert {ziel} nicht)"
+        if suchplan:
+            label += " (Such-Plan)"
         if ueberlauf and chosen["building"] == "lagerhaus":
             label += f" (Lager laeuft ueber: {'/'.join(volle)})"
         if chosen["building"] in config.RESOURCE_BUILDINGS:
@@ -677,14 +767,20 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
     alle = collect_candidates(buildings, levels)
     candidates = {n: c for n, c in alle.items() if n not in gesperrt}
     by_typ = {b["typ"]: b for b in buildings}
-    ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
+    planbar_ende = _ohne_reserve(resources, _kolo_reserve(island_id))
+    suchplan = False
+    if einstellung.get("aktiv", True):
+        ziel, ziel_hinweis, suchplan = _ziel_bestimmen(einstellung, levels, by_typ, candidates,
+                                                       lambda: suche_fuer(levels, planbar_ende, now_dt))
+    else:
+        ziel, ziel_hinweis = _zielgebaeude(einstellung, levels, by_typ)
     if ziel is not None and ziel in alle:
         candidates[ziel] = alle[ziel]
     jetzt_ts = time.time()
     ueberlauf, volle = _ueberlauf(resources, verlauf, island_id, jetzt_ts, active_orders)
     plan = None
     if einstellung.get("aktiv", True):
-        plan = _plan(candidates, _ohne_reserve(resources, _kolo_reserve(island_id)),
+        plan = _plan(candidates, planbar_ende,
                      float(resources.get("kapazitaet", 0) or 0), key,
                      len(active_orders) == 0, active_orders, now_dt, jetzt_ts, ziel, ueberlauf)
     if verlauf is not None:
@@ -702,7 +798,8 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
             for b in buildings
         ],
         "plan": plan,
-        "priorisierung_aktiv": ziel,
+        "priorisierung_aktiv": None if suchplan else ziel,
+        "suchplan": ziel if suchplan else None,
         "priorisierung_hinweis": ziel_hinweis,
         "hinweis": next_hint,
         "gestartet": started,
