@@ -25,6 +25,7 @@ erfolgreichen Test einschalten; mitgeschickt wird der Schluessel trotzdem.
 """
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -33,6 +34,8 @@ from email.utils import parsedate_to_datetime
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from . import lebenszeichen
 
 API_BASE_URL = "https://seekampf.de/api/v1"
 MAX_429_VERSUCHE = 3
@@ -106,6 +109,9 @@ class ApiBasis:
                 self._uhr_versatz = parsedate_to_datetime(datum).timestamp() + 0.5 - time.time()
             except (TypeError, ValueError):
                 pass
+        aktion = f"{method} {re.sub(r'/[0-9]+', '/#', path)}" if method in SCHREIBEND else None
+        if aktion and response.status_code < 400:
+            lebenszeichen.erfolg(aktion)
         if response.status_code >= 400:
             body = {}
             try:
@@ -115,6 +121,9 @@ class ApiBasis:
             error = body.get("error", {}) if isinstance(body, dict) else {}
             if not isinstance(error, dict):
                 error = {}
+            if aktion and response.status_code < 500 and response.status_code != 429:
+                lebenszeichen.ablehnung(aktion, error.get("code", "unknown"),
+                                        error.get("message", (response.text or "")[:200]))
             raise ApiError(
                 response.status_code,
                 error.get("code", "unknown"),

@@ -33,6 +33,11 @@ und die Warnungen/Fehler der letzten 24 h. Daraus zählt die Seite die Fehler
 länger als das 5-Fache des Takts zurückliegt, obwohl der Dienst läuft
 (Flotten-Manager 25 s, Allianz-Bot 75 s, Kolonisation 2,5 min, Ausbildung
 5 min, Upgrade-Bot 25 min). Nur im Hub, keine Telegram-Meldung.
+Lehnt das Spiel dieselbe schreibende Aktion 5-mal in Folge ab (gleiche
+Methode und gleicher Pfad ohne Inselnummern, gleicher Fehlercode, z. B.
+`POST /fleets – insufficient_ships`), zeigt die Seite **„Aktion wiederholt
+abgelehnt“** – meist ein Planungsfehler im Bot. Ein Erfolg derselben Aktion
+setzt die Zählung zurück.
 
 ## Upgrade-Bot: Verlauf
 

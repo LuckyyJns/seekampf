@@ -218,6 +218,31 @@ class Lebenszeichen(unittest.TestCase):
         self.assertEqual(len(lebenszeichen.lesen("testbot", self.ordner)["meldungen"]), 2)
         log.handlers.clear()
 
+    def test_wiederholte_ablehnung_ab_fuenf_in_folge(self):
+        lebenszeichen._ABLEHNUNGEN.clear()
+        c = api.ApiBasis("k")
+        nein = antwort(409, {"error": {"code": "insufficient_ships", "message": "Nicht genug"}})
+        c.session.request = mock.Mock(return_value=nein)
+        lz = lebenszeichen.Lebenszeichen("testbot", 10, ordner=self.ordner)
+        for iid in range(4):
+            with self.assertRaises(api.ApiError):
+                c._request("POST", f"/islands/{iid}/training", json={})
+        lz.takt()
+        self.assertEqual(lebenszeichen.auswerten(lebenszeichen.lesen("testbot", self.ordner))["wiederholt_abgelehnt"], [])
+        with self.assertRaises(api.ApiError):
+            c._request("POST", "/islands/9/training", json={})
+        lz.takt()
+        w = lebenszeichen.auswerten(lebenszeichen.lesen("testbot", self.ordner))["wiederholt_abgelehnt"]
+        self.assertEqual((w[0]["aktion"], w[0]["code"], w[0]["anzahl"]), ("POST /islands/#/training", "insufficient_ships", 5))
+        # Ein Erfolg derselben Aktion setzt zurueck; GET zaehlt nie.
+        c.session.request = mock.Mock(return_value=antwort(200, {"id": 1}))
+        c._request("POST", "/islands/3/training", json={})
+        c.session.request = mock.Mock(return_value=antwort(404, {"error": {"code": "not_found"}}))
+        with self.assertRaises(api.ApiError):
+            c._request("GET", "/islands/3")
+        lz.takt()
+        self.assertEqual(lebenszeichen.lesen("testbot", self.ordner)["ablehnungen"], [])
+
     def test_haengt_ab_dem_fuenffachen_takt(self):
         d = {"takt_s": 60, "letzter_takt": 1000.0}
         self.assertFalse(lebenszeichen.auswerten(d, jetzt=1000 + 299)["haengt"])

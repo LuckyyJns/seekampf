@@ -15,6 +15,12 @@ Takt neu.
 
 Der Hub nennt einen Bot "haengt", wenn sein letzter Takt laenger als
 HAENGT_FAKTOR x takt_s zurueckliegt, obwohl der Dienst laeuft.
+
+Wiederholte Ablehnungen: lehnt das Spiel dieselbe schreibende Aktion (Methode
++ Pfad ohne Zahlen, gleicher Fehlercode) ABLEHNUNG_WARNEN-mal in Folge ab,
+ist das meist ein Planungsfehler im Bot - der Hub warnt dann. Gemeldet werden
+sie vom gemeinsamen API-Kern (api.py); ein Erfolg derselben Aktion setzt die
+Zaehlung zurueck.
 """
 from __future__ import annotations
 
@@ -31,6 +37,26 @@ ORDNER = "/dev/shm/seekampf-lebenszeichen" if os.path.isdir("/dev/shm") else \
 FENSTER_S = 24 * 3600
 MAX_MELDUNGEN = 500
 HAENGT_FAKTOR = 5
+ABLEHNUNG_WARNEN = 5
+
+# Ablehnungen in Folge je Aktion, fuer diesen Prozess (ein Bot = ein Prozess).
+_ABLEHNUNGEN: dict[str, dict] = {}
+_ablehnung_lock = threading.Lock()
+
+
+def ablehnung(aktion: str, code: str, text: str) -> None:
+    jetzt = time.time()
+    with _ablehnung_lock:
+        e = _ABLEHNUNGEN.get(aktion)
+        if e is None or e["code"] != code:
+            e = _ABLEHNUNGEN[aktion] = {"aktion": aktion, "code": code, "anzahl": 0, "seit": jetzt}
+        e["anzahl"] += 1
+        e.update(text=str(text)[:200], zuletzt=jetzt)
+
+
+def erfolg(aktion: str) -> None:
+    with _ablehnung_lock:
+        _ABLEHNUNGEN.pop(aktion, None)
 
 
 class _Sammler(logging.Handler):
@@ -77,7 +103,11 @@ class Lebenszeichen:
                 self.fehler_in_folge += 1
                 self.letzter_fehler = str(fehler)[:300]
             grenze = jetzt - FENSTER_S
-            daten = {"bot": self.bot, "pid": os.getpid(), "takt_s": self.takt_s, "letzter_takt": jetzt,
+            with _ablehnung_lock:
+                for k in [k for k, e in _ABLEHNUNGEN.items() if e["zuletzt"] < grenze]:
+                    del _ABLEHNUNGEN[k]
+                ablehnungen = [dict(e) for e in _ABLEHNUNGEN.values()]
+            daten = {"ablehnungen": ablehnungen, "bot": self.bot, "pid": os.getpid(), "takt_s": self.takt_s, "letzter_takt": jetzt,
                      "letzter_erfolg": self.letzter_erfolg, "fehler_in_folge": self.fehler_in_folge,
                      "letzter_fehler": self.letzter_fehler,
                      "meldungen": [list(m) for m in self._sammler.meldungen if m[0] >= grenze]}
@@ -122,4 +152,7 @@ def auswerten(d: dict | None, jetzt: float | None = None) -> dict | None:
         "warnungen": sum(1 for m in meldungen if m[1] == "WARNING"),
         "letzte": [{"zeit": t, "level": lv, "text": tx} for t, lv, tx in meldungen[-8:][::-1]],
         "haeufig": [{"anzahl": n, "text": t} for t, n in haeufig],
+        "wiederholt_abgelehnt": sorted((e for e in d.get("ablehnungen") or []
+                                        if int(e.get("anzahl") or 0) >= ABLEHNUNG_WARNEN),
+                                       key=lambda e: -int(e["anzahl"])),
     }

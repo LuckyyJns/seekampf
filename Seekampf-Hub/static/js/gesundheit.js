@@ -20,6 +20,7 @@ function gesBewertung(name, g) {
     if (g.serverzeit - lauf.letzter > grenze) return ["schlecht", `kein Durchlauf seit ${dauer(g.serverzeit - lauf.letzter)}`];
   }
   if (lz && lz.fehler_in_folge > 1) return ["warn", `${lz.fehler_in_folge} Takte in Folge mit Fehler`];
+  if (lz && (lz.wiederholt_abgelehnt || []).length) return ["warn", "Aktion wiederholt abgelehnt"];
   if (lauf.fehler) return ["warn", "letzter Durchlauf mit Fehler"];
   if (name === "flotte" && lauf.laeuft === false) return ["warn", "Raiden gestoppt"];
   if ((log.fehler || 0) > 0) return ["warn", `${log.fehler} Fehler in 24 h`];
@@ -48,6 +49,8 @@ function zeichneGesundheit() {
     const inselFehler = Object.entries(lauf.inseln_fehler || {}).map(([iid, f]) =>
       `<li><b>${esc(lauf.namen?.[iid] || iid)}:</b> ${esc(f)}</li>`).join("");
     const haeufig = (log.haeufig || []).map(h => `<li><b>${h.anzahl}×</b> ${esc(h.text)}</li>`).join("");
+    const abgelehnt = (((g.lebenszeichen || {})[name] || {}).wiederholt_abgelehnt || []).map(a =>
+      `<li><b>${a.anzahl}× in Folge abgelehnt</b> (seit ${uhrzeit(a.seit, true)}): <span class="mono">${esc(a.aktion)}</span> – ${esc(a.code)}: ${esc(a.text)}</li>`).join("");
     return `<section class="karte dienst-karte" style="margin:0">
       <div class="oben"><a href="#${name}">${titel} →</a><span class="marke ${klasse}"><span class="punkt"></span>${esc(text)}</span></div>
       <div class="klein-text">Letzter Durchlauf: <b>${lauf.letzter ? vor(lauf.letzter) : "–"}</b>${
@@ -57,6 +60,7 @@ function zeichneGesundheit() {
       ${lauf.fehler ? `<div class="fehler" style="margin:0">${esc(lauf.fehler)}</div>` : ""}
       <div class="klein-text"><span style="color:${log.fehler ? "var(--schlecht)" : "inherit"}"><b>${log.fehler || 0}</b> Fehler</span> ·
         <span style="color:${log.warnungen ? "var(--warn)" : "inherit"}"><b>${log.warnungen || 0}</b> Warnungen</span></div>
+      ${abgelehnt ? `<ul class="ges-liste" style="color:var(--warn)">${abgelehnt}</ul>` : ""}
       ${inselFehler ? `<ul class="ges-liste">${inselFehler}</ul>` : ""}
       ${haeufig ? `<ul class="ges-liste leise">${haeufig}</ul>` : ""}
     </section>`;
