@@ -22,6 +22,8 @@ import logging
 import math
 from datetime import timedelta
 
+from seekampf_gemeinsam import forschung
+
 import config
 import steuerung
 from api_client import ApiError
@@ -186,7 +188,7 @@ class Helfer:
             k.melden("Beistand unklar", f"Versand an {k.mitglieder.get(absender)}: {e}. Bitte pruefen.")
             return
         ankunft = zeit(flotte["arrive_at"]) if flotte.get("arrive_at") else k.jetzt() + fahrzeit(
-            von, h["insel"], knoten(schiffe))
+            von, h["insel"], knoten(schiffe, k.forschung.stufe(insel_id, "segel")))
         try:
             k.pn(absender, "VERSANDT", {"vorgang": vorgang, "von": von, "einheiten": einheiten,
                                         "leihe": [EINHEIT], "ankunft": iso(ankunft)})
@@ -275,14 +277,15 @@ class Helfer:
             return None
         verzug = timedelta(0)
         if truppen_kapazitaet(hafen) >= menge:
-            kn = knoten(truppen_schiffe(menge, hafen))
+            kn = knoten(truppen_schiffe(menge, hafen), k.forschung.stufe(insel_id, "segel"))
         else:
             # Raid-Flotten mitzaehlen, die nach einer Zusage zurueckgerufen werden koennten.
             kap, bereit = k.schiffe_beschaffen(insel_id, menge, bis=jetzt + config.VERSAND_FRIST,
                                                zweck=f"Angebot {vorgang}", ausfuehren=False)
             menge = kap
             verzug = bereit - jetzt
-            kn = min(config.SCHIFF_KNOTEN[t] for t in config.TRUPPEN_SCHIFFE)
+            kn = (min(config.SCHIFF_KNOTEN[t] for t in config.TRUPPEN_SCHIFFE)
+                  * forschung.knoten_faktor(k.forschung.stufe(insel_id, "segel")))
         if menge < 1:
             return None
         von = k.koord(insel_id)

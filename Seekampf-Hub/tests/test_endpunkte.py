@@ -91,7 +91,8 @@ class Upgrade(MitTempOrdnern):
         return client.put(f"/api/upgrade/inseln/{insel}", json=payload, headers=KOPF)
 
     def test_einstellungen_werden_geprueft_und_gespeichert(self):
-        self.assertEqual(self.put({"modus": "labor"}).status_code, 400)
+        self.assertEqual(self.put({"modus": "marktplatz"}).status_code, 400)
+        self.assertEqual(self.put({"ausbauziele": [{"gebaeude": "labor", "stufe": 20}]}).status_code, 200)
         self.assertEqual(self.put({"gesperrt": ["marktplatz"]}).status_code, 400)
         self.assertEqual(self.put({"ausbauziele": [{"gebaeude": "hafen", "stufe": 21}]}).status_code, 400)
         self.assertEqual(self.put({"bis_stufe": "x"}).status_code, 400)
@@ -107,7 +108,7 @@ class Upgrade(MitTempOrdnern):
 
     def test_befehle(self):
         self.assertEqual(client.post("/api/upgrade/befehl", json={"typ": "x"}, headers=KOPF).status_code, 400)
-        self.assertEqual(client.post("/api/upgrade/befehl", json={"typ": "auftrag", "gebaeude": "labor",
+        self.assertEqual(client.post("/api/upgrade/befehl", json={"typ": "auftrag", "gebaeude": "marktplatz",
                                                                    "insel_id": 1}, headers=KOPF).status_code, 400)
         a = client.post("/api/upgrade/befehl", json={"typ": "auftrag", "gebaeude": "hafen", "insel_id": "7"},
                         headers=KOPF)

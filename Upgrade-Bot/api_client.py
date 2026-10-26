@@ -5,12 +5,15 @@ Session, Wiederholungen und Fehlerauswertung kommen aus
 ein Ausbau-Auftrag darf nie doppelt ausgeloest werden.
 """
 import config
+from seekampf_gemeinsam import forschung
 from seekampf_gemeinsam.api import MAX_429_VERSUCHE, ApiBasis, ApiError  # noqa: F401 - ApiError/MAX_429_VERSUCHE fuer die Aufrufer
 
 
 class SeekampfClient(ApiBasis):
     def __init__(self):
         super().__init__(config.API_KEY, config.API_BASE_URL)
+        # Engineering-Stufe je Insel (Labor) fuer die Bauzeiten im Such-Plan.
+        self.forschung = forschung.Forschungsstand(self)
 
     def get_my_islands(self):
         """GET /me/islands -> Liste von IslandListItem ({id, name, koordinaten, punkte}).

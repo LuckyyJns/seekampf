@@ -71,6 +71,30 @@ class NurNochMauerUndTurm(unittest.TestCase):
         self.assertEqual(planner.choose_upgrade(kandidaten, self.genug, 50000, False)["building"], "haupthaus")
 
 
+class Labor(unittest.TestCase):
+    """Das Labor (seit 26.10.2026 im Spiel) steht auf einer Stufe mit Hafen und Kaserne."""
+    genug = {"gold": 50000, "stein": 50000, "holz": 50000}
+
+    def test_wird_aus_der_api_uebernommen_marktplatz_nicht(self):
+        gebaeude = [
+            {"typ": "labor", "stufe": 0, "verfuegbar": True, "naechste_stufe": 1,
+             "kosten": {"gold": 110, "stein": 170, "holz": 68}},
+            {"typ": "marktplatz", "stufe": 0, "verfuegbar": False, "naechste_stufe": None, "kosten": None},
+        ]
+        kand = planner.collect_candidates(gebaeude, {})
+        self.assertEqual(list(kand), ["labor"])
+
+    def test_vor_mauer_und_turm_nach_den_minen(self):
+        kandidaten = {
+            "labor": kandidat("labor", 3, {"gold": 264, "stein": 407, "holz": 163}),
+            "wachturm": kandidat("wachturm", 3, {"gold": 100, "stein": 100, "holz": 100}),
+        }
+        self.assertEqual(planner.choose_upgrade(kandidaten, self.genug, 50000, False)["building"], "labor")
+        self.assertFalse(planner.nur_niedrige(kandidaten))
+        kandidaten["goldmine"] = kandidat("goldmine", 10, {"gold": 3000, "stein": 3000, "holz": 3000})
+        self.assertEqual(planner.choose_upgrade(kandidaten, self.genug, 50000, False)["building"], "goldmine")
+
+
 class Ausbauziele(unittest.TestCase):
     def geb(self, typ, naechste=1, verfuegbar=True):
         return {"typ": typ, "naechste_stufe": naechste, "verfuegbar": verfuegbar}

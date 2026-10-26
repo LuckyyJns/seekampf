@@ -13,7 +13,7 @@ Kolonisation“), Reihenfolge mit ▲/▼, entfernen mit ✕.
 | spart | die schnellste geeignete Insel spart auf das Kolonisationsschiff |
 | Schiff in Ausbildung | das Schiff wird im Hafen gebaut (6 h) |
 | Schiff bereit | liegt im Hafen; fährt los, sobald keine Bedrohung mehr anfliegt |
-| unterwegs | fährt zum Ziel (3 Knoten) |
+| unterwegs | fährt zum Ziel (3 Knoten, +6 % je Segel-Stufe der Bau-Insel) |
 
 **Geeignet** ist eine Insel, deren Hafen das Schiff bauen kann (Stufe 20) und
 deren Lager die Kosten fasst (größter Posten 35.500 Holz). Hat das Ziel eine

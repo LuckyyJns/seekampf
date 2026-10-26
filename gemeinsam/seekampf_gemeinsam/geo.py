@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 
-from . import spiel
+from . import forschung, spiel
 
 
 def feld(x: int, y: int, z: int) -> tuple[int, int]:
@@ -29,11 +29,12 @@ def distanz_felder(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
     return math.dist((ax, ay), (bx, by))
 
 
-def flotten_knoten(ships: dict) -> float:
-    """Eine Flotte faehrt so schnell wie ihr langsamstes Schiff."""
+def flotten_knoten(ships: dict, segel: int = 0) -> float:
+    """Eine Flotte faehrt so schnell wie ihr langsamstes Schiff; die
+    Segel-Forschung ihrer Heimatinsel macht sie 6 % je Stufe schneller."""
     werte = [spiel.SCHIFF_KNOTEN[typ] for typ, n in ships.items()
              if n and typ in spiel.SCHIFF_KNOTEN]
-    return float(min(werte)) if werte else 0.0
+    return float(min(werte)) * forschung.knoten_faktor(segel) if werte else 0.0
 
 
 def ladevolumen(ships: dict) -> int:

@@ -11,6 +11,7 @@ Abhaengigkeit ein (`seekampf-gemeinsam = { path = "../gemeinsam", editable = tru
 | `logs` | eine Logdatei pro Tag, Journal nur Warnungen/Fehler |
 | `spiel` | feste Spielwerte (Sektorkante, Knoten, Ladevolumen, Mindestfahrzeit) |
 | `geo` | Feldkoordinaten, Entfernung, Fahrzeit |
+| `forschung` | Forschungsstand je Insel (Labor): Segel -> Knoten, Engineering -> Bauzeit |
 | `reservierungen` | gemeinsames Verzeichnis, was welcher Bot auf welcher Insel zurueckhaelt |
 | `alarm` | Ausfall-Alarm fuer systemd (nur Standardbibliothek) |
 """

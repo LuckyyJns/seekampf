@@ -50,6 +50,25 @@ class Modell(unittest.TestCase):
         self.assertIn("kaserne", kand)
         self.assertNotIn("steinmauer", kand)
 
+    def test_labor_ab_haupthaus_10(self):
+        self.assertNotIn("labor", self.insel(haupthaus=9).kandidaten())
+        self.assertIn("labor", self.insel(haupthaus=10).kandidaten())
+
+    def test_engineering_kuerzt_die_bauzeit(self):
+        kosten = gamedata.cost("goldmine", 9)
+        lager = (kosten["gold"], kosten["stein"], kosten["holz"])
+        ohne, mit = self.insel(lager=lager), sim.Insel(STUFEN, dict(zip(sim.RES, lager)), engineering=5)
+        ohne.bauen("goldmine", 10 * 86400)
+        mit.kopie().bauen("goldmine", 10 * 86400)   # die Kopie behaelt die Forschung
+        mit.bauen("goldmine", 10 * 86400)
+        self.assertAlmostEqual(mit.t, ohne.t * 0.7)
+
+    def test_volle_insel_hat_1000_punkte(self):
+        i = sim.Insel({g: 20 for g in sim.GEBAEUDE}, {})
+        self.assertAlmostEqual(i.punkte(), 1000.0, delta=0.5)
+        i.stufen["labor"] = 0
+        self.assertAlmostEqual(i.punkte(), 873.0, delta=0.5)
+
     def test_externe_einnahmen(self):
         i = sim.Insel({**STUFEN, "goldmine": 0}, {}, extern={"gold": 100})
         i.warten(3600)

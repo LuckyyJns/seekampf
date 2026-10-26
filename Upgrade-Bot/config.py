@@ -23,11 +23,14 @@ RESOURCE_KEYS = ("gold", "stein", "holz")
 # --- Priorisierung (uebernommen aus dem vom Nutzer bereitgestellten
 # "bot test"-Skript, siehe planner.py fuer die Kaskade) ---
 RESOURCE_BUILDINGS = ("goldmine", "steingrube", "saegewerk")
-# Hafen und Kaserne teilen sich eine Prioritaetsstufe (nach Lagerhaus und
-# Haupthaus, vor Steinmauer/Wachturm). Innerhalb der Stufe entscheidet die
+# Hafen, Kaserne und Labor teilen sich eine Prioritaetsstufe (nach Lagerhaus
+# und Haupthaus, vor Steinmauer/Wachturm). Innerhalb der Stufe entscheidet die
 # Gewichtung pro Kosten - frueher stand der Hafen eine Stufe hoeher und lief
 # den Wirtschaftsgebaeuden davon (7 Ausbauten allein am 16.09.).
-MID_PRIORITY_BUILDINGS = ("hafen", "kaserne")
+# Das Labor (ab Haupthaus 10) ist seit dem 26.10.2026 im Spiel freigeschaltet;
+# der Marktplatz bleibt abgeschaltet. Forschen tut der Bot nicht - die
+# Engineering-Stufe der Insel kuerzt nur die Bauzeiten im Such-Plan.
+MID_PRIORITY_BUILDINGS = ("hafen", "kaserne", "labor")
 LOW_PRIORITY_BUILDINGS = ("steinmauer", "wachturm")
 TRACKED_BUILDINGS = (*RESOURCE_BUILDINGS, "haupthaus", "lagerhaus", *MID_PRIORITY_BUILDINGS, *LOW_PRIORITY_BUILDINGS)
 
@@ -35,7 +38,7 @@ TRACKED_BUILDINGS = (*RESOURCE_BUILDINGS, "haupthaus", "lagerhaus", *MID_PRIORIT
 # Rueckfall, wenn die Regeltabelle (gamedata.py) fehlt (siehe planner._resource_score).
 PRIORITY_WEIGHTS = {
     "goldmine": 100, "steingrube": 100, "saegewerk": 100,
-    "haupthaus": 65, "lagerhaus": 60, "hafen": 55, "kaserne": 30,
+    "haupthaus": 65, "lagerhaus": 60, "hafen": 55, "kaserne": 30, "labor": 30,
     "steinmauer": 5, "wachturm": 5,
 }
 

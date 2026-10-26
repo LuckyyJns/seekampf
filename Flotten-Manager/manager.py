@@ -22,7 +22,7 @@ import time
 from datetime import datetime, timezone
 
 import requests
-from seekampf_gemeinsam import geo, reservierungen
+from seekampf_gemeinsam import forschung, geo, reservierungen
 from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
@@ -101,6 +101,8 @@ def fmt_beute(beute: dict | None) -> str:
 class FlottenManager:
     def __init__(self, client, state, notifier=None):
         self.client = client
+        # Segel-Forschung je Insel: schnellere Flotten, kuerzere Fahrzeiten.
+        self.forschung = forschung.Forschungsstand(client)
         self.state = state
         self.notifier = notifier
         # Rohstoff-Bilanz: Raid-Beute und Lieferungen des Rohstoff-Ausgleichs.
@@ -264,7 +266,8 @@ class FlottenManager:
         # daheim, tut es die Wunschbesetzung als Schaetzung.
         ships = (self.flotte_ships(insel_id, self.vorrat(self.insel_ov(insel_id)))
                  or self.flotte_ships(insel_id))
-        return scanner.scan(self.client, self.state, insel_id, heimat, ships)
+        return scanner.scan(self.client, self.state, insel_id, heimat, ships,
+                            segel=self.forschung.stufe(insel_id, "segel"))
 
     # ------------------------------------------------------------------- Tick
     def tick(self) -> None:

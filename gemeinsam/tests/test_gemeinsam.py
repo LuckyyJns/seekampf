@@ -10,7 +10,7 @@ import time
 import unittest
 from unittest import mock
 
-from seekampf_gemeinsam import api, bilanz, geo, lebenszeichen, reservierungen
+from seekampf_gemeinsam import api, bilanz, forschung, geo, lebenszeichen, reservierungen
 from seekampf_gemeinsam.logs import logger_einrichten
 
 
@@ -82,6 +82,33 @@ class Geo(unittest.TestCase):
     def test_langsamstes_schiff_und_untergrenze(self):
         self.assertEqual(geo.flotten_knoten({"kleines_kriegsschiff": 2, "kolonisationsschiff": 1}), 3.0)
         self.assertEqual(geo.fahrzeit_s((1, 1, 1), (1, 1, 2), 12), 120)
+
+    def test_segel_wie_nachgemessen(self):
+        # Insel mit Segel 6: die API meldete 9,52 bzw. 13,6 Knoten
+        self.assertAlmostEqual(geo.flotten_knoten({"grosses_handelsschiff": 1}, segel=6), 9.52)
+        self.assertAlmostEqual(geo.flotten_knoten({"kleines_handelsschiff": 3}, segel=6), 13.6)
+        self.assertEqual(geo.flotten_knoten({}, segel=6), 0.0)
+
+
+class Forschung(unittest.TestCase):
+    def test_faktoren(self):
+        self.assertAlmostEqual(forschung.knoten_faktor(0), 1.0)
+        self.assertAlmostEqual(forschung.bauzeit_faktor(10), 0.4)
+        self.assertAlmostEqual(forschung.bauzeit_faktor(None), 1.0)
+
+    def test_stand_wird_vorgehalten_und_fehler_halten_den_alten(self):
+        client = mock.Mock()
+        client._request.return_value = {"forschungen": [{"tech": "segel", "stufe": 6}, {"tech": "engineering", "stufe": 2}]}
+        stand = forschung.Forschungsstand(client, neu_laden_s=100)
+        self.assertEqual(stand.stufe(7, "segel"), 6)
+        self.assertAlmostEqual(stand.bauzeit_faktor(7), 0.88)
+        self.assertEqual(client._request.call_count, 1)
+        client._request.assert_called_with("GET", "/islands/7/research")
+        stand._stand[7] = (0, stand._stand[7][1])  # abgelaufen
+        client._request.side_effect = api.ApiError(500, "x", "kaputt")
+        with self.assertLogs("seekampf_gemeinsam.forschung", "WARNING"):
+            self.assertEqual(stand.stufe(7, "segel"), 6)
+        self.assertEqual(stand.stufe(8, "segel"), 0)
 
 
 class Reservierungen(unittest.TestCase):

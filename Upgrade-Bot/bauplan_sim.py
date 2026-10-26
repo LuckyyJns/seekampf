@@ -12,8 +12,9 @@ Modell (Regeln, Werte aus gamedata.py):
   abgebucht, die neue Stufe gilt ab Fertigstellung.
 - Produktion aus den Minenstufen, gekappt an der Lagerkapazitaet (Lagerhaus;
   ohne Lagerhaus 500). Was darueber hinaus produziert wird, zaehlt als verfallen.
-- Bauzeit mit Haupthaus-Abzug, Voraussetzungen: Kaserne ab Haupthaus 5,
-  Hafen ab Haupthaus 7 (nur fertige Stufen).
+- Bauzeit mit Haupthaus-Abzug und Engineering-Forschung der Insel,
+  Voraussetzungen: Kaserne ab Haupthaus 5, Hafen ab Haupthaus 7, Labor ab
+  Haupthaus 10 (nur fertige Stufen). Forschung selbst ist nicht im Modell.
 - Einnahmen/Ausgaben von aussen (Raid-Beute, Ausgleich, Allianz, Ausbildung,
   Kolonisation) als feste Rate je Stunde (`extern`, z. B. aus der Rohstoff-Bilanz).
 Nicht im Modell: Allianzkasse (nimmt nur den Ueberlauf), Reservierungen des
@@ -30,19 +31,23 @@ from seekampf_gemeinsam import bilanz
 RES = config.RESOURCE_KEYS
 GEBAEUDE = config.TRACKED_BUILDINGS
 MINE = {"goldmine": "gold", "steingrube": "stein", "saegewerk": "holz"}
-HAUPTHAUS_AB = {"kaserne": 5, "hafen": 7}
+HAUPTHAUS_AB = {"kaserne": 5, "hafen": 7, "labor": 10}
 MAX_STUFE = 20
 LAGER_OHNE_LAGERHAUS = 500.0
 LEERLAUF_S = config.LOW_PRIORITY_DELAY_SECONDS
 UEBERLAUF_S = config.UEBERLAUF_MIN_STUNDEN_24H * 3600
 
 # Punkte je Stufe, aus 255 echten Tageswerten (data/verlauf.json) per kleinster
-# Quadrate bestimmt (Abweichung hoechstens 0,6 Punkte); Summe 50 = 1000 Punkte
-# bei allen Gebaeuden auf Stufe 20.
-PUNKTE_JE_STUFE = {
+# Quadrate bestimmt (Abweichung hoechstens 0,6 Punkte). Seit dem Labor zaehlt
+# eine Insel ohne Labor nur noch 873 statt 1000 Punkte (Regeln, "Labor"): die
+# alten Werte sind mit 0,873 gestaucht, das Labor bringt 127 / 20 = 6,35 je
+# Stufe. Gegengeprueft am 26.10.2026: GiG (alles 20, Labor 19) gerechnet
+# 993,5, die API meldete 994.
+_PUNKTE_VOR_LABOR = {
     "haupthaus": 8.56, "hafen": 9.04, "kaserne": 7.27, "goldmine": 4.30, "steingrube": 4.35,
     "saegewerk": 4.21, "lagerhaus": 4.63, "steinmauer": 4.24, "wachturm": 3.39,
 }
+PUNKTE_JE_STUFE = {**{g: p * 0.873 for g, p in _PUNKTE_VOR_LABOR.items()}, "labor": 6.35}
 
 # Fuer das Kolonisationsschiff: Hafen 20 und ein Lager, in das 35.500 Holz passen.
 KOLO_HAFEN, KOLO_LAGERHAUS = 20, 18
@@ -53,10 +58,11 @@ REST_H = 72.0
 
 class Insel:
     __slots__ = ("t", "stufen", "lager", "verbaut", "erzeugt", "verfallen", "plan", "voll_seit", "laeuft",
-                 "extern")
+                 "extern", "engineering")
 
-    def __init__(self, stufen: dict, lager: dict, extern: dict | None = None):
+    def __init__(self, stufen: dict, lager: dict, extern: dict | None = None, engineering: int = 0):
         self.t = 0.0
+        self.engineering = int(engineering or 0)   # Forschungsstufe, aendert sich im Modell nicht
         self.stufen = {g: int(stufen.get(g, 0) or 0) for g in GEBAEUDE}
         self.lager = {r: float(lager.get(r, 0) or 0) for r in RES}
         self.verbaut = 0.0
@@ -78,6 +84,7 @@ class Insel:
         k.stufen, k.lager, k.voll_seit = dict(self.stufen), dict(self.lager), dict(self.voll_seit)
         k.plan = list(self.plan)
         k.extern = self.extern
+        k.engineering = self.engineering
         return k
 
     # ------------------------------------------------------------- Modell
@@ -174,7 +181,7 @@ class Insel:
             if self.lager[r] < self.kapazitaet():
                 self.voll_seit[r] = None
         self.verbaut += sum(float(kosten.get(r, 0) or 0) for r in RES)
-        dauer = gamedata.build_time_s(g, self.stufen[g] + 1, self.stufen["haupthaus"]) or 0.0
+        dauer = gamedata.build_time_s(g, self.stufen[g] + 1, self.stufen["haupthaus"], self.engineering) or 0.0
         start = self.t
         if start + dauer > horizont:
             self.warten(horizont - self.t)
@@ -306,12 +313,13 @@ def kennzahlen(insel: Insel) -> dict:
 
 
 # ------------------------------------------------- Start aus dem Live-Stand
-def aus_auftraegen(stufen: dict, lager: dict, auftraege: list, extern: dict | None, horizont: float) -> Insel:
+def aus_auftraegen(stufen: dict, lager: dict, auftraege: list, extern: dict | None, horizont: float,
+                   engineering: int = 0) -> Insel:
     """Insel ab jetzt (t = 0), die Warteschlange vorweg abgearbeitet.
     auftraege: [(gebaeude, ziel_stufe, status, fertig_in_s)] in Reihenfolge; ein
     'aktiv'er Auftrag ist schon bezahlt und laeuft noch fertig_in_s Sekunden,
     wartende werden wie normale Ausbauten bezahlt und gebaut."""
-    insel = Insel(stufen, lager, extern)
+    insel = Insel(stufen, lager, extern, engineering)
     for g, ziel, status, fertig_in in auftraege:
         if g not in insel.stufen or insel.stufen[g] >= ziel:
             continue

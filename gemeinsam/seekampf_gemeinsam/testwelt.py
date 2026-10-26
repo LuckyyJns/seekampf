@@ -8,7 +8,7 @@ gegenseitig, was der andere gerade tut.
 Nachgebaut ist, wo sich Bots in die Quere kommen koennen: Inseln mit
 Schiffen, Truppen und Rohstoffen, Flotten (Raid auf freie Inseln, Handel
 zwischen eigenen Inseln, Rueckruf), Ausbildung in Kaserne und Hafen, die
-Karte (freie Inseln) und ein leeres Postfach. Kampf, Gebaeudebau, Allianz und
+Karte (freie Inseln), der Forschungsstand (nur lesen) und ein leeres Postfach. Kampf, Gebaeudebau, Allianz und
 Forum fehlen bewusst.
 
 Zeit laeuft nicht von selbst: `ankommen()` laesst alle Flotten ankommen,
@@ -102,7 +102,7 @@ class Welt:
     # ------------------------------------------------------------ Aufbau
     def insel(self, iid: int, koord: str, *, name: str | None = None, schiffe=None, truppen=None,
               rohstoffe=(10000, 10000, 10000), kapazitaet=50000, kaserne=20, hafen=20,
-              produktion=(100, 100, 100)) -> dict:
+              produktion=(100, 100, 100), forschung=None) -> dict:
         x, y, z = (int(v) for v in koord.split(":"))
         self.inseln[iid] = {
             "id": iid, "name": name or f"I{iid}", "koordinaten": koord, "x": x, "y": y, "z": z,
@@ -110,6 +110,7 @@ class Welt:
             "rohstoffe": {**dict(zip(ROHSTOFFE, map(float, rohstoffe))), "kapazitaet": float(kapazitaet)},
             "produktion": dict(zip(ROHSTOFFE, map(float, produktion))),
             "gebaeude": {"kaserne": kaserne, "hafen": hafen}, "bedrohung_im_anflug": False,
+            "forschung": dict(forschung or {}),
         }
         return self.inseln[iid]
 
@@ -206,6 +207,9 @@ class Welt:
         if (t := re.fullmatch(r"/islands/(\d+)/resources", pfad)) and m == "GET":
             i = self.inseln[self._eigene(int(t.group(1)))]
             return {**i["rohstoffe"], "produktion_pro_h": dict(i["produktion"])}
+        if (t := re.fullmatch(r"/islands/(\d+)/research", pfad)) and m == "GET":
+            stufen = self.inseln[self._eigene(int(t.group(1)))]["forschung"]
+            return {"forschungen": [{"tech": t, "stufe": n} for t, n in stufen.items()], "baum": [], "laufend": None}
         if (t := re.fullmatch(r"/islands/(\d+)/rename", pfad)) and m == "POST":
             self.inseln[self._eigene(int(t.group(1)))]["name"] = body.get("name")
             return {"ok": True}
@@ -221,7 +225,7 @@ class Welt:
 
     # --------------------------------------------------------------- Teile
     def _uebersicht(self, i: dict) -> dict:
-        aus = {k: copy.deepcopy(v) for k, v in i.items() if k not in ("x", "y", "z", "produktion")}
+        aus = {k: copy.deepcopy(v) for k, v in i.items() if k not in ("x", "y", "z", "produktion", "forschung")}
         aus["rohstoffe"]["produktion_pro_h"] = dict(i["produktion"])
         return aus
 

@@ -76,9 +76,10 @@ AKTIONEN = {"flotte": ("start", "stop", "restart"), "upgrade": ("start", "stop",
             "allianz": ("start", "stop", "restart"), "kolonie": ("start", "stop", "restart"),
             "ausbildung": ("start", "stop", "restart"), "hub": ("restart",)}
 
-# Gebaeude, die der Upgrade-Bot bauen kann (Labor und Marktplatz sind im Spiel abgeschaltet).
+# Gebaeude, die der Upgrade-Bot bauen kann (der Marktplatz ist im Spiel abgeschaltet,
+# das Labor seit dem 26.10.2026 freigeschaltet).
 GEBAEUDE = ("haupthaus", "goldmine", "steingrube", "saegewerk", "lagerhaus",
-            "hafen", "kaserne", "steinmauer", "wachturm")
+            "hafen", "kaserne", "labor", "steinmauer", "wachturm")
 ROHSTOFFE = ("gold", "stein", "holz")
 FAEHIGKEITEN = ("notruf", "beistand", "leihe_rueckgabe", "anfrage")
 STRATEGIE = {  # Typ, Minimum, Maximum - wie in Allianz-Bot/steuerung.py

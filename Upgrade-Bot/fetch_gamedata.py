@@ -27,7 +27,7 @@ BUILDING_NAMES = {
     "haupthaus": "haupthaus", "goldmine": "goldmine", "steingrube": "steingrube",
     "sägewerk": "saegewerk", "saegewerk": "saegewerk", "lagerhaus": "lagerhaus",
     "steinmauer": "steinmauer", "wachturm": "wachturm", "kaserne": "kaserne",
-    "hafen": "hafen",
+    "hafen": "hafen", "labor": "labor", "labor (forschung)": "labor",
 }
 
 COLUMNS = {

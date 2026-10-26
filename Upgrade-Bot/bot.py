@@ -456,8 +456,14 @@ def _extern(island_id) -> dict:
     return EXTERN["werte"].get(str(island_id)) or {}
 
 
+def _engineering(client, island_id) -> int:
+    """Engineering-Stufe der Insel (Labor-Forschung); 0, wenn der Client sie nicht kennt."""
+    stand = getattr(client, "forschung", None)
+    return stand.stufe(island_id, "engineering") if stand is not None else 0
+
+
 def _suchplan(island_id, buildings: list, planbar: dict, active_orders: list, gesperrt: set,
-              now: datetime) -> str | None:
+              now: datetime, engineering: int = 0) -> str | None:
     """Erstes Gebaeude des Such-Plans nach der laufenden Warteschlange - oder None."""
     if not config.SUCHPLAN_AKTIV or not gamedata.available():
         return None
@@ -468,7 +474,7 @@ def _suchplan(island_id, buildings: list, planbar: dict, active_orders: list, ge
         auftraege.append((o.get("building_typ"), int(o.get("ziel_stufe") or 0), str(o.get("status", "")).lower(),
                           (fertig - now).total_seconds() if fertig else 0.0))
     horizont = config.SUCHPLAN_TAGE * 86400
-    start = bauplan_sim.aus_auftraegen(stufen, planbar, auftraege, _extern(island_id), horizont)
+    start = bauplan_sim.aus_auftraegen(stufen, planbar, auftraege, _extern(island_id), horizont, engineering)
     return bauplan_sim.naechster_schritt(start, horizont, config.SUCHPLAN_ZIEL, config.SUCHPLAN_BREITE, gesperrt)
 
 
@@ -632,7 +638,8 @@ def process_island(client, island_id, zustand, logger, einstellung: dict | None 
         stand = (tuple(sorted(levels.items())), tuple(o.get("id") for o in active_orders))
         if stand not in such_cache:
             try:
-                such_cache[stand] = _suchplan(island_id, buildings, planbar, active_orders, gesperrt, now_dt)
+                such_cache[stand] = _suchplan(island_id, buildings, planbar, active_orders, gesperrt, now_dt,
+                                              _engineering(client, island_id))
             except Exception:
                 logger.exception("Insel %s: Such-Plan fehlgeschlagen, entscheidet die Kaskade", island_id)
                 such_cache[stand] = None

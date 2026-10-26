@@ -72,6 +72,13 @@ class Scanner(unittest.TestCase):
         self.assertEqual(self.st.insel(1)["rotation_index"], 1)
         self.assertGreater(ziele["50:50:8"]["fahrzeit_s"], 0)
 
+    def test_segel_verkuerzt_die_fahrzeit(self):
+        welt = Region([insel_daten(51, 51, 25)])
+        scanner.scan(welt, self.st, 1, (50, 50, 1), {"kleines_kriegsschiff": 1})
+        ohne = self.st.insel(1)["ziele"]["51:51:25"]["fahrzeit_s"]
+        scanner.scan(welt, self.st, 1, (50, 50, 1), {"kleines_kriegsschiff": 1}, segel=5)
+        self.assertAlmostEqual(self.st.insel(1)["ziele"]["51:51:25"]["fahrzeit_s"], ohne / 1.3)
+
 
 class Morgenreport(unittest.TestCase):
     def setUp(self):

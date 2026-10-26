@@ -34,7 +34,7 @@ import time
 from datetime import datetime, timezone
 
 import requests
-from seekampf_gemeinsam import geo, reservierungen
+from seekampf_gemeinsam import forschung, geo, reservierungen
 from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
@@ -111,6 +111,8 @@ def begleitung_bereinigen(roh) -> dict:
 class Kolonisierer:
     def __init__(self, client, state, notifier=None):
         self.client = client
+        # Segel-Forschung je Insel (Labor) beschleunigt das Kolonisationsschiff.
+        self.forschung = forschung.Forschungsstand(client)
         self.state = state
         self.notifier = notifier
         self.bilanz = Bilanz("kolonisation", config.BILANZ_ORDNER)
@@ -142,8 +144,8 @@ class Kolonisierer:
         return geo.distanz_felder(self._koord(iid), (e["x"], e["y"], e["z"]))
 
     def fahrzeit(self, iid, e: dict) -> float:
-        return geo.fahrzeit_s(self._koord(iid), (e["x"], e["y"], e["z"]),
-                              config.SCHIFF_KNOTEN[config.SCHIFF])
+        knoten = config.SCHIFF_KNOTEN[config.SCHIFF] * self.forschung.knoten_faktor(iid)
+        return geo.fahrzeit_s(self._koord(iid), (e["x"], e["y"], e["z"]), knoten)
 
     def _ausbildung(self, iid: int) -> dict:
         """Ausbildungsstand einer Insel (einmal je Tick abgefragt). Liest dabei

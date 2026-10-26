@@ -43,7 +43,12 @@ class FakeApi:
         self.fleets, self.created, self.recalled, self.trainings = [], [], [], []
         self.training = {}          # iid -> [auftraege]
         self.produktion = {}        # iid -> Produktion pro Stunde
+        self.forschung = {}         # iid -> {tech: stufe}
         self.nid = 500
+
+    def _request(self, method, path):
+        iid = int(path.split("/")[2])
+        return {"forschungen": [{"tech": t, "stufe": n} for t, n in self.forschung.get(iid, {}).items()]}
 
     def get_me(self):
         return {"name": "Lucky_Jns"}
@@ -340,6 +345,14 @@ class Besiedelt(Basis):
         api.ov[1]["rohstoffe"].update(gold=19000, stein=4000, holz=35000)   # fast alles da
         bot.tick()
         self.assertEqual(e["bau_insel"], 2)       # weiter weg, aber viel frueher am Ziel
+
+    def test_segel_verkuerzt_die_fahrzeit(self):
+        api = FakeApi([insel(1, "40:40:1"), insel(2, "50:40:1")])   # beide 5 Sektoren vom Ziel
+        api.forschung[2] = {"segel": 5}
+        bot, st = self.bot(api)
+        bot.tick()
+        e = {"x": 45, "y": 40, "z": 1}
+        self.assertAlmostEqual(bot.fahrzeit(2, e), bot.fahrzeit(1, e) / 1.3, delta=1)
 
     def test_bau_insel_wechselt_nur_bei_deutlichem_vorsprung(self):
         # gleiche Fahrzeit (alles im Sektor des Ziels): es zaehlt nur das Ansparen

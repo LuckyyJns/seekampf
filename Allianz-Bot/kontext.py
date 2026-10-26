@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
-from seekampf_gemeinsam import geo
+from seekampf_gemeinsam import forschung, geo
 from seekampf_gemeinsam.bilanz import Bilanz
 
 import config
@@ -72,13 +72,15 @@ def truppen_kapazitaet(hafen: dict) -> int:
     return sum(int(hafen.get(t, 0) or 0) * k for t, k in config.TRUPPEN_SCHIFFE.items())
 
 
-def knoten(schiffe: dict) -> float:
-    return geo.flotten_knoten(schiffe)
+def knoten(schiffe: dict, segel: int = 0) -> float:
+    return geo.flotten_knoten(schiffe, segel)
 
 
 class Kontext:
     def __init__(self, client, state, notifier):
         self.client = client
+        # Segel-Forschung je Insel (Labor): fuer die Ankunftszeiten der Angebote.
+        self.forschung = forschung.Forschungsstand(client)
         self.state = state
         self.notifier = notifier
         self.tz = ZoneInfo(config.TIMEZONE_NAME)

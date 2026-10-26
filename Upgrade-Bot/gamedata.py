@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import os
 
+from seekampf_gemeinsam import forschung
+
 _PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "gamedata.json")
 
 # Das Haupthaus verkuerzt die Bauzeit aller anderen Gebaeude linear von 0 % bei
@@ -66,12 +68,14 @@ def production_gain(typ: str, from_level: int, to_level: int) -> float | None:
     return after - before
 
 
-def build_time_s(typ: str, level: int, haupthaus_level: int = 1) -> float | None:
-    """Bauzeit inklusive Haupthaus-Bonus - so, wie die API sie meldet."""
+def build_time_s(typ: str, level: int, haupthaus_level: int = 1, engineering: int = 0) -> float | None:
+    """Bauzeit inklusive Haupthaus- und Engineering-Bonus - so, wie die API sie meldet.
+    Engineering (-6 % je Stufe) gilt laut Regeln "zusaetzlich"; angenommen ist,
+    dass es mit dem Haupthaus-Abzug multipliziert wird (siehe seekampf_gemeinsam.forschung)."""
     row = entry(typ, level)
     if row is None or row.get("bauzeit_s") is None:
         return None
-    base = float(row["bauzeit_s"])
+    base = float(row["bauzeit_s"]) * forschung.bauzeit_faktor(engineering)
     if typ == "haupthaus":
         return base  # profitiert nicht von der eigenen Stufe
     steps = max(0, min(int(haupthaus_level), BUILD_TIME_DISCOUNT_MAX_LEVEL) - 1)

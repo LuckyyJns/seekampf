@@ -62,7 +62,8 @@ def ist_frei(insel: dict) -> bool:
     return "besitzer" in insel and insel.get("besitzer") is None
 
 
-def scan(client, state, insel_id, heimat: tuple[int, int, int], flotte_ships: dict) -> dict:
+def scan(client, state, insel_id, heimat: tuple[int, int, int], flotte_ships: dict,
+         segel: int = 0) -> dict:
     """Bereich um eine eigene Insel abklappern, deren Zielliste aktualisieren,
     Zusammenfassung zurueckgeben.
 
@@ -73,7 +74,7 @@ def scan(client, state, insel_id, heimat: tuple[int, int, int], flotte_ships: di
     """
     hx, hy, _ = heimat
     radius = max(0, int(state.insel_settings(insel_id)["scan_radius_sektoren"]))
-    knoten = geo.flotten_knoten(flotte_ships) or 10.0
+    knoten = geo.flotten_knoten(flotte_ships, segel) or 10.0
 
     gefundene: dict[str, dict] = {}
     requests_gesamt = 0
@@ -112,8 +113,8 @@ def scan(client, state, insel_id, heimat: tuple[int, int, int], flotte_ships: di
                 del alt[koord]
                 entfernt.append(koord)
 
-        # Fahrzeiten neu rechnen: die Flottenzusammensetzung kann sich seit dem
-        # letzten Scan geaendert haben und damit die Geschwindigkeit.
+        # Fahrzeiten neu rechnen: die Flottenzusammensetzung oder die
+        # Segel-Forschung kann sich seit dem letzten Scan geaendert haben.
         for koord, ziel in alt.items():
             ziel["fahrzeit_s"] = geo.fahrzeit_s(heimat, (ziel["x"], ziel["y"], ziel["z"]), knoten)
 
