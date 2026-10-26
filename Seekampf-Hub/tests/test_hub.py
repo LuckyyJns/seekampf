@@ -190,3 +190,54 @@ class SpielerTracker(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Drosselung(unittest.TestCase):
+    """Seit 25.10.2026 antwortet der Server bei zu vielen Abfragen mit 429."""
+
+    @staticmethod
+    def antwort(status, retry="1"):
+        import httpx
+        return httpx.Response(status, headers={"Retry-After": retry}, json={},
+                              request=httpx.Request("GET", "https://x/map"))
+
+    def test_429_wird_abgewartet_und_wiederholt(self):
+        import karte
+        d = karte.Drossel(pause=0.1)
+        c = mock.Mock()
+        c.get.side_effect = [self.antwort(429), self.antwort(429), self.antwort(200)]
+        with mock.patch.object(karte.time, "sleep") as schlaf:
+            r = d.get(c, "/map/region/2/2")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(c.get.call_count, 3)
+        self.assertEqual(d.gedrosselt, 2)
+        self.assertAlmostEqual(d.pause, 0.225)                 # Abstand ist gewachsen
+        wartezeiten = [a.args[0] for a in schlaf.call_args_list]
+        self.assertEqual(wartezeiten[:2], [1.0, 1.0])            # Retry-After
+        self.assertAlmostEqual(wartezeiten[2], 0.225)
+
+    def test_dauerhaft_429_wird_zum_fehler(self):
+        import httpx
+        import karte
+        c = mock.Mock()
+        c.get.return_value = self.antwort(429)
+        with mock.patch.object(karte.time, "sleep"), self.assertRaises(httpx.HTTPStatusError):
+            karte.Drossel().get(c, "/x")
+        self.assertEqual(c.get.call_count, karte.MAX_429_VERSUCHE)
+
+    def test_fehlgeschlagener_scan_startet_nicht_jede_minute_neu(self):
+        import karte
+        if datetime.now(karte.TZ).hour < karte.SCAN_STUNDE:
+            self.skipTest("zwischen 0 und 1 Uhr ist der heutige Scan noch nicht faellig")
+        k = karte.Karte()
+        k.client = mock.Mock()
+        k.client.get.side_effect = RuntimeError("Server weg")
+        with mock.patch.object(karte, "_lesen", return_value={"zeit": time.time() - 2 * 86400, "inseln": {}}):
+            k._scan("test")
+            self.assertGreater(k._naechster_versuch, time.time() + 60)
+            gestartet = []
+            k.scan_starten = lambda grund: gestartet.append(grund)
+            stop = mock.Mock()
+            stop.wait.side_effect = [False, True]
+            k.planer(stop)
+        self.assertEqual(gestartet, [])

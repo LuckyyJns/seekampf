@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from karte import API, DATA_DIR, _api_key
+from karte import API, DATA_DIR, DROSSEL, WIEDERHOLEN_NACH_FEHLER_S, _api_key
 
 log = logging.getLogger("seekampf_hub")
 
@@ -40,7 +40,6 @@ PFAD = os.path.join(DATA_DIR, "spieler.json")
 TZ = ZoneInfo("Europe/Berlin")
 STAND_STUNDE = 1        # taeglich um 1:00 Uhr
 BEHALTEN_TAGE = 365
-PAUSE_S = 0.1           # Abstand zwischen zwei Profilabfragen
 
 
 def _lesen(pfad: str = PFAD) -> dict:
@@ -89,6 +88,7 @@ class SpielerTracker:
         self.letzter_fehler: str | None = None
         self._cache: tuple = (None, None)        # (mtime der Datei, gelesene Daten)
         self._auswertung: tuple = (None, None)   # ((mtime, tage), Ergebnis)
+        self._naechster_versuch = 0.0            # nach einem Fehler erst wieder ab hier
 
     def staende(self) -> list[dict]:
         """Die gespeicherten Staende - nur neu gelesen, wenn die Datei sich geaendert hat."""
@@ -102,9 +102,8 @@ class SpielerTracker:
 
     # ------------------------------------------------------------ Abholen
     def _get(self, pfad: str, **params):
-        r = self.client.get(pfad, params=params or None)
-        r.raise_for_status()
-        return r.json()
+        # Abstand und Warten bei 429: gemeinsam mit dem Kartenscan (karte.Drossel)
+        return DROSSEL.get(self.client, pfad, **params).json()
 
     def stand_holen(self) -> dict:
         """Einen vollstaendigen Stand von der API holen (wirft bei Fehlern)."""
@@ -127,7 +126,6 @@ class SpielerTracker:
                 "quests": None if profil is None else sorted(
                     q.get("name") or q.get("id") for q in profil.get("quests_erfuellt") or []),
             }
-            time.sleep(PAUSE_S)
         welt = self._get("/stats/overview")
         allianzen = self._get("/rankings/alliances", limit=200)
         return {
@@ -164,7 +162,9 @@ class SpielerTracker:
                      len(stand["spieler"]), grund, time.time() - start)
         except Exception as e:  # noqa: BLE001 - der Hub darf daran nicht sterben
             self.letzter_fehler = str(e)
-            log.exception("Spieler-Tracker: Stand fehlgeschlagen")
+            self._naechster_versuch = time.time() + WIEDERHOLEN_NACH_FEHLER_S
+            log.exception("Spieler-Tracker: Stand fehlgeschlagen - naechster Versuch in %d min",
+                          WIEDERHOLEN_NACH_FEHLER_S // 60)
         finally:
             self.laeuft = False
 
@@ -178,7 +178,7 @@ class SpielerTracker:
             staende = self.staende()
             letzter = datetime.fromtimestamp(staende[-1]["zeit"] if staende else 0, TZ)
             faellig = jetzt.replace(hour=STAND_STUNDE, minute=0, second=0, microsecond=0)
-            if jetzt >= faellig and letzter < faellig:
+            if jetzt >= faellig and letzter < faellig and time.time() >= self._naechster_versuch:
                 self.stand_starten(f"taeglich {STAND_STUNDE}:00 Uhr")
 
     # ---------------------------------------------------------- Auswerten

@@ -6,6 +6,12 @@ GET /map/region/{x}/{y} aber jeden 3x3-Ausschnitt der Welt; die Welt ist
 und 100 je Achse - 34x34 = 1156 Abfragen, gemessen rund eine Minute.
 
 Gescannt wird einmal taeglich um SCAN_STUNDE Uhr und von Hand ueber den Hub.
+Seit dem 25.10.2026 drosselt der Server (429 rate_limited, Retry-After 1 s).
+Scan und Spieler-Tracker teilen sich deshalb eine `Drossel`: eine Abfrage
+nach der anderen, bei 429 warten und dieselbe Abfrage wiederholen, der
+Abstand waechst. Scheitert der taegliche Scan trotzdem, kommt der naechste
+Versuch erst nach WIEDERHOLEN_NACH_FEHLER_S - vorher startete er jede Minute
+neu und hielt damit die Drosselung den ganzen Tag aufrecht.
 Ergebnis in data/karte.json; der vorige Stand wandert nach
 data/karte_vorher.json, daraus entstehen die "Aenderungen seit dem letzten
 Scan" (neu besiedelt, Besitzerwechsel, neue Ruinen).
@@ -34,7 +40,45 @@ TZ = ZoneInfo("Europe/Berlin")
 
 WELT_MIN, WELT_MAX = 1, 100     # Sektorkoordinaten der Welt (gemessen 30.09.2026)
 SCAN_STUNDE = 1                 # taeglicher Scan um 1:00 Uhr
-PAUSE_S = 0.03                  # Abstand zwischen zwei Abfragen - die API nicht hetzen
+PAUSE_S = 0.1                   # Abstand zwischen zwei Abfragen - waechst bei 429
+PAUSE_MAX_S = 2.0
+MAX_429_VERSUCHE = 6            # je Abfrage, danach zaehlt sie als Fehler
+WIEDERHOLEN_NACH_FEHLER_S = 1800
+
+
+def _retry_after(r: httpx.Response, versuch: int) -> float:
+    try:
+        sek = float(r.headers.get("Retry-After", ""))
+    except ValueError:
+        sek = 2.0 ** versuch
+    return max(0.5, min(sek, 30.0))
+
+
+class Drossel:
+    """Massenabfragen (Kartenscan, Spieler-Tracker) nacheinander, mit Abstand.
+    Bei 429 wartet sie, wie der Server sagt, fragt erneut und vergroessert den
+    Abstand fuer alle folgenden Abfragen."""
+
+    def __init__(self, pause: float = PAUSE_S):
+        self.pause = pause
+        self.gedrosselt = 0          # wie oft der Server 429 gemeldet hat
+        self._lock = threading.Lock()
+
+    def get(self, client: httpx.Client, pfad: str, **params) -> httpx.Response:
+        with self._lock:
+            for versuch in range(MAX_429_VERSUCHE):
+                r = client.get(pfad, params=params or None)
+                if r.status_code != 429:
+                    break
+                self.gedrosselt += 1
+                self.pause = min(PAUSE_MAX_S, self.pause * 1.5)
+                time.sleep(_retry_after(r, versuch))
+            time.sleep(self.pause)
+        r.raise_for_status()
+        return r
+
+
+DROSSEL = Drossel()
 
 
 def _api_key() -> str:
@@ -85,6 +129,7 @@ class Karte:
         self._angriffe_zeit = 0.0
         self._flotten: list[dict] = []
         self._flotten_zeit = 0.0
+        self._naechster_versuch = 0.0   # taeglicher Scan nach einem Fehler erst wieder ab hier
 
     # ------------------------------------------------------------------ Scan
     def scan_starten(self, grund: str) -> bool:
@@ -111,8 +156,7 @@ class Karte:
             for cy in zentren:
                 for cx in zentren:
                     try:
-                        r = self.client.get(f"/map/region/{cx}/{cy}")
-                        r.raise_for_status()
+                        r = DROSSEL.get(self.client, f"/map/region/{cx}/{cy}")
                         for zeile in r.json().get("sektoren") or []:
                             for sektor in zeile or []:
                                 for insel in (sektor or {}).get("inseln") or []:
@@ -124,7 +168,6 @@ class Karte:
                             raise RuntimeError(f"zu viele Fehler beim Scannen, zuletzt: {e}") from e
                     fertig += 1
                     self.fortschritt = fertig / gesamt
-                    time.sleep(PAUSE_S)
             alt = _lesen(KARTE_PATH)
             neu = {"zeit": time.time(), "dauer_s": round(time.time() - start, 1), "grund": grund,
                    "fehler": fehler, "inseln": inseln}
@@ -132,10 +175,13 @@ class Karte:
                 _schreiben(VORHER_PATH, alt)
             _schreiben(KARTE_PATH, neu)
             self.letzter_fehler = None
-            log.info("Kartenscan fertig: %d Inseln in %.0f s (%d Fehler)", len(inseln), neu["dauer_s"], fehler)
+            log.info("Kartenscan fertig: %d Inseln in %.0f s (%d Fehler, Abstand zuletzt %.2f s, %d x gedrosselt)",
+                     len(inseln), neu["dauer_s"], fehler, DROSSEL.pause, DROSSEL.gedrosselt)
         except Exception as e:  # noqa: BLE001 - der Hub darf daran nicht sterben
             self.letzter_fehler = str(e)
-            log.exception("Kartenscan fehlgeschlagen")
+            self._naechster_versuch = time.time() + WIEDERHOLEN_NACH_FEHLER_S
+            log.exception("Kartenscan fehlgeschlagen - naechster automatischer Versuch in %d min",
+                          WIEDERHOLEN_NACH_FEHLER_S // 60)
         finally:
             self.laeuft = False
             self.fortschritt = 1.0
@@ -149,7 +195,7 @@ class Karte:
             daten = _lesen(KARTE_PATH) or {}
             letzter = datetime.fromtimestamp(daten.get("zeit", 0), TZ)
             faellig = jetzt.replace(hour=SCAN_STUNDE, minute=0, second=0, microsecond=0)
-            if jetzt >= faellig and letzter < faellig:
+            if jetzt >= faellig and letzter < faellig and time.time() >= self._naechster_versuch:
                 self.scan_starten(f"taeglich {SCAN_STUNDE}:00 Uhr")
 
     # --------------------------------------------------------------- Abfrage
