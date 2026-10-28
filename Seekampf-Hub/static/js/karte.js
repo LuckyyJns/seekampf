@@ -156,6 +156,10 @@ function inselFarbe(i) {
 function hervorgehoben(i) {
   return ka.modus === "spieler" && !!ka.spieler && i.b === ka.spieler;
 }
+/** Platz in der Kolonisations-Warteschlange (1, 2, ...) oder 0 */
+function koloPlatz(k) {
+  return (kolonie?.warteschlange || []).findIndex(e => e.koordinaten === k) + 1;
+}
 
 // --------------------------------------------------------- Flottenlage
 function eigeneInselFeld(id) {
@@ -315,6 +319,7 @@ function zeichneJetzt() {
   // Inseln
   const r = inselRadius();
   const labels = m >= 26;
+  const kolo = new Set((kolonie?.warteschlange || []).map(e => e.koordinaten));
   for (const i of ka.inseln) {
     const [x, y] = zuBild(...i.f);
     if (x < -20 || y < -20 || x > b + 20 || y > h + 20) continue;
@@ -335,6 +340,8 @@ function zeichneJetzt() {
       ctx.globalAlpha = ka.ebenen.frei ? 1 : .3; ctx.setLineDash(i.r ? [2, 2] : []); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
     }
     if (hervor) { { const q = Math.round(r * 1.25 + 3.5); ctx.beginPath(); ctx.rect(Math.round(x) - q, Math.round(y) - q, q * 2, q * 2); } ctx.lineWidth = 2; ctx.strokeStyle = f["insel-hervor"]; ctx.globalAlpha = .45; ctx.stroke(); ctx.globalAlpha = 1; }
+    // Kolonisations-Warteschlange: dezenter gestrichelter Rahmen
+    if (kolo.has(i.k)) { { const q = Math.round(r * 1.25 + 3.5); ctx.beginPath(); ctx.rect(Math.round(x) - q, Math.round(y) - q, q * 2, q * 2); } ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.strokeStyle = f["akzent-2"]; ctx.globalAlpha = .6; ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; }
     if (i.k === ka.auswahl) { { const q = Math.round(r * 1.25 + 7); ctx.beginPath(); ctx.rect(Math.round(x) - q, Math.round(y) - q, q * 2, q * 2); } ctx.lineWidth = 2.5; ctx.strokeStyle = f["karte-text"]; ctx.stroke(); }
     if (labels) {
       ctx.font = "500 11px 'Pixelify Sans', 'IBM Plex Sans', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillStyle = f["karte-text"];
@@ -439,6 +446,7 @@ function karteSeiteZeichnen() {
       ${s ? `<div class="info-zeile" style="border:0"><span class="res-key"><i class="kreis" style="background:var(--insel-hervor)"></i>${esc(s.name)}</span><span>${s.inseln} Inseln · ${zahl(s.punkte)} P.</span></div>` : ""}
       <div class="info-zeile"><span class="res-key"><i class="kreis" style="background:var(--insel-neutral)"></i>andere Spieler</span><span>${ka.inseln.length - frei - (s?.inseln || 0)}</span></div>
       <div class="info-zeile"><span class="res-key"><i class="kreis" style="background:transparent;border:2px solid var(--insel-frei)"></i>frei / Ruine</span><span>${frei}</span></div>
+      ${kolonie?.warteschlange?.length ? `<div class="info-zeile"><span class="res-key"><i class="kreis" style="background:transparent;border:2px dashed var(--akzent-2);border-radius:0;opacity:.8"></i>Kolonisations-Warteschlange</span><span>${kolonie.warteschlange.length}</span></div>` : ""}
       <div class="info-zeile"><span class="res-key"><i class="symbol-form" style="border-radius:50%;background:var(--karte-text)"></i>Raid · <i class="symbol-form" style="background:var(--gut)"></i>Handel · <i class="symbol-form" style="transform:rotate(45deg) scale(.85);background:var(--akzent-2)"></i>Kolonisation</span><span></span></div>
       <div class="info-zeile"><span class="res-key"><i class="symbol-form" style="background:var(--feind);border-radius:50%"></i>Angriff auf dich</span><span></span></div>
     </div>`;
@@ -487,7 +495,8 @@ function inselInfo() {
     ${zeilen.map(([k, v]) => `<div class="info-zeile"><span>${k}</span><span>${v}</span></div>`).join("")}
     ${eigeneId ? `<div class="formular-leiste" style="margin-top:10px"><a href="#flotte/${eigeneId}"><button class="klein">Flotten-Manager</button></a>
       <a href="#upgrade/${eigeneId}"><button class="klein">Upgrade-Bot</button></a></div>` : ""}
-    ${!i.b || !eigen ? `<div class="formular-leiste" style="margin-top:10px"><button class="klein" data-kolonie-hinzu="${esc(i.k)}">Zur Kolonisation</button></div>` : ""}
+    ${koloPlatz(i.k) ? `<div class="leise klein-text" style="margin-top:10px">Platz ${koloPlatz(i.k)} der Kolonisations-Warteschlange</div>`
+      : !i.b || !eigen ? `<div class="formular-leiste" style="margin-top:10px"><button class="klein" data-kolonie-hinzu="${esc(i.k)}">Zur Kolonisation</button></div>` : ""}
     <div class="feld" style="margin-top:12px"><label for="ka-ring-schiff">${eigen ? "Fahrzeit-Ringe für" : "Fahrzeit mit"}</label>
       <select id="ka-ring-schiff" class="eingabe">${Object.entries(KNOTEN).map(([k, v]) => `<option value="${k}" ${k === ka.ringSchiff ? "selected" : ""}>${esc(sname(k))} (${v} Knoten)</option>`).join("")}</select></div>
     ${fahrt ? `<div style="margin-top:8px">${fahrt}</div>` : ""}`;

@@ -16,7 +16,7 @@ async function kolonieHolen() {
   try { kolonie = await hole("/api/kolonie/status"); kolonieFehler = null; }
   catch (e) { kolonieFehler = `Kolonisations-Bot nicht erreichbar: ${e.message}`; }
   if (tab === "kolonie") zeichneKolonie();
-  if (tab === "karte") zeichneKarte();
+  if (tab === "karte") { zeichneKarte(); karteSeiteZeichnen(); }
 }
 function zeichneKolonie() {
   const box = $("ko-fehler"), fehler = kolonieFehler || kolonie?.fehler;
