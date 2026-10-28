@@ -9,6 +9,9 @@
             aus    Posten, die der Bot auf dieser Insel in Ruhe laesst
             aktiv  false = die Insel macht gar nicht mit
   verlauf   die letzten Ausbildungen und Verlegungen
+  offene_berichte     Verlegungen, deren Handelsbericht noch archiviert wird
+                      ({koordinaten, units, arrive_at})
+  erledigte_berichte  IDs der schon archivierten Berichte (die juengsten)
 """
 from __future__ import annotations
 
@@ -52,7 +55,8 @@ class State:
                 roh = json.load(f)
         except (OSError, ValueError):
             roh = {}
-        daten = {"laeuft": True, "standard": leeres_soll(), "inseln": {}, "verlauf": []}
+        daten = {"laeuft": True, "standard": leeres_soll(), "inseln": {}, "verlauf": [],
+                 "offene_berichte": [], "erledigte_berichte": []}
         if isinstance(roh, dict):
             daten.update({k: v for k, v in roh.items() if k in daten})
         standard = leeres_soll()

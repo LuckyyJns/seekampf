@@ -82,6 +82,9 @@ class FakeApi:
                             "units": p["units"], "ships": p["ships"]})
         return self.fleets[-1]
 
+    def get_combat_messages(self, limit=100):
+        return []
+
 
 class Basis(unittest.TestCase):
     def setUp(self):
@@ -453,3 +456,55 @@ class NetzfehlerBeiPost(Basis):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def handelsbericht(mid, koord, units, erstellt="2026-10-26T08:10:12+00:00", resources=None):
+    return {"id": mid, "folder": "combat", "created_at": erstellt,
+            "payload": {"typ": "handel", "insel_koordinaten": koord, "units": units,
+                        "resources": resources or {"gold": 0, "stein": 0, "holz": 0}}}
+
+
+class BerichteArchivieren(Basis):
+    def setUp(self):
+        super().setUp()
+        self.api = FakeApi([
+            insel(1, "40:40:1", truppen={"speerkaempfer": 103}, schiffe={"kleines_kriegsschiff": 2}),
+            insel(7, "41:40:1", kaserne=0),
+        ])
+        self.api.nachrichten, self.api.archiviert = [], []
+        self.api.get_combat_messages = lambda limit=100: json.loads(json.dumps(self.api.nachrichten))
+
+        def archivieren(mid):
+            self.api.archiviert.append(mid)
+            self.api.nachrichten = [m for m in self.api.nachrichten if m["id"] != mid]
+        self.api.archive_message = archivieren
+        self.b, self.st = self.bot(self.api, {1: {"speerkaempfer": 100}, 7: {"speerkaempfer": 3}})
+        self.b.tick()
+        self.assertEqual(len(self.api.created), 1)
+
+    def test_bericht_der_verlegung_wird_archiviert(self):
+        self.api.nachrichten = [
+            handelsbericht(10, "41:40:1", {"speerkaempfer": 3}, resources={"gold": 5, "stein": 0, "holz": 0}),
+            handelsbericht(11, "41:40:1", {"speerkaempfer": 2}),
+            handelsbericht(12, "40:40:1", {"speerkaempfer": 3}),
+            handelsbericht(13, "41:40:1", {"speerkaempfer": 3}, erstellt="2099-01-01T00:00:00+00:00"),
+        ]
+        self.b.tick()
+        self.assertEqual(self.api.archiviert, [13])     # nur der passende, die anderen bleiben stehen
+        self.assertEqual(self.st.data["offene_berichte"], [])
+        self.b.tick()
+        self.assertEqual(self.api.archiviert, [13])
+
+    def test_ohne_bericht_wird_nach_einer_weile_aufgegeben(self):
+        self.st.data["offene_berichte"][0]["arrive_at"] -= 2000
+        self.b.tick()
+        self.assertEqual(self.api.archiviert, [])
+        self.assertEqual(self.st.data["offene_berichte"], [])
+
+    def test_fehler_beim_lesen_haelt_den_takt_nicht_auf(self):
+        def kaputt(limit=100):
+            raise requests.ConnectionError("weg")
+        self.api.get_combat_messages = kaputt
+        self.b.tick()
+        self.assertEqual(len(self.st.data["offene_berichte"]), 1)
+        self.assertIsNotNone(self.b.letzter_tick)

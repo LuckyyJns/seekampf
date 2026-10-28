@@ -21,6 +21,9 @@ Fehlt etwas:
      passender Kaserne (und eigenem Soll fuer die Einheit) die fehlende Menge
      zusaetzlich aus; ist sie daheim, geht sie per 2. los.
 Bedrohte Inseln geben keine Truppen ab.
+
+Den Handelsbericht jeder Verlegung archiviert der Bot nach der Ankunft,
+damit das Postfach nicht volllaeuft (wie der Flotten-Manager bei Raids).
 """
 from __future__ import annotations
 
@@ -28,6 +31,7 @@ import logging
 import math
 import threading
 import time
+from datetime import datetime, timezone
 
 import requests
 from seekampf_gemeinsam import geo, reservierungen
@@ -44,6 +48,20 @@ AUSBILDUNG_LAEUFT = ("aktiv", "wartend", "queued", "laufend")
 # eingestellt.
 MIN_AUFTRAG = 5
 MIN_AUFTRAG_SCHIFF = 1    # Schiffe sind teuer: auch ein einzelnes wird bestellt
+# So lange nach der Ankunft wird nach dem Handelsbericht einer Verlegung gesucht.
+BERICHT_SUCHEN_S = 900
+
+
+def iso_zu_epoch(wert: str | None) -> float | None:
+    if not wert:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(wert).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.timestamp()
 
 
 def _leer() -> dict:
@@ -122,6 +140,7 @@ class Ausbilder:
 
     def _tick(self) -> None:
         jetzt = time.time()
+        self._berichte_archivieren(jetzt)
         self.reserve = {}
         self.ov = {int(i["id"]): i for i in (self.client.get_islands_overview() or [])}
         sollwerte = {iid: self.state.soll_eff(iid) for iid in self.ov}
@@ -361,7 +380,7 @@ class Ausbilder:
             return
         ziel = geo.koord_parse(self.ov[nach]["koordinaten"])
         try:
-            self.client.create_fleet({"origin_island_id": von, "mission_type": "handel",
+            flotte = self.client.create_fleet({"origin_island_id": von, "mission_type": "handel",
                                       "target": {"x": ziel[0], "y": ziel[1], "z": ziel[2]},
                                       "ships": ships, "units": {e: mit}, "resources": {}})
         except ApiError as err:
@@ -390,6 +409,63 @@ class Ausbilder:
         text = f"{mit} {e} von {self._name(von)} nach {self._name(nach)} verlegt"
         log.info(text)
         self.state.merken(text)
+        with self.state.lock:
+            self.state.data["offene_berichte"].append({
+                "koordinaten": self.ov[nach]["koordinaten"], "units": {e: mit},
+                "arrive_at": iso_zu_epoch((flotte or {}).get("arrive_at")) or time.time()})
+
+    # ----------------------------------------------------------- Berichte
+    @staticmethod
+    def _ist_bericht(m: dict, eintrag: dict) -> bool:
+        """Handelsbericht genau dieser Verlegung: gleiches Ziel, gleiche
+        Truppen, keine Rohstoffe, nicht vor der Ankunft geschrieben."""
+        p = m.get("payload") or {}
+        if p.get("typ") != "handel" or p.get("insel_koordinaten") != eintrag["koordinaten"]:
+            return False
+        if {k: int(v) for k, v in (p.get("units") or {}).items() if v} != eintrag["units"]:
+            return False
+        if any(float(v or 0) for v in (p.get("resources") or {}).values()):
+            return False
+        erstellt = iso_zu_epoch(m.get("created_at"))
+        return erstellt is not None and erstellt >= eintrag["arrive_at"] - 120
+
+    def _berichte_archivieren(self, jetzt: float) -> None:
+        """Handelsberichte angekommener Verlegungen archivieren. Ohne passenden
+        Bericht wird BERICHT_SUCHEN_S nach der Ankunft nicht weiter gesucht.
+        Fehler hier halten den Takt nicht auf."""
+        with self.state.lock:
+            offen = list(self.state.data["offene_berichte"])
+            erledigt = self.state.data["erledigte_berichte"]
+        if not any(o["arrive_at"] <= jetzt for o in offen):
+            return
+        try:
+            nachrichten = self.client.get_combat_messages()
+        except (ApiError, requests.RequestException) as err:
+            log.warning("Berichte nicht lesbar: %s", str(err)[:120])
+            return
+        uebrig = []
+        for eintrag in offen:
+            treffer = next((m for m in nachrichten if m.get("id") not in erledigt
+                            and self._ist_bericht(m, eintrag)), None)
+            if treffer is None:
+                if jetzt - eintrag["arrive_at"] <= BERICHT_SUCHEN_S:
+                    uebrig.append(eintrag)
+                continue
+            try:
+                self.client.archive_message(treffer["id"])
+            except (ApiError, requests.RequestException) as err:
+                log.warning("Bericht #%s zu %s nicht archivierbar: %s", treffer["id"], eintrag["koordinaten"],
+                            str(err)[:120])
+                uebrig.append(eintrag)
+                continue
+            erledigt.append(treffer["id"])
+            log.info("ARCHIV     Handelsbericht #%s zu %s ausgeblendet", treffer["id"], eintrag["koordinaten"])
+        if uebrig == offen:
+            return
+        with self.state.lock:
+            self.state.data["offene_berichte"] = uebrig
+            del erledigt[:-200]
+        self.state.save()
 
     def _reserve_schreiben(self, jetzt: float) -> None:
         """Ins gemeinsame Reservierungs-Verzeichnis: Kriegsschiffe, die fuer einen

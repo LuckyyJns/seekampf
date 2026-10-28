@@ -95,6 +95,18 @@ class SeekampfClient(ApiBasis):
         """POST /fleets/{id}/recall - geht nur bis recallable_until."""
         return self._request("POST", f"/fleets/{fleet_id}/recall")
 
+    # ------------------------------------------------------------- Berichte
+    def get_combat_messages(self, limit=100):
+        """GET /messages?folder=combat -> u. a. die Handelsberichte der
+        Truppentransporte (payload: typ "handel", insel_koordinaten, units,
+        resources), neueste zuerst."""
+        return self._request("GET", "/messages", params={"folder": "combat", "limit": limit}) or []
+
+    def archive_message(self, message_id):
+        """POST /messages/{id}/archive - blendet die Nachricht im Postfach aus
+        (zurueckholen geht ueber die API nicht)."""
+        return self._request("POST", f"/messages/{message_id}/archive")
+
     # ------------------------------------------------------------ Ausbildung
     def get_training(self, island_id):
         """GET /islands/{id}/training -> auftraege (item_typ, anzahl,
