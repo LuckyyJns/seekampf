@@ -25,6 +25,12 @@ ein neues zu bauen.
 Ein Ziel, das einen Besitzer bekommt, fliegt aus der Warteschlange - ausser
 es wurde bewusst als bewohnte Insel eingetragen (Truppen und Hauptgebaeude
 zerstoert, das Schiff soll sie einnehmen); dann bleibt es stehen.
+
+Auch bei freien Inseln gelingt die Kolonisation nur zu 50 %. Scheitert ein
+Versuch, bleibt die Insel in der Warteschlange und wird erneut angefahren
+(das Schiff kommt zurueck und nimmt sie wieder), bis sie dir gehoert oder
+jemand anderes sie besiedelt hat. Ein gescheitertes bewohntes Ziel fliegt
+dagegen raus.
 """
 from __future__ import annotations
 
@@ -557,9 +563,21 @@ class Kolonisierer:
         if f is None:
             if jetzt < float(e.get("ankunft") or 0) + 120:
                 return  # Uebergang an der Ankunft - die neue Insel taucht gleich auf
-            text = "Schiff ist zurueck, die Insel gehoert nicht dir"
+            if e.get("bewohnt"):
+                text = "Schiff ist zurueck, die Insel gehoert nicht dir"
+                log.warning("GESCHEITERT %s: %s", e["koordinaten"], text)
+                self.state.abschliessen(e, "gescheitert", text)
+                self._melden("Kolonisation gescheitert", f"{e['koordinaten']}: {text}.")
+                return
+            # Freie Insel: neu anfahren. Gleich danach im selben Takt wird das Ziel
+            # geprueft (letzte_pruefung = 0) - hat es inzwischen jemand, fliegt es raus.
+            e["fehlversuche"] = int(e.get("fehlversuche") or 0) + 1
+            text = f"Versuch {e['fehlversuche']} gescheitert - die Insel wird erneut angefahren"
             log.warning("GESCHEITERT %s: %s", e["koordinaten"], text)
-            self.state.abschliessen(e, "gescheitert", text)
+            self.state.vermerken(e, "gescheitert", text)
+            e.update(status="wartet", bau_insel=None, auftrag_id=None, flotte_id=None, abfahrt=None, ankunft=None,
+                     rueckruf_bis=None, rueckkehr=None, zurueckgerufen=False, letzte_vor_ende=False,
+                     letzte_pruefung=0.0, hinweis=text)
             self._melden("Kolonisation gescheitert", f"{e['koordinaten']}: {text}.")
             return
         # Rueckfahrt (Kolonisation gescheitert oder zurueckgerufen) fuer die Karte im Hub

@@ -33,7 +33,7 @@ function zeichneKolonie() {
       const [klasse, text] = KO_STATUS[e.status] || ["grau", e.status];
       const ankunft = e.status === "unterwegs" && e.ankunft ? ` · Ankunft in <span data-bis="${e.ankunft}" data-fertig="jetzt">${dauer(e.ankunft - jetzt())}</span>` : "";
       return `<tr><td class="mono">${n + 1}</td>
-        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span>${e.bewohnt ? ` <span class="marke warn">bewohnt</span>` : ""}${begleitungKurz(e)}</td>
+        <td>${koordLink(e.koordinaten)} <span class="leise">${esc(e.name || "")}</span>${e.bewohnt ? ` <span class="marke warn">bewohnt</span>` : ""}${e.fehlversuche ? ` <span class="marke grau" title="gescheiterte Versuche - die Insel wird erneut angefahren">${e.fehlversuche}× gescheitert</span>` : ""}${begleitungKurz(e)}</td>
         <td><span class="marke ${klasse}"><span class="punkt"></span>${text}</span>${ankunft}</td>
         <td>${esc(e.bau_insel_name || "–")}${e.entfernung != null ? ` <span class="leise klein-text">(${zahl(e.entfernung, 1)} Felder)</span>` : ""}</td>
         <td class="zahl verstecken-schmal">${e.fahrzeit_s ? dauer(e.fahrzeit_s) : "–"}</td>

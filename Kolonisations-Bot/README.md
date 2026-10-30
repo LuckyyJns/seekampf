@@ -36,8 +36,10 @@ als 10 min), gilt die Reservierung nicht mehr.
 Abfahrt noch einmal und unterwegs jede Minute, solange das Schiff
 zurückgerufen werden kann (und 30 s vor Ende ein letztes Mal). Hat das Ziel
 einen Besitzer, fliegt es aus der Warteschlange; ein fahrendes Schiff wird
-zurückgerufen und nimmt das nächste Ziel. Telegram meldet Erfolg, entfernte
-und gescheiterte Ziele.
+zurückgerufen und nimmt das nächste Ziel. Auch freie Inseln gelingen nur zu
+50 %: Scheitert ein Versuch, bleibt die Insel in der Warteschlange und wird
+erneut angefahren, bis sie dir gehört oder jemand anderes sie besiedelt hat.
+Telegram meldet Erfolg, entfernte und gescheiterte Versuche.
 
 **Bewohnte Inseln:** Im Hub lässt sich nach Rückfrage auch eine bewohnte Insel
 eintragen (Markierung „bewohnt“), etwa wenn Truppen und Hauptgebäude zerstört

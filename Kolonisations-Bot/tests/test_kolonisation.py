@@ -261,6 +261,53 @@ class Besiedelt(Basis):
         self.assertEqual(e["status"], "unterwegs")
         self.assertEqual(e["rueckkehr"], iso_zu_epoch("2099-01-01T00:00:00+00:00"))
 
+    def _scheitern(self, api, e):
+        """Schiff kommt zurueck, die Insel gehoert nicht dir."""
+        api.fleets.clear()
+        api.ov[0]["schiffe"][config.SCHIFF] = api.ov[0]["schiffe"].get(config.SCHIFF, 0) + 1
+        e["ankunft"] = 0
+
+    def test_gescheiterte_freie_insel_wird_erneut_angefahren(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel")
+        bot.tick()
+        self.assertEqual(e["status"], "unterwegs")
+        self._scheitern(api, e)
+        bot.tick()
+        self.assertEqual(st.warteschlange, [e])
+        self.assertEqual(e["fehlversuche"], 1)
+        self.assertEqual(st.data["verlauf"][0]["ergebnis"], "gescheitert")
+        self.assertEqual(e["status"], "unterwegs")      # das zurueckgekehrte Schiff faehrt gleich wieder
+        self.assertEqual(len(api.created), 2)
+        self._scheitern(api, e)
+        bot.tick()
+        self.assertEqual(e["fehlversuche"], 2)
+        self.assertEqual(len(api.created), 3)
+
+    def test_gescheitert_und_inzwischen_besiedelt_fliegt_raus(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel")
+        bot.tick()
+        self._scheitern(api, e)
+        api.besitzer["41:40:1"] = "Fremder"
+        bot.tick()
+        self.assertEqual(st.warteschlange, [])
+        self.assertEqual(st.data["verlauf"][0]["ergebnis"], "besiedelt")
+        self.assertEqual(len(api.created), 1)
+
+    def test_gescheitertes_bewohntes_ziel_fliegt_raus(self):
+        api = FakeApi([insel(1, "40:40:1", schiffe=1)])
+        bot, st = self.bot(api)
+        e = st.neuer_eintrag(41, 40, 1, "Ziel", bewohnt=True)
+        api.besitzer["41:40:1"] = "Fremder"
+        bot.tick()
+        self._scheitern(api, e)
+        bot.tick()
+        self.assertEqual(st.warteschlange, [])
+        self.assertEqual(st.data["verlauf"][0]["ergebnis"], "gescheitert")
+
     def test_bewohntes_ziel_bleibt_in_der_liste(self):
         api = FakeApi([insel(1, "40:40:1", schiffe=1)])
         bot, st = self.bot(api)

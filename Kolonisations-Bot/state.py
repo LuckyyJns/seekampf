@@ -96,6 +96,8 @@ class State:
                 "zurueckgerufen": False,
                 "letzte_pruefung": 0.0,
                 "hinweis": None,
+                # gescheiterte Versuche bei einer freien Insel (sie wird erneut angefahren)
+                "fehlversuche": 0,
                 # Insel eines Spielers: bleibt in der Liste, auch wenn sie einen Besitzer hat
                 "bewohnt": bewohnt,
                 # weitere Schiffe/Truppen, die mit dem Kolonisationsschiff fahren (nur bewohnte Ziele)
@@ -111,6 +113,11 @@ class State:
         with self.lock:
             if e in self.warteschlange:
                 self.warteschlange.remove(e)
+        self.vermerken(e, ergebnis, text)
+
+    def vermerken(self, e: dict, ergebnis: str, text: str) -> None:
+        """Nur in den Verlauf schreiben; der Eintrag bleibt in der Warteschlange."""
+        with self.lock:
             self.data["verlauf"].insert(0, {
                 "id": e["id"], "koordinaten": e["koordinaten"], "name": e.get("name"),
                 "ergebnis": ergebnis, "text": text, "zeit": time.time(),
